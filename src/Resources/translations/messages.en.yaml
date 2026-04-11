@@ -1,0 +1,16 @@
+monei:
+    form:
+        gateway_configuration:
+            api_key: "API Key"
+            account_id: "Account ID"
+            integration_type: "Integration Type"
+            integration_redirect: "Redirect (Hosted Payment Page)"
+            integration_component: "Embedded Component (MONEI.js)"
+            sandbox: "Sandbox Mode"
+    ui:
+        complete_payment: "Complete your payment"
+        pay_now: "Pay now"
+        or_pay_with: "— or pay with —"
+        processing: "Processing…"
+        payment_failed: "Payment failed. Please try again."
+        payment_not_completed: "Payment was not completed."

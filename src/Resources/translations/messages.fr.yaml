@@ -1,0 +1,16 @@
+monei:
+    form:
+        gateway_configuration:
+            api_key: "Clé API"
+            account_id: "Identifiant du compte"
+            integration_type: "Type d'intégration"
+            integration_redirect: "Redirection (Page de paiement hébergée)"
+            integration_component: "Composant intégré (MONEI.js)"
+            sandbox: "Mode test"
+    ui:
+        complete_payment: "Finalisez votre paiement"
+        pay_now: "Payer maintenant"
+        or_pay_with: "— ou payez avec —"
+        processing: "Traitement en cours…"
+        payment_failed: "Le paiement a échoué. Veuillez réessayer."
+        payment_not_completed: "Le paiement n'a pas été finalisé."

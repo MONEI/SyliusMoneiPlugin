@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} / Sylius ${{ matrix.sylius }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.2'
+            sylius: '^2.1'
+          - php: '8.3'
+            sylius: '^2.1'
+          - php: '8.3'
+            sylius: '^2.2'
+          - php: '8.4'
+            sylius: '^2.2'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, curl
+          coverage: pcov
+
+      - name: Install dependencies
+        run: |
+          composer require "sylius/sylius:${{ matrix.sylius }}" --no-update --no-interaction
+          composer install --prefer-dist --no-progress
+
+      - name: Run PHPUnit
+        run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.php == '8.3' && matrix.sylius == '^2.2'
+        with:
+          files: coverage.xml
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, mbstring, curl
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: PHPStan
+        run: vendor/bin/phpstan analyse
+
+      - name: PHP CS Fixer
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff --verbose

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services
+               https://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+        <!-- MONEI Gateway Factory -->
+        <service id="monei.payum.factory.monei"
+                 class="Monei\SyliusPlugin\Factory\MoneiGatewayFactory">
+            <tag name="payum.gateway_factory" factory="monei" human_name="MONEI" />
+        </service>
+
+        <!-- Admin form type for configuring MONEI credentials -->
+        <service id="monei.form.type.gateway_configuration"
+                 class="Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType">
+            <tag name="sylius.gateway_configuration_type"
+                 type="monei"
+                 label="MONEI" />
+            <tag name="form.type" />
+        </service>
+
+        <!-- Payment Status Resolver -->
+        <service id="monei.resolver.payment_status"
+                 class="Monei\SyliusPlugin\Resolver\PaymentStatusResolver"
+                 public="false" />
+    </services>
+</container>

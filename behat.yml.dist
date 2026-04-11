@@ -1,0 +1,29 @@
+imports:
+    - vendor/friends-of-behat/suite-settings-extension/Resources/config/services.xml
+
+default:
+    extensions:
+        FriendsOfBehat\SymfonyExtension: ~
+        FriendsOfBehat\MinkExtension:
+            sessions:
+                symfony:
+                    symfony: ~
+        FriendsOfBehat\MinkDebugExtension:
+            directory: etc/build
+        FriendsOfBehat\VariadicExtension: ~
+        FriendsOfBehat\SuiteSettingsExtension:
+            paths:
+                - "features"
+
+    suites:
+        ui_admin_managing_payment_methods:
+            contexts:
+                - Monei\SyliusPlugin\Tests\Behat\Context\Setup\MoneiContext
+            filters:
+                tags: "@managing_payment_methods"
+
+        ui_shop_paying_with_monei:
+            contexts:
+                - Monei\SyliusPlugin\Tests\Behat\Context\Ui\Shop\CheckoutContext
+            filters:
+                tags: "@paying_with_monei"

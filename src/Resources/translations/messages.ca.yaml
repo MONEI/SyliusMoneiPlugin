@@ -1,0 +1,16 @@
+monei:
+    form:
+        gateway_configuration:
+            api_key: "Clau API"
+            account_id: "ID del compte"
+            integration_type: "Tipus d'integració"
+            integration_redirect: "Redirecció (Pàgina de pagament allotjada)"
+            integration_component: "Component integrat (MONEI.js)"
+            sandbox: "Mode de proves"
+    ui:
+        complete_payment: "Completa el teu pagament"
+        pay_now: "Pagar ara"
+        or_pay_with: "— o paga amb —"
+        processing: "Processant…"
+        payment_failed: "El pagament ha fallat. Si us plau, torna-ho a provar."
+        payment_not_completed: "El pagament no s'ha completat."

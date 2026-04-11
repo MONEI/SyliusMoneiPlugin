@@ -1,0 +1,67 @@
+{
+    "name": "monei/sylius-monei-plugin",
+    "type": "sylius-plugin",
+    "description": "MONEI payment gateway for Sylius — Cards, Bizum, Apple Pay, Google Pay via hosted page or embedded component.",
+    "keywords": [
+        "sylius",
+        "sylius-plugin",
+        "monei",
+        "payment",
+        "bizum",
+        "apple-pay",
+        "google-pay",
+        "spain",
+        "psd2"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "MONEI",
+            "homepage": "https://monei.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "monei/monei-php-sdk": "^2.10",
+        "payum/core": "^1.7",
+        "sylius/sylius": "^2.1"
+    },
+    "require-dev": {
+        "behat/behat": "^3.16",
+        "friends-of-behat/mink": "^1.11",
+        "friends-of-behat/mink-browserkit-driver": "^1.6",
+        "friends-of-behat/mink-debug-extension": "^2.1",
+        "friends-of-behat/mink-extension": "^2.7",
+        "friends-of-behat/page-object-extension": "^0.3",
+        "friends-of-behat/suite-settings-extension": "^1.1",
+        "friends-of-behat/symfony-extension": "^2.6",
+        "friends-of-behat/variadic-extension": "^1.6",
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "phpstan/phpstan": "^1.12",
+        "phpstan/phpstan-doctrine": "^1.3",
+        "phpstan/phpstan-webmozart-assert": "^1.2",
+        "phpunit/phpunit": "^10.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "Monei\\SyliusPlugin\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Monei\\SyliusPlugin\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "1.0-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "symfony/flex": true,
+            "dealerdirect/phpcodesniffer-composer-installer": false
+        }
+    }
+}
