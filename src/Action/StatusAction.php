@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Action;
 
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Monei\SyliusPlugin\Resolver\PaymentStatusResolver;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
@@ -22,7 +22,7 @@ final class StatusAction implements ActionInterface, ApiAwareInterface
 
     public function __construct(?PaymentStatusResolver $statusResolver = null)
     {
-        $this->apiClass = MoneiApiClient::class;
+        $this->apiClass = MoneiApiClientInterface::class;
         $this->statusResolver = $statusResolver ?? new PaymentStatusResolver();
     }
 
@@ -40,7 +40,7 @@ final class StatusAction implements ActionInterface, ApiAwareInterface
             return;
         }
 
-        /** @var MoneiApiClient $api */
+        /** @var MoneiApiClientInterface $api */
         $api = $this->api;
 
         try {

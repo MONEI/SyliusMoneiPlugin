@@ -38,7 +38,7 @@ final class ConvertPaymentAction implements ActionInterface, GatewayAwareInterfa
         $details['orderId'] = (string) $order->getNumber();
         $details['description'] = sprintf('Order #%s', $order->getNumber());
 
-        if ($customer !== null) {
+        if (null !== $customer) {
             $details['customer'] = array_filter([
                 'email' => $customer->getEmail(),
                 'name' => $customer->getFullName(),
@@ -46,7 +46,7 @@ final class ConvertPaymentAction implements ActionInterface, GatewayAwareInterfa
             ]);
         }
 
-        if ($billingAddress !== null) {
+        if (null !== $billingAddress) {
             $details['billingDetails'] = array_filter([
                 'name' => trim(sprintf('%s %s', $billingAddress->getFirstName() ?? '', $billingAddress->getLastName() ?? '')),
                 'email' => $customer?->getEmail(),
@@ -62,7 +62,7 @@ final class ConvertPaymentAction implements ActionInterface, GatewayAwareInterfa
             ]);
         }
 
-        if ($shippingAddress !== null) {
+        if (null !== $shippingAddress) {
             $details['shippingDetails'] = array_filter([
                 'name' => trim(sprintf('%s %s', $shippingAddress->getFirstName() ?? '', $shippingAddress->getLastName() ?? '')),
                 'email' => $customer?->getEmail(),
@@ -85,6 +85,6 @@ final class ConvertPaymentAction implements ActionInterface, GatewayAwareInterfa
     {
         return $request instanceof Convert
             && $request->getSource() instanceof PaymentInterface
-            && $request->getTo() === 'array';
+            && 'array' === $request->getTo();
     }
 }

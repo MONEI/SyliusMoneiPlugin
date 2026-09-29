@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Action;
 
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
 use Payum\Core\ApiAwareTrait;
@@ -24,7 +24,7 @@ final class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayA
 
     public function __construct()
     {
-        $this->apiClass = MoneiApiClient::class;
+        $this->apiClass = MoneiApiClientInterface::class;
     }
 
     public function execute($request): void
@@ -42,7 +42,7 @@ final class NotifyAction implements ActionInterface, ApiAwareInterface, GatewayA
             ?? $httpRequest->headers['MONEI-Signature'][0]
             ?? '';
 
-        /** @var MoneiApiClient $api */
+        /** @var MoneiApiClientInterface $api */
         $api = $this->api;
 
         // Verify webhook signature using the SDK (handles timestamp-based HMAC)

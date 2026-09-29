@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Action;
 
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
 use Payum\Core\ApiAwareTrait;
@@ -19,7 +19,7 @@ final class RefundAction implements ActionInterface, ApiAwareInterface
 
     public function __construct()
     {
-        $this->apiClass = MoneiApiClient::class;
+        $this->apiClass = MoneiApiClientInterface::class;
     }
 
     public function execute($request): void
@@ -34,7 +34,7 @@ final class RefundAction implements ActionInterface, ApiAwareInterface
             throw new \LogicException('Cannot refund: no MONEI payment ID found.');
         }
 
-        /** @var MoneiApiClient $api */
+        /** @var MoneiApiClientInterface $api */
         $api = $this->api;
 
         $result = $api->refundPayment(

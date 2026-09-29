@@ -15,7 +15,7 @@ final class MoneiSyliusExtension extends Extension
     {
         $loader = new XmlFileLoader(
             $container,
-            new FileLocator(__DIR__ . '/../../config'),
+            new FileLocator(__DIR__.'/../../config'),
         );
 
         $loader->load('services.xml');
