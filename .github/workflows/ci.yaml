@@ -66,3 +66,14 @@ jobs:
 
       - name: PHP CS Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
+
+  ci:
+    # Single aggregate status for the branch ruleset's required "CI" check.
+    name: CI
+    if: always()
+    needs: [tests, static-analysis]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All jobs passed
+        run: |
+          [ "${{ needs.tests.result }}" = "success" ] && [ "${{ needs.static-analysis.result }}" = "success" ]
