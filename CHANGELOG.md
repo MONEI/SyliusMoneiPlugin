@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Embedded component flow loads monei.js v3, so the MONEI Flex installment choice shows in the payment modal
+
 ## [1.0.0] - TBD
 
 ### Added
