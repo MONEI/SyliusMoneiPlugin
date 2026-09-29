@@ -32,6 +32,34 @@ final class MoneiApiClientTest extends TestCase
     }
 
     /**
+     * NotifyAction and StatusAction sync the Sylius payment state from this
+     * call, so it must hit a method the SDK really has and expose the fields
+     * they read.
+     */
+    public function testItFetchesPaymentThroughSdk(): void
+    {
+        $payments = $this->createMock(PaymentsApi::class);
+        $payments->expects($this->once())
+            ->method('get')
+            ->with('pay_123')
+            ->willReturn(new Payment([
+                'id' => 'pay_123',
+                'status' => PaymentStatus::SUCCEEDED,
+                'status_message' => 'Transaction approved',
+            ]));
+
+        $client = new MoneiApiClient('pk_test_abc123', 'acc_test_456');
+        $sdk = (new \ReflectionProperty($client, 'client'))->getValue($client);
+        $sdk->payments = $payments;
+
+        $payment = $client->getPayment('pay_123');
+
+        $this->assertSame('pay_123', $payment['id']);
+        $this->assertSame('SUCCEEDED', $payment['status']);
+        $this->assertSame('Transaction approved', $payment['statusMessage']);
+    }
+
+    /**
      * CaptureAction reads nextAction.redirectUrl to send the customer to MONEI,
      * so nested SDK models must come back as arrays, not stdClass.
      */

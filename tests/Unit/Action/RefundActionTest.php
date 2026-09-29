@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Tests\Unit\Action;
 
 use Monei\SyliusPlugin\Action\RefundAction;
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Payum\Core\Request\Refund;
 use PHPUnit\Framework\TestCase;
 use Sylius\Component\Core\Model\Payment;
@@ -14,7 +14,7 @@ final class RefundActionTest extends TestCase
 {
     public function testItRefundsPayment(): void
     {
-        $api = $this->createMock(MoneiApiClient::class);
+        $api = $this->createMock(MoneiApiClientInterface::class);
         $api->expects($this->once())
             ->method('refundPayment')
             ->with('pay_test_123', 1500, 'Refund from Sylius admin')
@@ -37,7 +37,7 @@ final class RefundActionTest extends TestCase
 
     public function testItThrowsWhenNoMoneiPaymentId(): void
     {
-        $api = $this->createMock(MoneiApiClient::class);
+        $api = $this->createMock(MoneiApiClientInterface::class);
 
         $action = new RefundAction();
         $action->setApi($api);
