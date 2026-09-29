@@ -97,7 +97,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
             ?? MoneiGatewayFactory::INTEGRATION_REDIRECT;
 
         if ($integrationType === MoneiGatewayFactory::INTEGRATION_COMPONENT) {
-            $html = $this->renderComponentPage($moneiPayment, $token->getAfterUrl(), $api);
+            $html = $this->renderComponentPage($moneiPayment, $token->getAfterUrl());
 
             throw new HttpResponse($html);
         }
@@ -123,11 +123,9 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
      *
      * @param array<string, mixed> $moneiPayment
      */
-    private function renderComponentPage(array $moneiPayment, string $completeUrl, MoneiApiClient $api): string
+    private function renderComponentPage(array $moneiPayment, string $completeUrl): string
     {
         $paymentId = htmlspecialchars($moneiPayment['id'] ?? '', ENT_QUOTES, 'UTF-8');
-        $paymentToken = htmlspecialchars($moneiPayment['token'] ?? '', ENT_QUOTES, 'UTF-8');
-        $accountId = htmlspecialchars($api->getAccountId(), ENT_QUOTES, 'UTF-8');
         $completeUrl = htmlspecialchars($completeUrl, ENT_QUOTES, 'UTF-8');
         $amount = number_format(($moneiPayment['amount'] ?? 0) / 100, 2);
         $currency = htmlspecialchars($moneiPayment['currency'] ?? 'EUR', ENT_QUOTES, 'UTF-8');
@@ -156,7 +154,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
                 .payment-header h2 { font-size: 20px; color: #1a1a1a; margin-bottom: 4px; }
                 .payment-amount { font-size: 28px; font-weight: 700; color: #2d2d2d; }
                 #monei-card-container { margin: 20px 0; min-height: 45px; }
-                #monei-bizum-container, #monei-applepay-container, #monei-googlepay-container { margin: 12px 0; }
+                #monei-bizum-container, #monei-paymentrequest-container { margin: 12px 0; }
                 .pay-button {
                     width: 100%; padding: 14px; background: #5C6AC4; color: #fff;
                     border: none; border-radius: 8px; font-size: 16px; font-weight: 600;
@@ -178,43 +176,46 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
                 <button class="pay-button" id="pay-button" onclick="handlePayment()">Pay now</button>
                 <div class="separator">— or pay with —</div>
                 <div id="monei-bizum-container"></div>
-                <div id="monei-applepay-container"></div>
-                <div id="monei-googlepay-container"></div>
+                <div id="monei-paymentrequest-container"></div>
                 <div class="error-msg" id="error-msg"></div>
             </div>
             <script>
                 const paymentId = '{$paymentId}';
-                const paymentToken = '{$paymentToken}';
                 const completeUrl = '{$completeUrl}';
-                const monei = MONEI.setup({ accountId: '{$accountId}', sessionId: paymentId });
-                const cardInput = monei.CardInput({
-                    paymentId: paymentId,
-                    onChange: function(event) {
-                        document.getElementById('pay-button').disabled = !event.isFilled;
-                    }
-                });
+                const cardInput = monei.CardInput({ paymentId: paymentId });
                 cardInput.render('#monei-card-container');
-                ['Bizum', 'ApplePay', 'GooglePay'].forEach(function(method) {
+                // PaymentRequest renders Apple Pay or Google Pay, whichever the browser supports.
+                ['Bizum', 'PaymentRequest'].forEach(function(method) {
                     try {
                         var component = monei[method]({
-                            paymentId: paymentId, token: paymentToken,
-                            onSubmit: function(r) { handleResult(r); },
+                            paymentId: paymentId,
+                            onSubmit: function(r) {
+                                if (!r.token) { if (r.error) { showError(r.error); } return; }
+                                confirmPayment(r.token).catch(function(e) {
+                                    showError(e.message || 'Payment failed. Please try again.');
+                                });
+                            },
                             onError: function(e) { showError(e.message); }
                         });
                         component.render('#monei-' + method.toLowerCase() + '-container');
                     } catch(e) { console.log(method + ' not available:', e); }
                 });
+                async function confirmPayment(token) {
+                    var result = await monei.confirmPayment({ paymentId: paymentId, paymentToken: token });
+                    handleResult(result);
+                }
                 async function handlePayment() {
                     var btn = document.getElementById('pay-button');
                     btn.disabled = true; btn.textContent = 'Processing…';
                     document.getElementById('error-msg').style.display = 'none';
                     try {
-                        var result = await monei.confirmPayment({ paymentId: paymentId, paymentToken: paymentToken });
-                        handleResult(result);
+                        var card = await cardInput.submit();
+                        if (card.error) { throw new Error(card.error); }
+                        await confirmPayment(card.token);
                     } catch (error) {
                         showError(error.message || 'Payment failed. Please try again.');
-                        btn.disabled = false; btn.textContent = 'Pay now';
                     }
+                    btn.disabled = false; btn.textContent = 'Pay now';
                 }
                 function handleResult(result) {
                     if (result.status === 'SUCCEEDED' || result.status === 'AUTHORIZED') {

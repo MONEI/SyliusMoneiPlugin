@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Embedded component flow loads monei.js v3, so the MONEI Flex installment choice shows in the payment modal
+- Embedded component page no longer fails on load; card, Bizum and Apple Pay / Google Pay payments tokenize and confirm the payment
 
 ## [1.0.0] - TBD
 
