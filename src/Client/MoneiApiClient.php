@@ -121,7 +121,7 @@ final class MoneiApiClient
      */
     public function getPayment(string $paymentId): array
     {
-        $result = $this->client->payments->getPayment($paymentId);
+        $result = $this->client->payments->get($paymentId);
 
         return $this->objectToArray($result);
     }
