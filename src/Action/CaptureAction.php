@@ -92,7 +92,6 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
         $details['monei_payment_id'] = $moneiPayment['id'] ?? null;
         $details['monei_status'] = $moneiPayment['status'] ?? 'PENDING';
         $details['monei_payment_url'] = $moneiPayment['nextAction']['redirectUrl'] ?? null;
-        $details['monei_payment_token'] = $moneiPayment['token'] ?? null;
 
         $payment->setDetails((array) $details);
 
@@ -215,6 +214,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
                     try {
                         var card = await cardInput.submit();
                         if (card.error) { throw new Error(card.error); }
+                        if (!card.token) { throw new Error('Payment failed. Please try again.'); }
                         await confirmPayment(card.token);
                     } catch (error) {
                         showError(error.message || 'Payment failed. Please try again.');
