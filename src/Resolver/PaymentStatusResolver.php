@@ -15,8 +15,8 @@ use Payum\Core\Request\GetStatusInterface;
 final class PaymentStatusResolver
 {
     /**
-     * @param string $moneiStatus The MONEI payment status string
-     * @param GetStatusInterface $request The Payum status request to mark
+     * @param string             $moneiStatus The MONEI payment status string
+     * @param GetStatusInterface $request     The Payum status request to mark
      */
     public function resolve(string $moneiStatus, GetStatusInterface $request): void
     {

@@ -29,7 +29,7 @@ final class PaymentStatusResolverTest extends TestCase
         $this->resolver->resolve($moneiStatus, $status);
 
         $this->assertTrue(
-            $status->{'is' . ucfirst($expectedMethod)}(),
+            $status->{'is'.ucfirst($expectedMethod)}(),
             sprintf('Expected status "%s" for MONEI status "%s"', $expectedMethod, $moneiStatus),
         );
     }

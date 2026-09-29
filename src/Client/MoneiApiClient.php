@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Client;
 
-use Monei\ApiException;
-use Monei\Model\CreatePaymentRequest;
-use Monei\Model\PaymentCustomer;
-use Monei\Model\PaymentBillingDetails;
-use Monei\Model\PaymentShippingDetails;
 use Monei\Model\Address;
+use Monei\Model\CreatePaymentRequest;
+use Monei\Model\PaymentBillingDetails;
+use Monei\Model\PaymentCustomer;
+use Monei\Model\PaymentShippingDetails;
 use Monei\Model\RefundPaymentRequest;
 use Monei\MoneiClient;
 
@@ -17,11 +16,11 @@ use Monei\MoneiClient;
  * Thin adapter around the official MONEI PHP SDK.
  *
  * Isolates the SDK from Payum's action layer so that:
- * - Actions depend on a mockable interface, not a concrete SDK class.
+ * - Actions depend on MoneiApiClientInterface, not a concrete SDK class.
  * - SDK version upgrades don't ripple through every action.
  * - We can normalise return types to plain arrays for Payum compatibility.
  */
-final class MoneiApiClient
+final class MoneiApiClient implements MoneiApiClientInterface
 {
     private MoneiClient $client;
     private string $apiKey;
@@ -34,32 +33,11 @@ final class MoneiApiClient
         $this->client = new MoneiClient($apiKey);
     }
 
-    /**
-     * Create a new MONEI payment.
-     *
-     * @param array{
-     *     amount: int,
-     *     currency: string,
-     *     orderId: string,
-     *     description?: string,
-     *     completeUrl: string,
-     *     cancelUrl?: string,
-     *     callbackUrl: string,
-     *     customer?: array{email?: string, name?: string, phone?: string},
-     *     billingDetails?: array{name?: string, email?: string, phone?: string, company?: string, address?: array},
-     *     shippingDetails?: array{name?: string, email?: string, phone?: string, company?: string, address?: array},
-     *     sessionDetails?: array{ip?: string, userAgent?: string},
-     * } $params
-     *
-     * @return array<string, mixed> The created payment as an associative array
-     *
-     * @throws ApiException
-     */
     public function createPayment(array $params): array
     {
         $request = new CreatePaymentRequest([
             'amount' => $params['amount'],
-            'currency' => $params['currency'] ?? 'EUR',
+            'currency' => $params['currency'],
             'order_id' => $params['orderId'],
             'description' => $params['description'] ?? '',
             'complete_url' => $params['completeUrl'],
@@ -112,34 +90,20 @@ final class MoneiApiClient
         return $this->objectToArray($result);
     }
 
-    /**
-     * Retrieve a payment by its ID.
-     *
-     * @return array<string, mixed>
-     *
-     * @throws ApiException
-     */
     public function getPayment(string $paymentId): array
     {
-        $result = $this->client->payments->getPayment($paymentId);
+        $result = $this->client->payments->get($paymentId);
 
         return $this->objectToArray($result);
     }
 
-    /**
-     * Refund a payment (full or partial).
-     *
-     * @return array<string, mixed>
-     *
-     * @throws ApiException
-     */
     public function refundPayment(string $paymentId, ?int $amount = null, ?string $reason = null): array
     {
         $params = [];
-        if ($amount !== null) {
+        if (null !== $amount) {
             $params['amount'] = $amount;
         }
-        if ($reason !== null) {
+        if (null !== $reason) {
             $params['refund_reason'] = $reason;
         }
 
@@ -149,13 +113,6 @@ final class MoneiApiClient
         return $this->objectToArray($result);
     }
 
-    /**
-     * Cancel a pending payment.
-     *
-     * @return array<string, mixed>
-     *
-     * @throws ApiException
-     */
     public function cancelPayment(string $paymentId): array
     {
         $result = $this->client->payments->cancel($paymentId);
@@ -163,16 +120,6 @@ final class MoneiApiClient
         return $this->objectToArray($result);
     }
 
-    /**
-     * Verify a webhook signature using the SDK's built-in verification.
-     *
-     * The SDK handles the timestamp-based HMAC signature format that MONEI uses,
-     * which includes replay-attack protection.
-     *
-     * @return object The verified payment object
-     *
-     * @throws ApiException If the signature is invalid
-     */
     public function verifySignature(string $body, string $signature): object
     {
         return $this->client->verifySignature($body, $signature);
@@ -202,7 +149,7 @@ final class MoneiApiClient
             return $object;
         }
 
-        if (method_exists($object, 'jsonSerialize')) {
+        if ($object instanceof \JsonSerializable) {
             return (array) $object->jsonSerialize();
         }
 

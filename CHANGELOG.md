@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Payment status sync: webhooks and status checks fetch the payment with the SDK's `get()`; `getPayment()` does not exist, so every webhook failed
+
 ## [1.0.0] - TBD
 
 ### Added

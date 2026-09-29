@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Action;
 
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Monei\SyliusPlugin\Factory\MoneiGatewayFactory;
 use Payum\Core\Action\ActionInterface;
 use Payum\Core\ApiAwareInterface;
@@ -29,7 +29,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
 
     public function __construct()
     {
-        $this->apiClass = MoneiApiClient::class;
+        $this->apiClass = MoneiApiClientInterface::class;
     }
 
     public function execute($request): void
@@ -52,7 +52,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
             $payment->setDetails((array) $details);
         }
 
-        /** @var MoneiApiClient $api */
+        /** @var MoneiApiClientInterface $api */
         $api = $this->api;
 
         $token = $request->getToken();
@@ -63,23 +63,27 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
 
         $paymentParams = [
             'amount' => (int) $details['amount'],
-            'currency' => $details['currency'] ?? 'EUR',
-            'orderId' => $details['orderId'],
-            'description' => $details['description'] ?? '',
+            'currency' => (string) ($details['currency'] ?? 'EUR'),
+            'orderId' => (string) $details['orderId'],
+            'description' => (string) ($details['description'] ?? ''),
             'completeUrl' => $token->getAfterUrl(),
-            'cancelUrl' => $token->getTargetUrl() . '?cancelled=1',
+            'cancelUrl' => $token->getTargetUrl().'?cancelled=1',
             'callbackUrl' => $notifyToken->getTargetUrl(),
         ];
 
-        foreach (['customer', 'billingDetails', 'shippingDetails'] as $key) {
-            if (isset($details[$key])) {
-                $paymentParams[$key] = (array) $details[$key];
-            }
+        if (isset($details['customer'])) {
+            $paymentParams['customer'] = (array) $details['customer'];
+        }
+        if (isset($details['billingDetails'])) {
+            $paymentParams['billingDetails'] = (array) $details['billingDetails'];
+        }
+        if (isset($details['shippingDetails'])) {
+            $paymentParams['shippingDetails'] = (array) $details['shippingDetails'];
         }
 
         $paymentParams['sessionDetails'] = [
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0',
-            'userAgent' => $_SERVER['HTTP_USER_AGENT'] ?? '',
+            'ip' => (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
+            'userAgent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
         ];
 
         $moneiPayment = $api->createPayment($paymentParams);
@@ -96,7 +100,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
         $integrationType = $details['integration_type']
             ?? MoneiGatewayFactory::INTEGRATION_REDIRECT;
 
-        if ($integrationType === MoneiGatewayFactory::INTEGRATION_COMPONENT) {
+        if (MoneiGatewayFactory::INTEGRATION_COMPONENT === $integrationType) {
             $html = $this->renderComponentPage($moneiPayment, $token->getAfterUrl(), $api);
 
             throw new HttpResponse($html);
@@ -123,7 +127,7 @@ final class CaptureAction implements ActionInterface, ApiAwareInterface, Gateway
      *
      * @param array<string, mixed> $moneiPayment
      */
-    private function renderComponentPage(array $moneiPayment, string $completeUrl, MoneiApiClient $api): string
+    private function renderComponentPage(array $moneiPayment, string $completeUrl, MoneiApiClientInterface $api): string
     {
         $paymentId = htmlspecialchars($moneiPayment['id'] ?? '', ENT_QUOTES, 'UTF-8');
         $paymentToken = htmlspecialchars($moneiPayment['token'] ?? '', ENT_QUOTES, 'UTF-8');

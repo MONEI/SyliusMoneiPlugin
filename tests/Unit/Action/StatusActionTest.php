@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Tests\Unit\Action;
 
 use Monei\SyliusPlugin\Action\StatusAction;
-use Monei\SyliusPlugin\Client\MoneiApiClient;
+use Monei\SyliusPlugin\Client\MoneiApiClientInterface;
 use Monei\SyliusPlugin\Resolver\PaymentStatusResolver;
 use Payum\Core\Request\GetHumanStatus;
 use PHPUnit\Framework\TestCase;
@@ -15,7 +15,7 @@ final class StatusActionTest extends TestCase
 {
     public function testItMarksNewWhenNoMoneiPaymentId(): void
     {
-        $api = $this->createMock(MoneiApiClient::class);
+        $api = $this->createMock(MoneiApiClientInterface::class);
         $resolver = new PaymentStatusResolver();
 
         $action = new StatusAction($resolver);
@@ -35,7 +35,7 @@ final class StatusActionTest extends TestCase
      */
     public function testItMapsMoneiStatusCorrectly(string $moneiStatus, string $expectedMethod): void
     {
-        $api = $this->createMock(MoneiApiClient::class);
+        $api = $this->createMock(MoneiApiClientInterface::class);
         $api->method('getPayment')->willReturn([
             'id' => 'pay_test_123',
             'status' => $moneiStatus,
@@ -54,7 +54,7 @@ final class StatusActionTest extends TestCase
         $action->execute($status);
 
         $this->assertTrue(
-            $status->{'is' . ucfirst($expectedMethod)}(),
+            $status->{'is'.ucfirst($expectedMethod)}(),
             sprintf('Expected "%s" for MONEI status "%s"', $expectedMethod, $moneiStatus),
         );
     }
@@ -76,7 +76,7 @@ final class StatusActionTest extends TestCase
 
     public function testItFallsBackToCachedStatusOnApiFailure(): void
     {
-        $api = $this->createMock(MoneiApiClient::class);
+        $api = $this->createMock(MoneiApiClientInterface::class);
         $api->method('getPayment')->willThrowException(new \RuntimeException('Connection failed'));
 
         $resolver = new PaymentStatusResolver();
