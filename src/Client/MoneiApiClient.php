@@ -149,8 +149,13 @@ final class MoneiApiClient implements MoneiApiClientInterface
             return $object;
         }
 
+        // jsonSerialize() returns nested models as stdClass; a JSON round-trip
+        // turns them into arrays too, so callers can read e.g. nextAction.redirectUrl.
         if ($object instanceof \JsonSerializable) {
-            return (array) $object->jsonSerialize();
+            $json = json_decode(json_encode($object, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+            if (is_array($json)) {
+                return $json;
+            }
         }
 
         if (method_exists($object, '__toString')) {

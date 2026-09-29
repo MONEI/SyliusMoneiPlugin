@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-29
+
 ### Fixed
 
+- Embedded component flow loads monei.js v3, so the MONEI Flex installment choice shows in the payment modal
+- Embedded component page no longer fails on load; card, Bizum and Apple Pay / Google Pay payments tokenize and confirm the payment
+- Payment creation no longer fails reading nested API fields (e.g. `nextAction.redirectUrl`), so both the redirect and the embedded flow start
 - Payment status sync: webhooks and status checks fetch the payment with the SDK's `get()`; `getPayment()` does not exist, so every webhook failed
 
 ## [1.0.0] - TBD
