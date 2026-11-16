@@ -9,6 +9,7 @@ use Monei\Model\CreatePaymentRequest;
 use Monei\Model\Payment as MoneiPayment;
 use Monei\Model\PaymentNextAction;
 use Monei\Model\PaymentStatus;
+use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\Command\CapturePaymentRequest;
@@ -105,13 +106,13 @@ final readonly class CapturePaymentRequestHandler
 
     private function handle(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, ?BoundPayment $bound): void
     {
-        if (null === $bound || \in_array(self::status($bound->payment), self::RETRYABLE, true)) {
+        if (null === $bound || \in_array(MoneiApi::status($bound->payment), self::RETRYABLE, true)) {
             $this->create($paymentRequest, $payment);
 
             return;
         }
 
-        if (!\in_array(self::status($bound->payment), self::PENDING, true)) {
+        if (!\in_array(MoneiApi::status($bound->payment), self::PENDING, true)) {
             $this->statusApplier->apply($payment, $bound->payment);
             $this->complete($paymentRequest);
 
@@ -152,7 +153,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        if (!\in_array(self::status($bound->payment), self::PENDING, true)) {
+        if (!\in_array(MoneiApi::status($bound->payment), self::PENDING, true)) {
             $this->handle($paymentRequest, $payment, $bound);
 
             return;
@@ -213,7 +214,7 @@ final readonly class CapturePaymentRequestHandler
         try {
             $moneiPayment = $this->apiFactory->forPaymentMethod($paymentMethod)->createPayment($createRequest);
         } catch (ApiException $e) {
-            $context += ['code' => $e->getCode(), 'message' => self::errorMessage($e)];
+            $context += ['code' => $e->getCode(), 'message' => MoneiApi::errorMessage($e)];
             if (400 === $e->getCode() && 1 === preg_match(self::DUPLICATE_ORDER, $context['message'])) {
                 // Failing the payment would make Sylius create payment after payment for this order.
                 $this->logger->error('MONEI refused a new payment for Sylius payment {payment} (order ID {order_id}): {message}', $context);
@@ -231,7 +232,7 @@ final readonly class CapturePaymentRequestHandler
 
         MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode());
 
-        if (PaymentStatus::FAILED === self::status($moneiPayment)) {
+        if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
             $this->logger->error('MONEI created payment {monei_payment} for Sylius payment {payment} as FAILED: {message}', $context + [
                 'monei_payment' => $moneiPayment->getId(),
                 'message' => $moneiPayment->getStatusMessage(),
@@ -293,22 +294,5 @@ final readonly class CapturePaymentRequestHandler
         if ($session instanceof FlashBagAwareSessionInterface) {
             $session->getFlashBag()->add('info', self::IN_PROGRESS_FLASH);
         }
-    }
-
-    private static function status(MoneiPayment $moneiPayment): string
-    {
-        /** @var string|null $status the SDK documents a PaymentStatus object but returns the enum's string value */
-        $status = $moneiPayment->getStatus();
-
-        return (string) $status;
-    }
-
-    /** MONEI error bodies are `{status, statusCode, message, requestId}`. */
-    private static function errorMessage(ApiException $e): string
-    {
-        $body = $e->getResponseBody();
-        $decoded = \is_string($body) ? json_decode($body, true) : null;
-
-        return \is_array($decoded) && \is_string($decoded['message'] ?? null) ? $decoded['message'] : '';
     }
 }

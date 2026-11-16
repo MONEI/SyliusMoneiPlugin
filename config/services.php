@@ -11,6 +11,8 @@ use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
+use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
+use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
@@ -116,7 +118,33 @@ return static function (ContainerConfigurator $container): void {
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
+    // Priority 0: above API Platform's exception listener (-96), which answers 422.
     $services->set(MoneiExceptionListener::class)
-        ->args([service('monolog.logger.monei')])
+        ->args([
+            service('monolog.logger.monei'),
+            service('doctrine.orm.entity_manager'),
+            service('translator'),
+            service('router'),
+        ])
         ->tag('kernel.event_listener', ['event' => 'kernel.exception']);
+
+    $services->set(PaymentTransitionListener::class)
+        ->args([
+            service(SyncContext::class),
+            service(PaymentLock::class),
+            service(BoundPaymentAccess::class),
+        ])
+        ->tag('kernel.event_listener', ['event' => 'workflow.sylius_payment.transition.complete'])
+        ->tag('kernel.event_listener', ['event' => 'workflow.sylius_payment.transition.cancel'])
+        ->tag('kernel.event_listener', ['event' => 'workflow.sylius_payment.transition.refund']);
+
+    $services->set(OrderCancelGuardListener::class)
+        ->args([
+            service(PaymentLock::class),
+            service(BoundPaymentAccess::class),
+            service(StatusApplier::class),
+            service('request_stack'),
+            service('monolog.logger.monei'),
+        ])
+        ->tag('kernel.event_listener', ['event' => 'workflow.sylius_order.transition.cancel']);
 };

@@ -66,6 +66,24 @@ final readonly class MoneiApi
         $this->applePayDomain->register(new RegisterApplePayDomainRequest(['domain_name' => $domain]));
     }
 
+    /** The SDK documents a PaymentStatus object but returns the enum's string value. */
+    public static function status(Payment $payment): string
+    {
+        /** @var string|null $status */
+        $status = $payment->getStatus();
+
+        return (string) $status;
+    }
+
+    /** MONEI error bodies are `{status, statusCode, message, requestId}`. */
+    public static function errorMessage(ApiException $e): string
+    {
+        $body = $e->getResponseBody();
+        $decoded = \is_string($body) ? json_decode($body, true) : null;
+
+        return \is_array($decoded) && \is_string($decoded['message'] ?? null) ? $decoded['message'] : '';
+    }
+
     /** The SDK returns an error model instead of throwing only for a client without the `http_errors` middleware. */
     private static function payment(object $result): Payment
     {

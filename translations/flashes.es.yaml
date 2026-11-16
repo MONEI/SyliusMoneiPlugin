@@ -1,3 +1,18 @@
 monei:
     payment:
         in_progress: 'Un pago de este pedido sigue en curso. Complétalo o espera a que caduque.'
+    order:
+        payment_still_pending: 'El pedido está cancelado, pero MONEI no pudo cancelar su pago pendiente. El comprador aún puede completarlo hasta que caduque. Si lo paga, reembólsalo desde el panel de MONEI.'
+    refused:
+        state_changed: 'El pago cambió mientras esta acción esperaba. Recarga el pedido y vuelve a intentarlo.'
+        not_paid: 'MONEI indica que el pago está %status%: no se puede marcar como pagado.'
+        amount_mismatch: 'El importe o la divisa del pago en MONEI no coinciden con este pago. Revísalo en el panel de MONEI.'
+        capture: 'MONEI no capturó el pago (%reason%).'
+        cancel: 'MONEI no canceló el pago (%reason%).'
+        refund: 'MONEI no reembolsó el pago (%reason%).'
+        cannot_cancel: 'MONEI indica que el pago está %status%: no se puede cancelar.'
+        not_refundable: 'MONEI indica que el pago está %status%: no se puede reembolsar.'
+        unreachable: 'No se puede acceder al pago de MONEI con la clave API del método de pago %payment_method%. Restaura la clave API que lo creó y vuelve a intentarlo.'
+        unavailable: 'No se pudo contactar con MONEI (%reason%). Inténtalo más tarde.'
+        order_paid: 'MONEI indica que un pago de este pedido está %status%: el pedido no se puede cancelar.'
+        try_again: 'MONEI está procesando otra operación en este pago. Inténtalo de nuevo en un momento.'

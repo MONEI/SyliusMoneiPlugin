@@ -86,7 +86,7 @@ final readonly class StatusApplier
             return;
         }
 
-        if ($holdsMoney && !$this->amountMatches($payment, $moneiPayment)) {
+        if ($holdsMoney && !self::amountMatches($payment, $moneiPayment)) {
             $this->logger->critical('MONEI payment {monei_payment} is {amount} {currency}, but Sylius payment {payment} is {expected_amount} {expected_currency}: no change.', $context + [
                 'amount' => $moneiPayment->getAmount(),
                 'currency' => $moneiPayment->getCurrency(),
@@ -112,7 +112,7 @@ final readonly class StatusApplier
         }
     }
 
-    private function amountMatches(PaymentInterface $payment, MoneiPayment $moneiPayment): bool
+    public static function amountMatches(PaymentInterface $payment, MoneiPayment $moneiPayment): bool
     {
         return $moneiPayment->getAmount() === $payment->getAmount()
             && strtoupper((string) $moneiPayment->getCurrency()) === strtoupper((string) $payment->getCurrencyCode());
