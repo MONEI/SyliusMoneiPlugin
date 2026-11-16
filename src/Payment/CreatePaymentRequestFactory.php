@@ -12,6 +12,7 @@ use Monei\Model\PaymentSessionDetails;
 use Monei\Model\PaymentShippingDetails;
 use Monei\Model\PaymentTransactionType;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Sylius\Component\Core\Model\AddressInterface;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
@@ -56,7 +57,7 @@ final readonly class CreatePaymentRequestFactory
         $request = new CreatePaymentRequest([
             'amount' => $amount,
             'currency' => $currency,
-            'order_id' => (string) $order->getNumber(),
+            'order_id' => $this->orderId($payment, $order, $configuration),
             'description' => $this->description($order),
             'complete_url' => $returnUrl,
             'fail_url' => $returnUrl,
@@ -94,6 +95,27 @@ final readonly class CreatePaymentRequestFactory
         }
 
         return $request;
+    }
+
+    private function orderId(PaymentInterface $payment, OrderInterface $order, GatewayConfiguration $configuration): string
+    {
+        $orderId = $configuration->orderIdPrefix.(string) $order->getNumber();
+
+        // The hosted page of these methods hands the payment to the processor at once, until it
+        // expires. MONEI's duplicate check would then refuse every other payment of the order.
+        if (\in_array($configuration->method, [MoneiMethod::Multibanco, MoneiMethod::MbWay, MoneiMethod::PayPal], true)) {
+            $paymentId = $payment->getId();
+            if (!\is_int($paymentId) && !\is_string($paymentId)) {
+                throw new \InvalidArgumentException('The payment has no id.');
+            }
+            $orderId .= '-'.$paymentId;
+        }
+
+        if (1 !== preg_match('/^[a-zA-Z0-9_@.\/#&+-]{1,40}$/D', $orderId)) {
+            throw new \InvalidArgumentException(sprintf('MONEI refuses the order ID "%s": use at most 40 letters, digits and _@./#&+-.', $orderId));
+        }
+
+        return $orderId;
     }
 
     private function description(OrderInterface $order): string
