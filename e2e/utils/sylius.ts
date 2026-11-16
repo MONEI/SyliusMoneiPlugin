@@ -24,3 +24,14 @@ export function paymentByMoneiId(moneiId: string): { state: string; notifyReques
   const [state, notify] = rows[0];
   return { state, notifyRequests: notify ? notify.split(",") : [] };
 }
+
+/** Status (return page) requests of the Sylius payment bound to a MONEI payment. */
+export function statusRequestCount(moneiId: string): number {
+  if (!/^[A-Za-z0-9]+$/.test(moneiId)) throw new Error(`not a MONEI payment id: ${moneiId}`);
+  const rows = query(
+    `SELECT COUNT(*) FROM sylius_payment p ` +
+      `JOIN sylius_payment_request r ON r.payment_id = p.id AND r.action = 'status' ` +
+      `WHERE JSON_UNQUOTE(JSON_EXTRACT(p.details, '$.monei.id')) = '${moneiId}'`,
+  );
+  return Number(rows[0][0]);
+}

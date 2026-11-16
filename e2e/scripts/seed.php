@@ -22,6 +22,8 @@ set_exception_handler(static function (Throwable $exception): never {
 /** Sylius payment method code => gateway config without the key and prefix. */
 const PAYMENT_METHODS = [
     'monei_card_hosted' => ['name' => 'MONEI card', 'payment_method' => 'card', 'mode' => 'hosted', 'use_authorize' => false],
+    'monei_bizum_hosted' => ['name' => 'MONEI Bizum', 'payment_method' => 'bizum', 'mode' => 'hosted', 'use_authorize' => false],
+    'monei_paypal_hosted' => ['name' => 'MONEI PayPal', 'payment_method' => 'paypal', 'mode' => 'hosted', 'use_authorize' => false],
 ];
 
 /** Product variant code => price in cents. Bizum test payments are approved only up to 5 EUR. */

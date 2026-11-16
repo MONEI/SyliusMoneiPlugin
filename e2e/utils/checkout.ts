@@ -9,6 +9,9 @@ export const CARDS = {
   visaChallenge: "4444444444444406",
 } as const;
 
+/** Bizum test phone: approved below 5 EUR. */
+export const BIZUM_PHONE = "+34500000000";
+
 /** A guest email no other test used, so one test's orders can be told apart. */
 export const uniqueEmail = (tag: string) =>
   `e2e-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@monei-e2e.test`;
@@ -41,11 +44,30 @@ export async function checkoutToSummary(page: Page, paymentMethod: string, email
   await page.waitForURL(/\/checkout\/complete/);
 }
 
+/**
+ * Runs the action that sends the buyer to the MONEI hosted page and returns the MONEI payment
+ * id. Read from the request, not the final URL: a single-method PayPal page leaves MONEI at once.
+ */
+async function toHostedPage(page: Page, action: () => Promise<void>): Promise<string> {
+  const hosted = page.waitForRequest(/secure\.monei\.com\/payments\/[A-Za-z0-9]+/);
+  await action();
+  return (await hosted).url().match(/secure\.monei\.com\/payments\/([A-Za-z0-9]+)/)![1];
+}
+
 /** "Place order" on the summary page; the hosted mode sends the buyer to MONEI. */
-export async function placeHostedOrder(page: Page): Promise<string> {
-  await page.locator("#confirmation-button").click();
-  await page.waitForURL(/secure\.monei\.com\/payments\//);
-  return page.url().match(/secure\.monei\.com\/payments\/([A-Za-z0-9]+)/)![1];
+export const placeHostedOrder = (page: Page): Promise<string> =>
+  toHostedPage(page, () => page.locator("#confirmation-button").click());
+
+/** The order page Sylius sends the buyer back to after an unpaid payment. */
+export async function expectOrderPage(page: Page): Promise<void> {
+  await page.waitForURL(/\/en_US\/order\/(?!thank-you|after-pay)[^/?#]+$/, { timeout: 90_000 });
+}
+
+/** Pays again from the order page. */
+export async function payAgainOnHostedPage(page: Page, paymentMethod: string): Promise<string> {
+  await expectOrderPage(page);
+  await page.getByLabel(paymentMethod, { exact: true }).check();
+  return toHostedPage(page, () => page.getByRole("button", { name: "Pay", exact: true }).click());
 }
 
 /** Fills the card form of the MONEI hosted page and pays. */
@@ -65,6 +87,12 @@ export async function payCardOnHostedPage(page: Page, card: string): Promise<voi
   }
   await expect(frame.getByTestId("expiry-date-input")).toHaveValue("12 / 34");
   await page.getByTestId("pay-button").click();
+}
+
+/** Bizum on the hosted page: phone, then pay; the test processor approves on its own. */
+export async function payBizumOnHostedPage(page: Page): Promise<void> {
+  await page.getByTestId("bizum-phone-input").fill(BIZUM_PHONE);
+  await page.getByTestId("bizum-pay-button").click();
 }
 
 /** Answers MONEI's 3DS simulator. Strict: fails when no challenge shows. */
