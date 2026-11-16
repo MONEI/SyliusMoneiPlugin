@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+// Runs in the `seed` container after the fixtures (scripts/start.sh): adds one MONEI payment
+// method per method and mode the specs use, and fixed prices. Prints the generated values as
+// JSON. Never prints the API key; errors name the exception class and message only.
+
+use Sylius\Component\Core\Model\ChannelInterface;
+use Sylius\Component\Core\Model\PaymentMethodInterface;
+use Sylius\Component\Core\Model\ProductVariantInterface;
+use Sylius\TestApplication\Kernel;
+
+require '/app/vendor/autoload.php';
+require '/app/vendor/sylius/test-application/config/bootstrap.php';
+
+set_exception_handler(static function (Throwable $exception): never {
+    fwrite(\STDERR, sprintf("seed: %s: %s\n", $exception::class, $exception->getMessage()));
+    exit(1);
+});
+
+/** Sylius payment method code => gateway config without the key and prefix. */
+const PAYMENT_METHODS = [
+    'monei_card_hosted' => ['name' => 'MONEI card', 'payment_method' => 'card', 'mode' => 'hosted', 'use_authorize' => false],
+];
+
+/** Product variant code => price in cents. Bizum test payments are approved only up to 5 EUR. */
+const PRICES = [
+    'E2E_T_SHIRT-variant-0' => 1800,
+    'E2E_STICKER-variant-0' => 250,
+];
+
+$apiKey = trim((string) getenv('MONEI_TEST_API_KEY'));
+if (!str_starts_with($apiKey, 'pk_test_')) {
+    throw new RuntimeException('MONEI_TEST_API_KEY is missing or is not a pk_test_ key.');
+}
+
+// MONEI's duplicate check never expires on the shared sandbox account: every run needs its own prefix.
+$runId = (string) getenv('E2E_RUN_ID');
+if (1 !== preg_match('/^[a-z0-9]{1,12}$/D', $runId)) {
+    throw new RuntimeException('E2E_RUN_ID must be 1 to 12 lowercase letters or digits.');
+}
+$orderIdPrefix = sprintf('e2e%s-', $runId);
+
+$kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
+$kernel->boot();
+$container = $kernel->getContainer();
+$entityManager = $container->get('doctrine')->getManager();
+
+/** @var ChannelInterface $channel */
+$channel = $container->get('sylius.repository.channel')->findOneByCode('E2E');
+
+$paymentMethods = [];
+$position = 0;
+foreach (PAYMENT_METHODS as $code => $config) {
+    /** @var PaymentMethodInterface $paymentMethod */
+    $paymentMethod = $container->get('sylius.factory.payment_method')->createWithGateway('monei');
+    $paymentMethod->setCode($code);
+    $paymentMethod->setCurrentLocale('en_US');
+    $paymentMethod->setFallbackLocale('en_US');
+    $paymentMethod->setName($config['name']);
+    $paymentMethod->setPosition($position++);
+    $paymentMethod->setEnabled(true);
+    $paymentMethod->addChannel($channel);
+    $paymentMethod->getGatewayConfig()->setGatewayName($code);
+    $paymentMethod->getGatewayConfig()->setConfig([
+        'api_key' => $apiKey,
+        'payment_method' => $config['payment_method'],
+        'mode' => $config['mode'],
+        'use_authorize' => $config['use_authorize'],
+        'order_id_prefix' => $orderIdPrefix,
+    ]);
+    $entityManager->persist($paymentMethod);
+    $paymentMethods[$code] = ['name' => $config['name']];
+}
+
+foreach (PRICES as $variantCode => $price) {
+    /** @var ProductVariantInterface $variant */
+    $variant = $container->get('sylius.repository.product_variant')->findOneBy(['code' => $variantCode]);
+    $variant->getChannelPricingForChannel($channel)->setPrice($price);
+}
+
+$entityManager->flush();
+
+echo json_encode(['orderIdPrefix' => $orderIdPrefix, 'paymentMethods' => $paymentMethods], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";

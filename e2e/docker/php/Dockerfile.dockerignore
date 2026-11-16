@@ -1,0 +1,10 @@
+# Allow list: the image gets only what it copies. e2e/.env (the API key) never enters the build context.
+*
+!composer.json
+!src
+!config
+!templates
+!translations
+!public
+!tests/TestApplication
+!e2e/docker
