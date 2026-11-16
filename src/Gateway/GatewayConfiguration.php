@@ -57,7 +57,7 @@ final readonly class GatewayConfiguration
         if ('' === $apiKey) {
             throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.missing', 'The MONEI API key is missing.');
         }
-        if (1 !== preg_match('/^pk_(test|live)_\S+$/', $apiKey)) {
+        if (1 !== preg_match('/^pk_(test|live)_\S+$/D', $apiKey)) {
             throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.invalid', 'The MONEI API key must start with pk_test_ or pk_live_.');
         }
 
@@ -82,7 +82,7 @@ final readonly class GatewayConfiguration
         }
 
         $orderIdPrefix = $config[self::ORDER_ID_PREFIX] ?? '';
-        if (!\is_string($orderIdPrefix) || 1 !== preg_match('/^[A-Za-z0-9_-]{0,20}$/', $orderIdPrefix)) {
+        if (!\is_string($orderIdPrefix) || 1 !== preg_match('/^[A-Za-z0-9_-]{0,20}$/D', $orderIdPrefix)) {
             throw new InvalidGatewayConfigurationException(self::ORDER_ID_PREFIX, 'monei.gateway_configuration.order_id_prefix.invalid', 'The order ID prefix allows at most 20 letters, digits, - and _.');
         }
 
