@@ -3,10 +3,10 @@ COMPOSE = docker compose
 PHP = $(COMPOSE) run --rm php
 CONSOLE = vendor/bin/console -e test
 
-# Lowest supported versions: PHP 8.2 and Sylius 2.2.9, in a copy of the repo under var/lowest
+# Lowest supported versions: PHP 8.2 and Sylius 2.2.12, in a copy of the repo under var/lowest
 # with its own vendor, encryption key and database.
 LOWEST_DIR = var/lowest
-LOWEST_SYLIUS = 2.2.9
+LOWEST_SYLIUS = 2.2.12
 PHP_LOWEST = PHP_IMAGE_TAG=8.2-alpine $(COMPOSE) run --rm -w /app/$(LOWEST_DIR) \
 	-e DATABASE_URL='mysql://root:root@mysql:3306/sylius_monei_lowest_%kernel.environment%' php
 
@@ -35,13 +35,12 @@ cs:
 cs-fix:
 	$(PHP) vendor/bin/php-cs-fixer fix
 
-# Sylius 2.2.9 has open security advisories; COMPOSER_NO_BLOCKING lets Composer install it for this test.
 test-lowest:
 	mkdir -p $(LOWEST_DIR)
 	find $(LOWEST_DIR) -mindepth 1 -maxdepth 1 ! -name vendor ! -name var ! -name composer.lock -exec rm -rf {} +
 	tar --exclude=./vendor --exclude=./var --exclude=./.git --exclude=./docs --exclude=./composer.lock -cf - . | tar -xf - -C $(LOWEST_DIR)
 	$(PHP_LOWEST) sh -c 'composer require sylius/sylius:$(LOWEST_SYLIUS) --no-update --no-interaction \
-		&& COMPOSER_NO_BLOCKING=1 composer update --no-interaction --no-progress --no-audit \
+		&& composer update --no-interaction --no-progress --no-audit \
 		&& $(KEY) && $(DB_SETUP) \
 		&& vendor/bin/phpunit --testsuite unit && vendor/bin/phpunit --testsuite functional'
 
