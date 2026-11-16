@@ -1,0 +1,15 @@
+imports:
+    - { resource: '@MoneiSyliusPlugin/config/config.yaml' }
+    - { resource: 'services_test.php' }
+
+when@test:
+    monolog:
+        handlers:
+            monei_test:
+                type: service
+                id: monei.test.log_handler
+                channels: ['monei']
+
+    # Functional tests render shop and admin pages without built assets.
+    webpack_encore:
+        strict_mode: false

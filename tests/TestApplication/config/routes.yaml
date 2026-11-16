@@ -1,0 +1,2 @@
+monei_sylius_plugin:
+    resource: '@MoneiSyliusPlugin/config/routes.yaml'
