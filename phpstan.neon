@@ -5,3 +5,9 @@ parameters:
     level: 8
     paths:
         - src
+    ignoreErrors:
+        # TransitionEvent is generic from Symfony 8 only; a TransitionEvent<object> PHPDoc fails on Symfony 7.4.
+        -
+            identifier: missingType.generics
+            message: '#Symfony\\Component\\Workflow\\Event\\TransitionEvent#'
+            reportUnmatched: false
