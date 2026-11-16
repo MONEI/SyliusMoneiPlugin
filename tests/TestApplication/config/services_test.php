@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\Internal\GuzzleHttp\HandlerStack;
+use Monei\SyliusPlugin\Payment\PaymentLock;
+use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Tests\Functional\MoneiLogHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -27,4 +29,8 @@ return static function (ContainerConfigurator $container): void {
         ->args([['handler' => service('monei.test.handler_stack')]]);
 
     $services->set('monei.test.log_handler', MoneiLogHandler::class);
+
+    // Tests fetch these before any plugin service uses them, so the container would remove them.
+    $services->alias('monei.test.payment_lock', PaymentLock::class)->public();
+    $services->alias('monei.test.status_applier', StatusApplier::class)->public();
 };

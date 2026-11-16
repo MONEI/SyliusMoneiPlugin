@@ -7,86 +7,33 @@ namespace Monei\SyliusPlugin\Payment;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Sylius\Component\Payment\Model\PaymentInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
-use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Event\ExceptionEvent;
-use Symfony\Component\HttpKernel\Event\ResponseEvent;
-use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * One mutex per Sylius payment, shared by the return page, the MONEI callback and the
- * admin capture, cancel and refund: a database row lock (SELECT ... FOR UPDATE) held
- * until the request's changes are committed. Without it, two requests can apply the
- * same transition and the order payment listeners (inventory) run twice.
- *
- * The payment request bus already runs its handlers in a transaction. An admin
- * transition runs outside one, so this class opens it and commits it when the main
- * request ends, after the controller's flush.
+ * One mutex per Sylius payment, shared by the pay, return, callback and admin paths: a
+ * row lock (SELECT ... FOR UPDATE) held until the caller's transaction ends. It never
+ * opens a transaction: the payment request bus and Core's ResourceUpdateHandler do.
  */
-final class PaymentLock implements EventSubscriberInterface
+final readonly class PaymentLock
 {
-    private bool $ownsTransaction = false;
-
-    public function __construct(
-        private readonly EntityManagerInterface $entityManager,
-        private readonly RequestStack $requestStack,
-    ) {
+    public function __construct(private EntityManagerInterface $entityManager)
+    {
     }
 
     /**
-     * Locks the payment row and reloads it, so the caller sees the state of the last
-     * committed request. Returns false when no lock can be taken: no transaction and no
-     * main request to end one (a console command).
+     * Locks the payment row and reloads the payment from it. The locking read sees the
+     * state another transaction committed while this one waited, not the transaction's
+     * older snapshot. The reload discards unflushed changes to the payment.
+     *
+     * @return bool false when no transaction is active (console, admin API): no lock is taken
      */
     public function acquire(PaymentInterface $payment): bool
     {
-        $connection = $this->entityManager->getConnection();
-        if (!$connection->isTransactionActive()) {
-            if (null === $this->requestStack->getMainRequest()) {
-                return false;
-            }
-            $connection->beginTransaction();
-            $this->ownsTransaction = true;
+        if (!$this->entityManager->getConnection()->isTransactionActive()) {
+            return false;
         }
 
-        $this->entityManager->lock($payment, LockMode::PESSIMISTIC_WRITE);
-        $this->entityManager->refresh($payment);
+        $this->entityManager->refresh($payment, LockMode::PESSIMISTIC_WRITE);
 
         return true;
-    }
-
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            // Late: the controller has flushed by then.
-            KernelEvents::RESPONSE => ['onResponse', -1024],
-            KernelEvents::EXCEPTION => ['onException', 1024],
-        ];
-    }
-
-    public function onResponse(ResponseEvent $event): void
-    {
-        if (!$event->isMainRequest() || !$this->ownsTransaction) {
-            return;
-        }
-        $this->ownsTransaction = false;
-
-        $connection = $this->entityManager->getConnection();
-        if ($connection->isTransactionActive()) {
-            $connection->commit();
-        }
-    }
-
-    public function onException(ExceptionEvent $event): void
-    {
-        if (!$event->isMainRequest() || !$this->ownsTransaction) {
-            return;
-        }
-        $this->ownsTransaction = false;
-
-        $connection = $this->entityManager->getConnection();
-        if ($connection->isTransactionActive()) {
-            $connection->rollBack();
-        }
     }
 }

@@ -6,9 +6,10 @@ namespace Monei\SyliusPlugin\Payment;
 
 use Monei\Model\Payment as MoneiPayment;
 use Monei\Model\PaymentStatus;
+use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Psr\Log\LoggerInterface;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
-use Sylius\Component\Payment\Model\PaymentInterface;
+use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\PaymentTransitions;
 
 /**
@@ -19,22 +20,24 @@ final readonly class StatusApplier
 {
     /**
      * Transitions to try, in order, for each MONEI status. The state machine decides
-     * which one applies to the payment's current state; none is applied twice.
+     * which one applies to the payment's current state.
      */
     private const TRANSITIONS = [
         PaymentStatus::SUCCEEDED => [PaymentTransitions::TRANSITION_COMPLETE],
         PaymentStatus::AUTHORIZED => [PaymentTransitions::TRANSITION_AUTHORIZE],
         PaymentStatus::FAILED => [PaymentTransitions::TRANSITION_FAIL],
         PaymentStatus::CANCELED => [PaymentTransitions::TRANSITION_CANCEL],
-        // An expired AUTH hold cannot fail (Sylius allows fail only from new or processing).
-        PaymentStatus::EXPIRED => [PaymentTransitions::TRANSITION_FAIL, PaymentTransitions::TRANSITION_CANCEL],
-        // A full refund made in the MONEI dashboard. Completes first when the
-        // SUCCEEDED callback never reached the store.
+        PaymentStatus::EXPIRED => [PaymentTransitions::TRANSITION_FAIL],
+        // Complete first: the SUCCEEDED callback may never have reached the store.
         PaymentStatus::REFUNDED => [PaymentTransitions::TRANSITION_COMPLETE, PaymentTransitions::TRANSITION_REFUND],
+        // Sylius has no partially refunded state.
+        PaymentStatus::PARTIALLY_REFUNDED => [PaymentTransitions::TRANSITION_COMPLETE],
     ];
 
-    /** The statuses that mean MONEI took or holds the money. */
-    private const PAID = [PaymentStatus::SUCCEEDED, PaymentStatus::AUTHORIZED, PaymentStatus::REFUNDED];
+    /** MONEI holds or took money. */
+    private const MONEY = [PaymentStatus::SUCCEEDED, PaymentStatus::AUTHORIZED, PaymentStatus::REFUNDED, PaymentStatus::PARTIALLY_REFUNDED];
+
+    private const PENDING = [PaymentStatus::PENDING, PaymentStatus::PENDING_PROCESSING];
 
     public function __construct(
         private StateMachineInterface $stateMachine,
@@ -46,27 +49,47 @@ final readonly class StatusApplier
     public function apply(PaymentInterface $payment, MoneiPayment $moneiPayment): void
     {
         $moneiPaymentId = (string) $moneiPayment->getId();
-        $status = (string) $moneiPayment->getStatus();
+        /** @var string|null $sdkStatus the SDK documents a PaymentStatus object but returns the enum's string value */
+        $sdkStatus = $moneiPayment->getStatus();
+        $status = (string) $sdkStatus;
+        $holdsMoney = in_array($status, self::MONEY, true);
+        $context = ['monei_payment' => $moneiPaymentId, 'status' => $status, 'payment' => $payment->getId()];
 
         if (MoneiDetails::paymentId($payment) !== $moneiPaymentId) {
-            $level = in_array($status, self::PAID, true) ? 'error' : 'warning';
-            $this->logger->log($level, 'MONEI payment {monei_payment} ({status}) is not bound to Sylius payment {payment}: no change. If no other payment of the order holds the money, cancel or refund it in the MONEI dashboard.', [
-                'monei_payment' => $moneiPaymentId,
-                'status' => $status,
-                'payment' => $payment->getId(),
-            ]);
+            $this->logger->log(
+                $holdsMoney ? 'critical' : 'warning',
+                'MONEI payment {monei_payment} ({status}) is not bound to Sylius payment {payment}: no change. If no other payment of the order holds the money, cancel or refund it in the MONEI dashboard.',
+                $context,
+            );
 
             return;
         }
 
-        MoneiDetails::updateStatus($payment, $status);
+        // The buyer switched to a non-MONEI method after the MONEI payment was bound.
+        if (GatewayConfiguration::FACTORY_NAME !== $payment->getMethod()?->getGatewayConfig()?->getFactoryName()) {
+            $this->logger->log(
+                $holdsMoney ? 'critical' : 'warning',
+                'MONEI payment {monei_payment} ({status}) is bound to Sylius payment {payment}, which now uses a non-MONEI payment method: no change. If it holds money, refund it in the MONEI dashboard.',
+                $context,
+            );
 
-        if (in_array($status, self::PAID, true) && !$this->amountMatches($payment, $moneiPayment)) {
-            $this->logger->critical('MONEI payment {monei_payment} is {amount} {currency}, but Sylius payment {payment} is {expected_amount} {expected_currency}: no change.', [
-                'monei_payment' => $moneiPaymentId,
+            return;
+        }
+
+        if (in_array($status, self::PENDING, true)) {
+            return;
+        }
+
+        if (!isset(self::TRANSITIONS[$status])) {
+            $this->logger->warning('MONEI payment {monei_payment} has status {status}, which the plugin does not map: Sylius payment {payment} unchanged.', $context);
+
+            return;
+        }
+
+        if ($holdsMoney && !$this->amountMatches($payment, $moneiPayment)) {
+            $this->logger->critical('MONEI payment {monei_payment} is {amount} {currency}, but Sylius payment {payment} is {expected_amount} {expected_currency}: no change.', $context + [
                 'amount' => $moneiPayment->getAmount(),
                 'currency' => $moneiPayment->getCurrency(),
-                'payment' => $payment->getId(),
                 'expected_amount' => $payment->getAmount(),
                 'expected_currency' => $payment->getCurrencyCode(),
             ]);
@@ -75,12 +98,18 @@ final readonly class StatusApplier
         }
 
         $this->syncContext->run(function () use ($payment, $status): void {
-            foreach (self::TRANSITIONS[$status] ?? [] as $transition) {
+            foreach (self::TRANSITIONS[$status] as $transition) {
                 if ($this->stateMachine->can($payment, PaymentTransitions::GRAPH, $transition)) {
                     $this->stateMachine->apply($payment, PaymentTransitions::GRAPH, $transition);
                 }
             }
         });
+
+        if ($holdsMoney && in_array($payment->getState(), [PaymentInterface::STATE_FAILED, PaymentInterface::STATE_CANCELLED], true)) {
+            $this->logger->critical('MONEI payment {monei_payment} is {status}, but Sylius payment {payment} is {state}: MONEI holds money for it. Refund it in the MONEI dashboard or restore the order by hand.', $context + [
+                'state' => $payment->getState(),
+            ]);
+        }
     }
 
     private function amountMatches(PaymentInterface $payment, MoneiPayment $moneiPayment): bool
