@@ -17,4 +17,4 @@ monei:
         order_paid: 'MONEI says a payment of this order is %status%: the order cannot be cancelled.'
         try_again: 'MONEI is processing another operation on this payment. Try again in a moment.'
         refund_method_not_paid: 'No payment of this order was paid with %payment_method% through MONEI. Choose the payment method that paid the order.'
-        refund_answer_lost: 'MONEI has already refunded more of this payment than Sylius has recorded: the answer to an earlier refund was lost. Do not refund again. Record the missing refund with an offline refund method.'
+        refund_answer_lost: 'MONEI has already refunded more of this payment than Sylius has recorded (a refund made in the MONEI dashboard, or an earlier refund whose answer was lost). Do not refund it again through MONEI. Record the missing refund with an offline refund method enabled in this channel.'

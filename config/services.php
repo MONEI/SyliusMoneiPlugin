@@ -156,7 +156,8 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         return;
     }
 
-    // After the refund plugin's credit memo (100) and refund payment (50) steps.
+    // Before the refund plugin's credit memo (100) and refund payment (50) steps: a refusal
+    // must not leave a credit memo PDF or e-mail behind (the rollback reuses its number).
     $services->set(MoneiRefundStep::class)
         ->args([
             service('sylius.repository.payment_method'),
@@ -167,5 +168,5 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('request_stack'),
             service('monolog.logger.monei'),
         ])
-        ->tag('sylius_refund.units_refunded.process_step', ['priority' => -100]);
+        ->tag('sylius_refund.units_refunded.process_step', ['priority' => 200]);
 };

@@ -105,7 +105,7 @@ final class PartialRefundTest extends MoneiTestCase
 
         self::assertSame(['GET /payments/pay_1'], $this->requestKeys());
         $this->assertNothingRecorded();
-        $this->assertRefundsPageShows('the answer to an earlier refund was lost');
+        $this->assertRefundsPageShows('MONEI has already refunded more of this payment than Sylius has recorded');
     }
 
     private function refundUnit(int $index, PaymentMethodInterface $refundMethod): void
@@ -142,9 +142,13 @@ final class PartialRefundTest extends MoneiTestCase
         ));
     }
 
-    /** The refund plugin writes the unit refunds and the order's payment state before the MONEI step. */
+    /**
+     * The refund plugin writes the unit refunds and the order's payment state before the MONEI
+     * step; the credit memo e-mail would come before it if the step ran after the credit memo.
+     */
     private function assertNothingRecorded(): void
     {
+        self::assertEmailCount(0);
         $connection = $this->secondConnection();
         $orderId = $this->order->getId();
         self::assertSame(

@@ -27,9 +27,10 @@ use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 
 /**
  * Refunds the refund plugin's total at MONEI when the chosen refund method is a MONEI one.
- * Runs inside the refund command's transaction, after the plugin's own steps: a refusal
- * rolls back the credit memo and the refund payment, and once MONEI has returned the money
- * only the commit can still fail.
+ * Runs inside the refund command's transaction, before the plugin's own steps: a refusal
+ * rolls back the unit refunds before any credit memo is written or sent. When a later step
+ * fails after MONEI returned the money, the next MONEI refund of the order is refused
+ * (MONEI refunded more than Sylius recorded).
  */
 final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterface
 {
@@ -104,7 +105,7 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
         }
 
         // The refund plugin ties every refund of an order to the order's paid payment, and
-        // has already recorded this one.
+        // has already recorded this one's unit refunds.
         $recorded = ($this->orderRefundedTotal)($order) - $amount;
         if ((int) $bound->payment->getRefundedAmount() > $recorded) {
             throw new MoneiRefusedException('monei.refused.refund_answer_lost', [], $orderId);
