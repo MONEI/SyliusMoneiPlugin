@@ -63,6 +63,13 @@ final readonly class MoneiExceptionListener
         while ($connection->isTransactionActive()) {
             $connection->rollBack();
         }
+        // An earlier MONEI call of the same action (for example another payment's hold release) is not rolled back.
+        $this->logger->error('Action on order {order} refused: {reason}', [
+            'order' => $refusal->orderId,
+            'reason' => $refusal->getMessage(),
+            'parameters' => $refusal->parameters,
+            'uri' => $event->getRequest()->getRequestUri(),
+        ]);
 
         $request = $event->getRequest();
         if (ApiRequest::matches($request)) {
