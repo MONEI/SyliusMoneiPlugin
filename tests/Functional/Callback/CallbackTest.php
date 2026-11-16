@@ -34,6 +34,7 @@ final class CallbackTest extends MoneiTestCase
         self::assertSame(Response::HTTP_UNAUTHORIZED, $this->client->getResponse()->getStatusCode());
         self::assertSame([], $this->requestKeys());
         self::assertSame('new', $this->paymentState($order));
+        self::assertSame([], $this->paymentRequests($order));
     }
 
     public function testASignedSucceededCallbackCompletesThePayment(): void
