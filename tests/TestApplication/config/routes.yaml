@@ -1,2 +1,5 @@
 monei_sylius_plugin:
     resource: '@MoneiSyliusPlugin/config/routes.yaml'
+
+sylius_refund_plugin:
+    resource: 'refund_plugin_routes.php'

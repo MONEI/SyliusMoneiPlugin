@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin;
 
+use Monei\SyliusPlugin\DependencyInjection\Compiler\AddMoneiRefundGatewayPass;
 use Monei\SyliusPlugin\DependencyInjection\Compiler\RequireWorkflowPaymentGraphPass;
 use Sylius\Bundle\CoreBundle\Application\SyliusPluginTrait;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -16,6 +17,7 @@ final class MoneiSyliusPlugin extends Bundle
     public function build(ContainerBuilder $container): void
     {
         $container->addCompilerPass(new RequireWorkflowPaymentGraphPass());
+        $container->addCompilerPass(new AddMoneiRefundGatewayPass());
     }
 
     public function getPath(): string

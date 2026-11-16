@@ -16,3 +16,5 @@ monei:
         unavailable: 'No se pudo contactar con MONEI (%reason%). Inténtalo más tarde.'
         order_paid: 'MONEI indica que un pago de este pedido está %status%: el pedido no se puede cancelar.'
         try_again: 'MONEI está procesando otra operación en este pago. Inténtalo de nuevo en un momento.'
+        refund_method_not_paid: 'Ningún pago de este pedido se pagó con %payment_method% a través de MONEI. Elige el método de pago con el que se pagó el pedido.'
+        refund_answer_lost: 'MONEI ya ha reembolsado de este pago más de lo que Sylius tiene registrado: se perdió la respuesta de un reembolso anterior. No vuelvas a reembolsar. Registra el reembolso que falta con un método de reembolso offline.'

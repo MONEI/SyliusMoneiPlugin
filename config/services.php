@@ -21,11 +21,13 @@ use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
 use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
+use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
-return static function (ContainerConfigurator $container): void {
+return static function (ContainerConfigurator $container, ContainerBuilder $builder): void {
     $services = $container->services();
 
     $services->set('monei.http_client', Client::class)
@@ -147,4 +149,23 @@ return static function (ContainerConfigurator $container): void {
             service('monolog.logger.monei'),
         ])
         ->tag('kernel.event_listener', ['event' => 'workflow.sylius_order.transition.cancel']);
+
+    /** @var array<string, class-string> $bundles */
+    $bundles = $builder->getParameter('kernel.bundles');
+    if (!isset($bundles['SyliusRefundPlugin'])) {
+        return;
+    }
+
+    // After the refund plugin's credit memo (100) and refund payment (50) steps.
+    $services->set(MoneiRefundStep::class)
+        ->args([
+            service('sylius.repository.payment_method'),
+            service('sylius.repository.order'),
+            service('sylius_refund.provider.order_refunded_total'),
+            service(PaymentLock::class),
+            service(BoundPaymentAccess::class),
+            service('request_stack'),
+            service('monolog.logger.monei'),
+        ])
+        ->tag('sylius_refund.units_refunded.process_step', ['priority' => -100]);
 };

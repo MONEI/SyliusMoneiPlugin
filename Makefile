@@ -13,7 +13,7 @@ PHP_LOWEST = PHP_IMAGE_TAG=8.2-alpine $(COMPOSE) run --rm -w /app/$(LOWEST_DIR) 
 DB_SETUP = $(CONSOLE) doctrine:database:create --if-not-exists && $(CONSOLE) doctrine:schema:update --force
 KEY = $(CONSOLE) sylius:payment:generate-key --no-interaction
 
-.PHONY: install test test-unit test-functional analyse cs cs-fix test-lowest down
+.PHONY: install test test-unit test-functional test-container-without-refund-plugin analyse cs cs-fix test-lowest down
 
 install:
 	$(PHP) sh -c 'composer install --no-interaction --no-progress && $(KEY) && $(DB_SETUP)'
@@ -25,6 +25,11 @@ test-unit:
 
 test-functional:
 	$(PHP) sh -c '$(DB_SETUP) && vendor/bin/phpunit --testsuite functional'
+
+# The test kernel tracks only its own bundles.php, so this run needs its own cache.
+test-container-without-refund-plugin:
+	$(COMPOSE) run --rm -e MONEI_TEST_WITHOUT_REFUND_PLUGIN=1 -e APP_CACHE_DIR=/app/var/cache-without-refund-plugin \
+		php vendor/bin/phpunit --testsuite functional --filter ContainerTest
 
 analyse:
 	$(PHP) vendor/bin/phpstan analyse --memory-limit=1G

@@ -139,9 +139,9 @@ abstract class MoneiTestCase extends WebTestCase
     /**
      * Places an order through the Sylius checkout workflow: state `new`, payment state
      * `awaiting_payment`, number, token and checkout time set, and one `new` payment
-     * with `$paymentMethod` for PRODUCT_PRICE.
+     * with `$paymentMethod` for `$quantity` times PRODUCT_PRICE.
      */
-    protected function placeOrder(PaymentMethodInterface $paymentMethod): OrderInterface
+    protected function placeOrder(PaymentMethodInterface $paymentMethod, int $quantity = 1): OrderInterface
     {
         /** @var OrderInterface $order */
         $order = $this->service('sylius.factory.order')->createNew();
@@ -155,7 +155,7 @@ abstract class MoneiTestCase extends WebTestCase
         $item->setVariant($this->managed($this->variant));
         $quantityModifier = $this->service('sylius.modifier.order_item_quantity');
         \assert($quantityModifier instanceof OrderItemQuantityModifierInterface);
-        $quantityModifier->modify($item, 1);
+        $quantityModifier->modify($item, $quantity);
         $orderModifier = $this->service('sylius.modifier.order');
         \assert($orderModifier instanceof OrderModifierInterface);
         $orderModifier->addToOrder($order, $item);
@@ -213,10 +213,11 @@ abstract class MoneiTestCase extends WebTestCase
     }
 
     /**
-     * The CSRF token of the admin transition routes (token id = resource id), stored in the
-     * browser's session: with the refund plugin the page does not render the core Refund button.
+     * The CSRF token of the admin transition routes (token id = resource id) or of the refund
+     * plugin's refund form (token id = order number), stored in the browser's session: with the
+     * refund plugin the page does not render the core Refund button.
      */
-    protected function csrfToken(int $tokenId): string
+    protected function csrfToken(int|string $tokenId): string
     {
         $sessionFactory = $this->service('session.factory');
         \assert($sessionFactory instanceof SessionFactoryInterface);
