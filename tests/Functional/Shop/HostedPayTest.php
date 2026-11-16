@@ -196,6 +196,24 @@ final class HostedPayTest extends MoneiTestCase
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_card', Response::HTTP_SEE_OTHER);
     }
 
+    /** The buyer paid the old payment at the moment of the switch: a second payment would charge twice. */
+    public function testAnOldPaymentPaidWhileItsCancelWasRefusedCompletesThePaymentAndCreatesNothing(): void
+    {
+        $this->createMoneiPaymentMethod('MONEI_MB', ['payment_method' => 'multibanco']);
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
+        $this->bind($order, 'pay_old', 'MONEI_MB');
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_old', 'PENDING'),
+            self::error(400, 'The payment cannot be canceled'),
+            self::moneiPayment('pay_old', 'SUCCEEDED'),
+        );
+
+        $this->pay($order);
+
+        self::assertSame(['GET /payments/pay_old', 'POST /payments/pay_old/cancel', 'GET /payments/pay_old'], $this->requestKeys());
+        self::assertSame('completed', $this->paymentState($order));
+    }
+
     /** Failing the payment would make Sylius create payment after payment that MONEI refuses. */
     public function testACreateRefusedByTheDuplicateCheckKeepsThePaymentNewAndLogsAnError(): void
     {

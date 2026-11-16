@@ -84,6 +84,27 @@ final class CreatePaymentRequestFactoryTest extends TestCase
         yield 'multibanco' => ['multibanco', ['multibanco']];
     }
 
+    /** MONEI expires a PENDING payment after 7 days at most; a longer order expiry gets that limit. */
+    public function testExpireAtIsAtMostSevenDaysFromNow(): void
+    {
+        $order = new Order();
+        $order->setNumber('000000001');
+        $order->setCheckoutCompletedAt(new \DateTime('@1767225600'));
+        $payment = new Payment();
+        $payment->setAmount(1000);
+        $payment->setCurrencyCode('EUR');
+        $order->addPayment($payment);
+
+        $request = (new CreatePaymentRequestFactory(new RequestStack(), new MockClock('@1767225600'), '30 days'))->create(
+            $payment,
+            GatewayConfiguration::fromArray(['api_key' => 'pk_test_0123456789abcdef', 'payment_method' => 'card']),
+            'https://shop.test/after-pay',
+            'https://shop.test/callback',
+        );
+
+        self::assertSame(1767830400, $request->getExpireAt());
+    }
+
     /** @param array<string, mixed> $config */
     private static function create(
         array $config = [],

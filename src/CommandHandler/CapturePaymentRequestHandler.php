@@ -32,7 +32,6 @@ use Sylius\Component\Payment\Repository\PaymentRequestRepositoryInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Webmozart\Assert\Assert;
 
 /**
  * Runs on every visit of `/pay/{hash}` for a non-final capture or authorize request:
@@ -73,7 +72,9 @@ final readonly class CapturePaymentRequestHandler
             throw new PaymentRequestNotFoundException();
         }
         $payment = $paymentRequest->getPayment();
-        Assert::isInstanceOf($payment, PaymentInterface::class);
+        if (!$payment instanceof PaymentInterface) {
+            throw new \LogicException('A Sylius core payment is expected.');
+        }
 
         $this->paymentLock->acquire($payment);
 
