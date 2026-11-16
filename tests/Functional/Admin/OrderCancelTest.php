@@ -24,7 +24,6 @@ final class OrderCancelTest extends MoneiTestCase
 
         $this->cancel($order);
 
-        self::assertNoOpenTransaction();
         self::assertSame(['GET /payments/pay_1', 'GET /payments/pay_1', 'POST /payments/pay_1/cancel'], $this->requestKeys());
         self::assertSame(['cancelled', 'cancelled'], [$this->orderState($order), $this->paymentState($order)]);
     }
@@ -40,7 +39,6 @@ final class OrderCancelTest extends MoneiTestCase
 
         $this->cancel($order);
 
-        self::assertNoOpenTransaction();
         self::assertSame(['new', 'authorized'], [$this->orderState($order), $this->paymentState($order)]);
         $this->assertOrderPageShows($order, 'MONEI did not cancel the payment (The payment cannot be canceled).');
     }
@@ -52,7 +50,6 @@ final class OrderCancelTest extends MoneiTestCase
 
         $this->cancel($order);
 
-        self::assertNoOpenTransaction();
         self::assertSame(['GET /payments/pay_1'], $this->requestKeys());
         self::assertSame(['new', 'new'], [$this->orderState($order), $this->paymentState($order)]);
         $this->assertOrderPageShows($order, 'MONEI says a payment of this order is SUCCEEDED');
@@ -128,7 +125,6 @@ final class OrderCancelTest extends MoneiTestCase
 
         $this->cancel($order);
 
-        self::assertNoOpenTransaction();
         self::assertSame('new', $this->orderState($order));
     }
 
@@ -183,5 +179,6 @@ final class OrderCancelTest extends MoneiTestCase
         \assert(\is_int($orderId));
         $this->client->request('PUT', '/admin/orders/'.$orderId.'/cancel', ['_csrf_token' => $this->csrfToken($orderId)]);
         self::assertSame(Response::HTTP_FOUND, $this->client->getResponse()->getStatusCode());
+        self::assertNoOpenTransaction();
     }
 }

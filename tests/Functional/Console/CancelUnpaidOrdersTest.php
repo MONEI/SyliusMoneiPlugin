@@ -75,7 +75,11 @@ final class CancelUnpaidOrdersTest extends MoneiTestCase
         $this->runCommand();
 
         self::assertSame('cancelled', $this->orderState($order));
-        self::assertContains(Level::Critical, array_column($this->moneiLogs(), 'level'));
+        // The guard's own record, not StatusApplier's amount mismatch record.
+        self::assertCount(1, array_filter(
+            $this->moneiLogs(),
+            static fn (array $record): bool => Level::Critical === $record['level'] && str_contains($record['message'], 'could not be recorded'),
+        ));
     }
 
     public function testAMonei500OnTheGuardFetchLetsTheOrderBeCancelledWithAnError(): void

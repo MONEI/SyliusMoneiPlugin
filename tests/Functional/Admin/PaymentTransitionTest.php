@@ -22,7 +22,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'complete');
 
-        self::assertNoOpenTransaction();
         self::assertSame(['GET /payments/pay_1', 'POST /payments/pay_1/capture'], $this->requestKeys());
         self::assertSame('completed', $this->paymentState($order));
     }
@@ -34,7 +33,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'complete');
 
-        self::assertNoOpenTransaction();
         self::assertSame('authorized', $this->paymentState($order));
         $this->assertOrderPageShows($order, 'MONEI did not capture the payment (The payment cannot be captured).');
     }
@@ -46,7 +44,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'complete');
 
-        self::assertNoOpenTransaction();
         self::assertSame('authorized', $this->paymentState($order));
         $this->assertOrderPageShows($order, 'MONEI did not capture the payment (AUTHORIZED).');
     }
@@ -70,7 +67,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'complete');
 
-        self::assertNoOpenTransaction();
         self::assertSame(['GET /payments/pay_1'], $this->requestKeys());
         self::assertSame('new', $this->paymentState($order));
     }
@@ -120,7 +116,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'complete');
 
-        self::assertNoOpenTransaction();
         self::assertSame([], $this->requestKeys());
         $this->assertOrderPageShows($order, 'The payment changed while this action waited.');
     }
@@ -159,7 +154,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'refund');
 
-        self::assertNoOpenTransaction();
         self::assertSame(['GET /payments/pay_1'], $this->requestKeys());
         self::assertSame('completed', $this->paymentState($order));
     }
@@ -182,7 +176,6 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         $this->transition($order, 'refund');
 
-        self::assertNoOpenTransaction();
         self::assertSame('completed', $this->paymentState($order));
         $this->assertOrderPageShows($order, 'MONEI did not refund the payment (The payment cannot be refunded).');
     }
@@ -229,6 +222,7 @@ final class PaymentTransitionTest extends MoneiTestCase
             '_csrf_token' => $this->csrfToken($paymentId),
         ]);
         self::assertSame(Response::HTTP_FOUND, $this->client->getResponse()->getStatusCode());
+        self::assertNoOpenTransaction();
     }
 
     private function createOfflinePaymentMethod(string $code): PaymentMethodInterface
