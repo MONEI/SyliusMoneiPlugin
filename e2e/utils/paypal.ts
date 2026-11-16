@@ -1,12 +1,12 @@
 // PayPal sandbox approval, from the Medusa plugin's e2e `utils/paypal.ts`.
-import { expect, type Page } from "@playwright/test";
+import { expect, type Frame, type Locator, type Page } from "@playwright/test";
 
 /** Public sandbox buyer from https://docs.monei.com/testing */
 export const PAYPAL_BUYER = { email: "paypal-personal@monei.net", password: "monei12345" } as const;
 
 /** Signs in to the sandbox and approves; each step matches every markup PayPal has used. */
-export async function approveInPayPal(page: Page, timeout = 90_000): Promise<void> {
-  const anyOf = (selectors: string[]) => page.locator(selectors.join(", ")).first();
+export async function approveInPayPal(surface: Page | Frame, timeout = 90_000): Promise<void> {
+  const anyOf = (selectors: string[]) => surface.locator(selectors.join(", ")).first();
   const email = anyOf(["#email:visible", '[name="login_email"]:visible']);
   const confirm = anyOf([
     '[data-testid="submit-button-initial"]',
@@ -46,4 +46,44 @@ export async function approveInPayPal(page: Page, timeout = 90_000): Promise<voi
 
   await confirm.waitFor({ state: "visible", timeout });
   await confirm.click();
+}
+
+/** The monei.js PayPal button: a cross-origin zoid frame whose generated name is the only stable handle. */
+const payPalButton = (page: Page): Locator =>
+  page
+    .frameLocator('#monei-component iframe[name^="__zoid__paypal_buttons"]')
+    .locator('[data-funding-source="paypal"], .paypal-button')
+    .first();
+
+/**
+ * Clicks the monei.js PayPal button and returns the login surface: headless Chromium gets a
+ * popup, a headed browser an in-page overlay frame. Only a surface on paypal.com counts (zoid
+ * first opens about:blank).
+ */
+export async function openPayPalFromButton(page: Page, timeout = 90_000): Promise<Page | Frame> {
+  const button = payPalButton(page);
+  await expect(button, "the PayPal button mounted").toBeVisible({ timeout: 60_000 });
+  const isLogin = (url: string) => url.includes("paypal.com") && !url.includes("smart/buttons");
+  const others = () => page.context().pages().filter((other) => other !== page);
+  const before = new Set(others());
+  await button.click();
+  const deadline = Date.now() + timeout;
+  let reclickAt = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    // The sandbox button sometimes ignores a click: no popup, not even about:blank.
+    if (
+      Date.now() > reclickAt &&
+      others().every((other) => before.has(other)) &&
+      (await page.locator('[id^="paypal-overlay-"]').count()) === 0
+    ) {
+      await button.click();
+      reclickAt = Date.now() + 10_000;
+    }
+    const popup = others().find((other) => isLogin(other.url()));
+    if (popup) return popup;
+    const overlay = page.frames().find((frame) => isLogin(frame.url()));
+    if (overlay) return overlay;
+    await page.waitForTimeout(500);
+  }
+  throw new Error(`PayPal did not open a login surface within ${timeout} ms`);
 }

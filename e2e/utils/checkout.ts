@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type FrameLocator, type Page } from "@playwright/test";
 
 /** Seeded products (scripts/seed.php). The sticker stays below the 5 EUR Bizum test limit. */
 export const PRODUCTS = { tShirt: "e2e-t-shirt", sticker: "e2e-sticker" } as const;
@@ -70,10 +70,8 @@ export async function payAgainOnHostedPage(page: Page, paymentMethod: string): P
   return toHostedPage(page, () => page.getByRole("button", { name: "Pay", exact: true }).click());
 }
 
-/** Fills the card form of the MONEI hosted page and pays. */
-export async function payCardOnHostedPage(page: Page, card: string): Promise<void> {
-  const frame = page.frameLocator('iframe[title="monei_card_input"]');
-  await page.getByTestId("cardholder-name-input").fill("Ana Garcia");
+/** Types a test card into a MONEI card input frame (hosted page or monei.js CardInput). */
+async function fillCardFrame(frame: FrameLocator, card: string): Promise<void> {
   for (const [testId, text] of [
     ["card-number-input", card],
     ["expiry-date-input", "1234"],
@@ -86,7 +84,28 @@ export async function payCardOnHostedPage(page: Page, card: string): Promise<voi
     await input.pressSequentially(text, { delay: 40 });
   }
   await expect(frame.getByTestId("expiry-date-input")).toHaveValue("12 / 34");
+}
+
+/** Fills the card form of the MONEI hosted page and pays. */
+export async function payCardOnHostedPage(page: Page, card: string): Promise<void> {
+  await page.getByTestId("cardholder-name-input").fill("Ana Garcia");
+  await fillCardFrame(page.frameLocator('iframe[title="monei_card_input"]'), card);
   await page.getByTestId("pay-button").click();
+}
+
+/** "Place order" on the summary page; the onsite mode renders the plugin's monei.js page. Returns the MONEI payment id. */
+export async function placeOnsiteOrder(page: Page): Promise<string> {
+  await page.locator("#confirmation-button").click();
+  const form = page.locator("#monei-onsite");
+  await expect(form).toBeAttached({ timeout: 60_000 });
+  return (await form.getAttribute("data-payment-id"))!;
+}
+
+/** Fills the plugin's onsite card form (cardholder name and monei.js CardInput) and pays. */
+export async function payCardOnsite(page: Page, card: string, cardholderName: string): Promise<void> {
+  await page.locator("#monei-cardholder-name").fill(cardholderName);
+  await fillCardFrame(page.frameLocator('#monei-card-input iframe[title="monei_card_input"]'), card);
+  await page.locator("#monei-onsite").getByRole("button", { name: "Pay" }).click();
 }
 
 /** Bizum on the hosted page: phone, then pay; the test processor approves on its own. */
@@ -95,11 +114,45 @@ export async function payBizumOnHostedPage(page: Page): Promise<void> {
   await page.getByTestId("bizum-pay-button").click();
 }
 
+/**
+ * The monei.js Bizum button, then phone and pay in its modal. The modal's script resets an
+ * early value: type and read back (from the Medusa plugin's e2e).
+ */
+export async function payBizumOnsite(page: Page): Promise<void> {
+  const button = page.frameLocator('#monei-component iframe[title="monei_bizum_button"]').getByTestId("bizum-button");
+  await expect(button, "the Bizum component mounted").toBeVisible({ timeout: 60_000 });
+  await button.click();
+  const modal = page.frameLocator('iframe[title="monei_bizum"]');
+  const phone = modal.getByTestId("bizum-phone-input");
+  const digits = (value: string) => value.replace(/\D/g, "");
+  await expect(async () => {
+    await phone.fill("");
+    await phone.pressSequentially(BIZUM_PHONE, { delay: 30 });
+    expect(digits(await phone.inputValue())).toBe(digits(BIZUM_PHONE));
+  }).toPass({ timeout: 30_000 });
+  await modal.getByTestId("bizum-pay-button").click();
+}
+
 /** Answers MONEI's 3DS simulator. Strict: fails when no challenge shows. */
 export async function answerThreeDsChallenge(page: Page, outcome: "complete" | "fail"): Promise<void> {
   const button = page.getByTestId(`${outcome}-button`);
   await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: 60_000 });
   await button.click();
+}
+
+/**
+ * Answers the 3DS challenge that monei.js shows in its payment modal, two cross-origin frames
+ * down, where synthetic clicks do not arrive: focus and Enter (from the Medusa plugin's e2e).
+ * Strict: fails when no challenge shows.
+ */
+export async function answerOnsiteThreeDs(page: Page, outcome: "complete" | "fail"): Promise<void> {
+  const button = page
+    .frameLocator('iframe[title="monei_payment_modal"]')
+    .frameLocator("iframe")
+    .getByTestId(`${outcome}-button`);
+  await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: 60_000 });
+  await button.focus();
+  await page.keyboard.press("Enter");
 }
 
 export async function expectThankYou(page: Page): Promise<void> {

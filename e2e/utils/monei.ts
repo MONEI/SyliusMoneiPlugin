@@ -14,6 +14,7 @@ export type MoneiPayment = {
   currency: string;
   orderId: string;
   traceDetails?: { userAgent?: string };
+  paymentMethod?: { card?: { cardholderName?: string } };
 };
 
 async function moneiGet<T>(path: string): Promise<T> {
