@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
+use Monei\SyliusPlugin\ApplePay\DomainAssociationController;
+use Monei\SyliusPlugin\ApplePay\RegisterDomainOnSaveListener;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
@@ -149,6 +151,19 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('monolog.logger.monei'),
         ])
         ->tag('kernel.event_listener', ['event' => 'workflow.sylius_order.transition.cancel']);
+
+    $services->set(DomainAssociationController::class)
+        ->tag('controller.service_arguments');
+
+    // The resource controller dispatches these after the flush, so a MONEI refusal never blocks the save.
+    $services->set(RegisterDomainOnSaveListener::class)
+        ->args([
+            service(MoneiApiFactory::class),
+            service('request_stack'),
+            service('monolog.logger.monei'),
+        ])
+        ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])
+        ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_update']);
 
     /** @var array<string, class-string> $bundles */
     $bundles = $builder->getParameter('kernel.bundles');

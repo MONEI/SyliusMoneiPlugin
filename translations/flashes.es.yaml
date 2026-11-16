@@ -1,4 +1,6 @@
 monei:
+    apple_pay:
+        domain_not_registered: 'MONEI no registró %domain% para Apple Pay (%reason%). Apple Pay no se muestra en ese dominio hasta que esté registrado. Guarda el método de pago otra vez para reintentarlo.'
     payment:
         in_progress: 'Un pago de este pedido sigue en curso. Complétalo o espera a que caduque.'
     order:

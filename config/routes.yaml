@@ -1,0 +1,4 @@
+monei_sylius_apple_pay_domain_association:
+    path: /.well-known/apple-developer-merchantid-domain-association
+    methods: [GET]
+    controller: Monei\SyliusPlugin\ApplePay\DomainAssociationController
