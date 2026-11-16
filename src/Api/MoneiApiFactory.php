@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Api;
 
-use GuzzleHttp\ClientInterface;
 use Monei\Api\ApplePayDomainApi;
 use Monei\Api\PaymentsApi;
 use Monei\Configuration;
+use Monei\Internal\GuzzleHttp\ClientInterface;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 

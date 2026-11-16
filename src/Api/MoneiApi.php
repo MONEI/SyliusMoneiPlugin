@@ -28,41 +28,51 @@ final readonly class MoneiApi
     /** @throws ApiException */
     public function createPayment(CreatePaymentRequest $request): Payment
     {
-        return $this->payments->create($request);
+        return self::payment($this->payments->create($request));
     }
 
     /** @throws ApiException */
     public function getPayment(string $id): Payment
     {
-        return $this->payments->get($id);
+        return self::payment($this->payments->get($id));
     }
 
     /** Captures the full authorized amount. @throws ApiException */
     public function capturePayment(string $id): Payment
     {
-        return $this->payments->capture($id, new CapturePaymentRequest());
+        return self::payment($this->payments->capture($id, new CapturePaymentRequest()));
     }
 
     /** @throws ApiException */
     public function cancelPayment(string $id): Payment
     {
-        return $this->payments->cancel($id, new CancelPaymentRequest([
+        return self::payment($this->payments->cancel($id, new CancelPaymentRequest([
             'cancellation_reason' => PaymentCancellationReason::REQUESTED_BY_CUSTOMER,
-        ]));
+        ])));
     }
 
     /** @param int $amount minor units @throws ApiException */
     public function refundPayment(string $id, int $amount): Payment
     {
-        return $this->payments->refund($id, new RefundPaymentRequest([
+        return self::payment($this->payments->refund($id, new RefundPaymentRequest([
             'amount' => $amount,
             'refund_reason' => PaymentRefundReason::REQUESTED_BY_CUSTOMER,
-        ]));
+        ])));
     }
 
     /** @throws ApiException */
     public function registerApplePayDomain(string $domain): void
     {
         $this->applePayDomain->register(new RegisterApplePayDomainRequest(['domain_name' => $domain]));
+    }
+
+    /** The SDK returns an error model instead of throwing only for a client without the `http_errors` middleware. */
+    private static function payment(object $result): Payment
+    {
+        if (!$result instanceof Payment) {
+            throw new \UnexpectedValueException(sprintf('MONEI answered %s instead of a payment.', $result::class));
+        }
+
+        return $result;
     }
 }
