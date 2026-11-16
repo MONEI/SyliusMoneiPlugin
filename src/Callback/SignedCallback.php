@@ -54,6 +54,6 @@ final readonly class SignedCallback
             return false;
         }
 
-        return hash_equals(hash_hmac('sha256', $timestamp . '.' . $body, $apiKey), $signature);
+        return hash_equals(hash_hmac('sha256', $timestamp.'.'.$body, $apiKey), $signature);
     }
 }
