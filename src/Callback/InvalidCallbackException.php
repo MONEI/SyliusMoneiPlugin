@@ -6,7 +6,7 @@ namespace Monei\SyliusPlugin\Callback;
 
 use Symfony\Component\HttpFoundation\Response;
 
-/** A callback that changes nothing. CallbackExceptionListener answers it with $httpStatus. */
+/** A callback that changes nothing. MoneiExceptionListener answers it with $httpStatus. */
 final class InvalidCallbackException extends \RuntimeException
 {
     private function __construct(string $message, public readonly int $httpStatus)

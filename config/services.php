@@ -5,9 +5,12 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
+use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
+use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
+use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
@@ -94,4 +97,22 @@ return static function (ContainerConfigurator $container): void {
             service('monolog.logger.monei'),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
+
+    $services->set(MoneiNotifyPaymentProvider::class)
+        ->args([service('sylius.repository.payment')])
+        ->tag('sylius.payment_request.payment_notify_provider');
+
+    $services->set(NotifyPaymentRequestHandler::class)
+        ->args([
+            service('sylius.repository.payment_request'),
+            service(PaymentLock::class),
+            service(MoneiApiFactory::class),
+            service(StatusApplier::class),
+            service('sylius_abstraction.state_machine'),
+        ])
+        ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
+
+    $services->set(MoneiExceptionListener::class)
+        ->args([service('monolog.logger.monei')])
+        ->tag('kernel.event_listener', ['event' => 'kernel.exception']);
 };

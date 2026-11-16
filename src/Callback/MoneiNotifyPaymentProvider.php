@@ -5,23 +5,25 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Callback;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
-use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Sylius\Bundle\PaymentBundle\Provider\NotifyPaymentProviderInterface;
+use Sylius\Component\Core\Model\PaymentInterface as CorePaymentInterface;
+use Sylius\Component\Core\Repository\PaymentRepositoryInterface;
 use Sylius\Component\Payment\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
-use Sylius\Component\Payment\Repository\PaymentRepositoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Finds the Sylius payment of a MONEI callback on `/payment-methods/{code}?payment=<id>`,
- * the callback URL the plugin sets on every MONEI payment.
+ * the callback URL the plugin sets on every MONEI payment. A payment that now uses another
+ * method, or has no bound MONEI payment, still goes to the handler: a paid old MONEI
+ * payment must be reported.
  */
 final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProviderInterface
 {
     public const PAYMENT_QUERY = 'payment';
 
-    /** @param PaymentRepositoryInterface<PaymentInterface> $paymentRepository */
+    /** @param PaymentRepositoryInterface<CorePaymentInterface> $paymentRepository */
     public function __construct(private PaymentRepositoryInterface $paymentRepository)
     {
     }
@@ -49,23 +51,13 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
         );
 
         $paymentId = $request->query->get(self::PAYMENT_QUERY);
-        if (!is_string($paymentId) || 1 !== preg_match('/^\d+$/', $paymentId)) {
-            throw InvalidCallbackException::refused(sprintf('the callback URL has no "%s" parameter; only the callback URL the plugin sets on each payment is supported', self::PAYMENT_QUERY));
+        if (!\is_string($paymentId) || 1 !== preg_match('/^\d+$/D', $paymentId)) {
+            throw InvalidCallbackException::refused(\sprintf('the callback URL has no "%s" parameter; only the callback URL the plugin sets on each payment is supported', self::PAYMENT_QUERY));
         }
 
-        $payment = $this->paymentRepository->find($paymentId);
+        $payment = $this->paymentRepository->find((int) $paymentId);
         if (!$payment instanceof PaymentInterface) {
-            throw InvalidCallbackException::ignored(sprintf('Sylius payment %s does not exist (MONEI payment %s)', $paymentId, $callback->paymentId));
-        }
-
-        if ($payment->getMethod() !== $paymentMethod) {
-            throw InvalidCallbackException::ignored(sprintf('Sylius payment %s no longer uses payment method "%s" (MONEI payment %s)', $paymentId, (string) $paymentMethod->getCode(), $callback->paymentId));
-        }
-
-        // A payment whose MONEI payment was replaced keeps going: the handler fetches the
-        // signed payment and reports it when it holds money.
-        if (null === MoneiDetails::paymentId($payment)) {
-            throw InvalidCallbackException::ignored(sprintf('Sylius payment %s has no MONEI payment (MONEI payment %s)', $paymentId, $callback->paymentId));
+            throw InvalidCallbackException::ignored(\sprintf('Sylius payment %s does not exist (MONEI payment %s)', $paymentId, $callback->paymentId));
         }
 
         return $payment;
