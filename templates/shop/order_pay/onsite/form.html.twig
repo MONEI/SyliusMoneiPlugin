@@ -1,0 +1,26 @@
+{% set monei = hookable_metadata.context.monei %}
+
+<h1 class="h2 mb-4">{{ 'monei.ui.onsite.title'|trans }}</h1>
+
+<form
+    id="monei-onsite"
+    data-component="{{ monei.component }}"
+    data-payment-id="{{ monei.payment_id }}"
+    data-transaction-type="{{ monei.transaction_type }}"
+    data-after-pay-url="{{ monei.after_pay_url }}"
+    data-cardholder-name-required="{{ 'monei.ui.onsite.cardholder_name_required'|trans }}"
+    novalidate
+>
+    {% if monei.component == 'card' %}
+        <div class="mb-3">
+            <label class="form-label" for="monei-cardholder-name">{{ 'monei.ui.onsite.cardholder_name'|trans }}</label>
+            <input class="form-control" id="monei-cardholder-name" name="cardholder_name" autocomplete="cc-name" required>
+        </div>
+        <div class="mb-3" id="monei-card-input"></div>
+        <button class="btn btn-primary" type="submit">{{ 'monei.ui.onsite.pay'|trans }}</button>
+    {% else %}
+        {# Not id="monei-paypal": element ids are window properties, and the PayPal SDK reads window["monei-paypal"]. #}
+        <div id="monei-component"></div>
+    {% endif %}
+    <div class="text-danger mt-3" id="monei-onsite-error" role="alert"></div>
+</form>

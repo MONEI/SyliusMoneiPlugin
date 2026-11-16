@@ -35,7 +35,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Runs on every visit of `/pay/{hash}` for a non-final capture or authorize request:
- * creates the MONEI payment, or reuses the PENDING one, and stores its redirect URL.
+ * creates the MONEI payment, or reuses the PENDING one, and stores where the buyer pays it.
  * An expected failure returns normally: a throw would roll back the failed state.
  */
 final readonly class CapturePaymentRequestHandler
@@ -255,7 +255,13 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        $paymentRequest->setResponseData(['redirect_url' => (string) $nextAction?->getRedirectUrl()]);
+        // MONEI refuses a second confirm, so a payment past its confirm (an abandoned 3DS) resumes on its redirect URL.
+        if (PaymentNextAction::TYPE_CONFIRM === $nextAction?->getType()
+            && GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod())->onsite) {
+            $paymentRequest->setResponseData(['onsite' => true, 'monei_payment_id' => (string) $moneiPayment->getId()]);
+        } else {
+            $paymentRequest->setResponseData(['redirect_url' => (string) $nextAction?->getRedirectUrl()]);
+        }
         // A processing request keeps the payment amount against cart changes (Sylius 2.2.9+).
         if (PaymentRequestInterface::STATE_NEW === $paymentRequest->getState()) {
             $this->apply($paymentRequest, PaymentRequestTransitions::GRAPH, PaymentRequestTransitions::TRANSITION_PROCESS);

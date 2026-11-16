@@ -1,0 +1,9 @@
+sylius_twig_hooks:
+    hooks:
+        'monei.shop.order_pay.onsite':
+            form:
+                template: '@MoneiSyliusPlugin/shop/order_pay/onsite/form.html.twig'
+                priority: 100
+            script:
+                template: '@MoneiSyliusPlugin/shop/order_pay/onsite/script.html.twig'
+                priority: 0

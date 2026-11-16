@@ -8,6 +8,12 @@ monei:
         apple_google_pay: Apple Pay / Google Pay
         mbway: MB WAY
         multibanco: Multibanco
+    ui:
+        onsite:
+            title: Paga tu pedido
+            cardholder_name: Titular de la tarjeta
+            cardholder_name_required: Introduce el nombre del titular de la tarjeta.
+            pay: Pagar
     form:
         gateway_configuration:
             api_key: Clave API

@@ -8,6 +8,12 @@ monei:
         apple_google_pay: Apple Pay / Google Pay
         mbway: MB WAY
         multibanco: Multibanco
+    ui:
+        onsite:
+            title: Pay your order
+            cardholder_name: Cardholder name
+            cardholder_name_required: Enter the cardholder name.
+            pay: Pay
     form:
         gateway_configuration:
             api_key: API key

@@ -69,6 +69,10 @@ return static function (ContainerConfigurator $container): void {
         ->tag('sylius.payment_request.command_provider', ['gateway_factory' => 'monei']);
 
     $services->set(MoneiHttpResponseProvider::class)
+        ->args([
+            service('twig'),
+            service('sylius_shop.provider.order_pay.after_pay_url'),
+        ])
         ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
 
     $services->set(CapturePaymentRequestHandler::class)

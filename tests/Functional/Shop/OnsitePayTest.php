@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Monei\SyliusPlugin\Tests\Functional\Shop;
+
+use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
+use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
+use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Response;
+
+/** The onsite order-pay page as rendered; its monei.js script runs only in the e2e suite. */
+final class OnsitePayTest extends MoneiTestCase
+{
+    public function testTheCardPageHasACardholderNameInputAndLoadsMoneiJs(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'card']);
+
+        self::assertCount(1, $page->filterXPath('//form[@id="monei-onsite"]//input[@name="cardholder_name"]'));
+        self::assertSame(['https://js.monei.com/v3/monei.js'], $page->filterXPath('//script[contains(@src, "monei")]')->extract(['src']));
+    }
+
+    public function testPayPalWithUseAuthorizePassesTransactionTypeAuth(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'paypal', 'use_authorize' => true]);
+
+        self::assertSame('AUTH', $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-transaction-type'));
+    }
+
+    public function testThePayPalPageHasNoElementWithTheIdMoneiPaypal(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'paypal']);
+
+        self::assertSame('paypal', $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-component'));
+        self::assertCount(0, $page->filterXPath('//*[@id="monei-paypal"]'));
+    }
+
+    public function testThePageCarriesThePaymentIdAndTheAfterPayUrlButNotTheApiKey(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['mode' => 'onsite']));
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+
+        $payUrl = $this->startPay($order);
+        $page = $this->client->request('GET', $payUrl);
+
+        $form = $page->filterXPath('//form[@id="monei-onsite"]');
+        self::assertSame(
+            ['pay_1', '/en_US/order/after-pay/'.self::hash($payUrl)],
+            [$form->attr('data-payment-id'), $form->attr('data-after-pay-url')],
+        );
+        self::assertStringNotContainsString(self::API_KEY, (string) $this->client->getResponse()->getContent());
+    }
+
+    /** MONEI refuses a second confirm: a buyer back from an abandoned 3DS must resume it, not get the page again. */
+    public function testPayingAgainOnAChallengedPaymentRedirectsToTheChallenge(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['mode' => 'onsite']));
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $this->pay($order);
+
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING', nextAction: ['type' => 'CHALLENGE', 'redirectUrl' => 'https://secure.monei.com/payments/pay_1/challenge']));
+        $this->pay($order);
+
+        self::assertRedirectsTo('https://secure.monei.com/payments/pay_1/challenge', Response::HTTP_SEE_OTHER);
+    }
+
+    /** @param array<string, mixed> $config */
+    private function payOnsite(array $config): Crawler
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_ONSITE', ['mode' => 'onsite'] + $config));
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+
+        $page = $this->client->request('GET', $this->startPay($order));
+        self::assertResponseIsSuccessful();
+
+        return $page;
+    }
+}

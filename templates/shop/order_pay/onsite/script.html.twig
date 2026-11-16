@@ -1,0 +1,63 @@
+<script src="https://js.monei.com/v3/monei.js"></script>
+<script>
+    (function () {
+        var form = document.getElementById('monei-onsite');
+        var data = form.dataset;
+        var errorBox = document.getElementById('monei-onsite-error');
+
+        function showError(message) {
+            errorBox.textContent = message || '';
+        }
+
+        // Sylius reads the outcome from MONEI on the after-pay URL, whatever the confirm returns or throws.
+        function confirm(params) {
+            params.paymentId = data.paymentId;
+            var leave = function () { window.location.assign(data.afterPayUrl); };
+            monei.confirmPayment(params).then(leave, leave);
+        }
+
+        function onError(error) {
+            showError(error && error.message ? error.message : String(error));
+        }
+
+        if ('card' !== data.component) {
+            var props = {
+                paymentId: data.paymentId,
+                onSubmit: function (result) {
+                    result.token ? confirm({ paymentToken: result.token }) : showError(result.error);
+                },
+                onError: onError
+            };
+            if ('paypal' === data.component) {
+                props.transactionType = data.transactionType;
+            }
+            ({ bizum: monei.Bizum, paypal: monei.PayPal, payment_request: monei.PaymentRequest })[data.component](props).render('#monei-component');
+
+            return;
+        }
+
+        var card = monei.CardInput({ paymentId: data.paymentId, onChange: function (event) { showError(event.error); } });
+        card.render('#monei-card-input');
+        var button = form.querySelector('button[type=submit]');
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            var cardholderName = form.elements.cardholder_name.value.trim();
+            if ('' === cardholderName) {
+                showError(data.cardholderNameRequired);
+                return;
+            }
+            button.disabled = true;
+            card.submit().then(function (result) {
+                if (!result.token) {
+                    button.disabled = false;
+                    showError(result.error);
+                    return;
+                }
+                confirm({ paymentToken: result.token, paymentMethod: { card: { cardholderName: cardholderName } } });
+            }, function (error) {
+                button.disabled = false;
+                onError(error);
+            });
+        });
+    })();
+</script>

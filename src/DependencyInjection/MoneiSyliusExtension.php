@@ -24,10 +24,12 @@ final class MoneiSyliusExtension extends Extension implements PrependExtensionIn
     {
         $container->prependExtensionConfig('monolog', ['channels' => ['monei']]);
 
-        $twigHooks = \dirname(__DIR__, 2).'/config/twig_hooks/admin.yaml';
-        $container->addResource(new FileResource($twigHooks));
-        /** @var array{sylius_twig_hooks: array<string, mixed>} $config */
-        $config = Yaml::parseFile($twigHooks);
-        $container->prependExtensionConfig('sylius_twig_hooks', $config['sylius_twig_hooks']);
+        foreach (['admin', 'shop'] as $section) {
+            $twigHooks = \dirname(__DIR__, 2).'/config/twig_hooks/'.$section.'.yaml';
+            $container->addResource(new FileResource($twigHooks));
+            /** @var array{sylius_twig_hooks: array<string, mixed>} $config */
+            $config = Yaml::parseFile($twigHooks);
+            $container->prependExtensionConfig('sylius_twig_hooks', $config['sylius_twig_hooks']);
+        }
     }
 }
