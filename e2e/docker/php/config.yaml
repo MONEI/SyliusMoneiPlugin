@@ -76,21 +76,15 @@ sylius_fixtures:
                                 taxons: ['e2e']
                                 channels: ['E2E']
                                 tracked: false
-                admin_user:
-                    options:
-                        custom:
-                            -   email: 'admin@monei-e2e.test'
-                                username: 'admin'
-                                password: 'admin'
-                                enabled: true
-                                locale_code: 'en_US'
 
 when@prod:
     # The test application's prod config wraps these pools in Symfony\Component\Cache\DoctrineProvider,
     # which current symfony/cache no longer has; Doctrine takes the PSR-6 pools directly.
-    services:
-        doctrine.result_cache_provider: '@doctrine.result_cache_pool'
-        doctrine.system_cache_provider: '@doctrine.system_cache_pool'
+    doctrine:
+        orm:
+            metadata_cache_driver: { type: pool, pool: doctrine.system_cache_pool }
+            query_cache_driver: { type: pool, pool: doctrine.system_cache_pool }
+            result_cache_driver: { type: pool, pool: doctrine.result_cache_pool }
 
     monolog:
         handlers:

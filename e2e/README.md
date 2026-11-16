@@ -29,8 +29,8 @@ pnpm --dir e2e e2e:stop    # remove the stack and close the tunnel
 Each run seeds its own MONEI `order_id_prefix`, because MONEI's duplicate check on the order ID
 never expires. Generated values (store URL, prefix, payment method names) go to `e2e/.generated/`.
 
-The local store answers on http://localhost:18080. The admin is at `/admin`
-(`admin` / `admin`).
+The local store answers on http://localhost:18080. The store has no admin user: the tunnel makes
+every page public, and the admin payment method form shows the API key.
 
 ## Secrets
 

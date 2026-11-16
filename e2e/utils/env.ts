@@ -8,7 +8,8 @@ const GENERATED_DIR = resolve(E2E_DIR, ".generated");
 const STORE_URL_FILE = resolve(GENERATED_DIR, "store-url");
 const FIXTURES_FILE = resolve(GENERATED_DIR, "fixtures.json");
 
-// CI exports the key; locally it lives in e2e/.env.
+// e2e/.env is the only source the seed container reads, so CI writes it too. An exported
+// variable wins here.
 if (existsSync(resolve(E2E_DIR, ".env"))) process.loadEnvFile(resolve(E2E_DIR, ".env"));
 
 /** Trimmed: a secret pasted into a CI store often carries a trailing newline. */
