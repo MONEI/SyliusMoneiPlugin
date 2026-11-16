@@ -27,6 +27,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
     public function testCurrencyWithoutTwoDecimalsIsRefused(): void
     {
         $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('"JPY"');
 
         self::create(currency: 'JPY');
     }
@@ -59,6 +60,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
     public function testOrderNumberMoneiRefusesIsRefusedBeforeAnyCall(): void
     {
         $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('order ID "000 123"');
 
         self::create(orderNumber: '000 123');
     }
