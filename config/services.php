@@ -5,8 +5,13 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
+use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
+use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
+use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
+use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
+use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
 use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
@@ -41,4 +46,40 @@ return static function (ContainerConfigurator $container): void {
             service(SyncContext::class),
             service('monolog.logger.monei'),
         ]);
+
+    $services->set(BoundPaymentAccess::class)
+        ->args([
+            service('sylius.repository.payment_method'),
+            service(MoneiApiFactory::class),
+            service('monolog.logger.monei'),
+        ]);
+
+    $services->set(CreatePaymentRequestFactory::class)
+        ->args([
+            service('request_stack'),
+            service('clock'),
+            '%sylius_order.order_expiration_period%',
+        ]);
+
+    $services->set(MoneiCommandProvider::class)
+        ->tag('sylius.payment_request.command_provider', ['gateway_factory' => 'monei']);
+
+    $services->set(MoneiHttpResponseProvider::class)
+        ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
+
+    $services->set(CapturePaymentRequestHandler::class)
+        ->args([
+            service('sylius.repository.payment_request'),
+            service(PaymentLock::class),
+            service(BoundPaymentAccess::class),
+            service(MoneiApiFactory::class),
+            service(CreatePaymentRequestFactory::class),
+            service(StatusApplier::class),
+            service('sylius_abstraction.state_machine'),
+            service('sylius_shop.provider.order_pay.after_pay_url'),
+            service('router'),
+            service('request_stack'),
+            service('monolog.logger.monei'),
+        ])
+        ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 };

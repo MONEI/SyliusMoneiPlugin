@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Sylius\Component\Core\Model\Order;
 use Sylius\Component\Core\Model\Payment;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\RequestStack;
 
 final class CreatePaymentRequestFactoryTest extends TestCase
@@ -106,7 +107,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
             'mode' => 'hosted',
         ]);
 
-        return (new CreatePaymentRequestFactory(new RequestStack()))
+        return (new CreatePaymentRequestFactory(new RequestStack(), new MockClock(), '5 days'))
             ->create($payment, $configuration, 'https://shop.test/after-pay', 'https://shop.test/callback');
     }
 }

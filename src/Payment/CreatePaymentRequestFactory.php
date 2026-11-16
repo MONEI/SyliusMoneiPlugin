@@ -13,6 +13,7 @@ use Monei\Model\PaymentShippingDetails;
 use Monei\Model\PaymentTransactionType;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
+use Psr\Clock\ClockInterface;
 use Sylius\Component\Core\Model\AddressInterface;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
@@ -21,8 +22,15 @@ use Symfony\Component\Intl\Currencies;
 
 final readonly class CreatePaymentRequestFactory
 {
-    public function __construct(private RequestStack $requestStack)
-    {
+    private const MIN_LIFETIME = 3600;
+    private const MAX_LIFETIME = 7 * 86400;
+
+    /** @param string $orderExpirationPeriod `%sylius_order.order_expiration_period%`, for example "5 days" */
+    public function __construct(
+        private RequestStack $requestStack,
+        private ClockInterface $clock,
+        private string $orderExpirationPeriod,
+    ) {
     }
 
     /**
@@ -65,6 +73,7 @@ final readonly class CreatePaymentRequestFactory
             'callback_url' => $callbackUrl,
             'allowed_payment_methods' => $configuration->method->allowedPaymentMethods(),
             'transaction_type' => $configuration->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE,
+            'expire_at' => $this->expireAt($order),
         ]);
 
         $customer = $order->getCustomer();
@@ -116,6 +125,20 @@ final readonly class CreatePaymentRequestFactory
         }
 
         return $orderId;
+    }
+
+    /**
+     * One hour before the unpaid-orders command may cancel the order, so MONEI expires the
+     * payment first. MONEI refuses a past expireAt, and its own default is 7 days.
+     */
+    private function expireAt(OrderInterface $order): int
+    {
+        $now = $this->clock->now();
+        $expireAt = \DateTimeImmutable::createFromInterface($order->getCheckoutCompletedAt() ?? $now)
+            ->modify('+'.$this->orderExpirationPeriod)
+            ->getTimestamp() - 3600;
+
+        return max($now->getTimestamp() + self::MIN_LIFETIME, min($now->getTimestamp() + self::MAX_LIFETIME, $expireAt));
     }
 
     private function description(OrderInterface $order): string

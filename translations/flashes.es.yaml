@@ -1,0 +1,3 @@
+monei:
+    payment:
+        in_progress: 'Un pago de este pedido sigue en curso. Complétalo o espera a que caduque.'
