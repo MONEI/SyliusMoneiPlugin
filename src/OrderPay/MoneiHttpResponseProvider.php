@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\OrderPay;
 
+use Monei\Model\PaymentTransactionType;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
-use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Sylius\Bundle\CoreBundle\OrderPay\Provider\UrlProviderInterface;
 use Sylius\Bundle\PaymentBundle\Provider\HttpResponseProviderInterface;
 use Sylius\Bundle\ResourceBundle\Controller\RequestConfiguration;
@@ -56,15 +56,10 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
             'order' => $payment->getOrder(),
             'monei' => [
                 'payment_id' => $moneiPaymentId,
-                'component' => match ($configuration->method) {
-                    MoneiMethod::Card => 'card',
-                    MoneiMethod::Bizum => 'bizum',
-                    MoneiMethod::PayPal => 'paypal',
-                    MoneiMethod::AppleGooglePay => 'payment_request',
-                    MoneiMethod::MbWay, MoneiMethod::Multibanco => throw new \LogicException(\sprintf('MONEI %s has no onsite mode.', $configuration->method->value)),
-                },
+                'component' => $configuration->method->onsiteComponent()
+                    ?? throw new \LogicException(\sprintf('MONEI %s has no onsite mode.', $configuration->method->value)),
                 // monei.js loads PayPal for a capture unless it gets AUTH, and a capture cannot pay an AUTH payment.
-                'transaction_type' => $configuration->authorize ? 'AUTH' : 'SALE',
+                'transaction_type' => $configuration->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE,
                 'after_pay_url' => $this->afterPayUrlProvider->getUrl($paymentRequest),
             ],
         ]));

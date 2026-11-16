@@ -10,11 +10,11 @@ use Sylius\Bundle\CoreBundle\SyliusCoreBundle;
 /** `MONEI/Sylius/<plugin> (Sylius v<x>; PHP v<y>)`, the format of the other MONEI plugins. */
 final class UserAgent
 {
-    public const PACKAGE = 'monei/sylius-monei-plugin';
+    private const PACKAGE = 'monei/sylius-monei-plugin';
 
     public static function build(?string $pluginVersion, string $syliusVersion, string $phpVersion): string
     {
-        return sprintf(
+        return \sprintf(
             'MONEI/Sylius/%s (Sylius v%s; PHP v%s)',
             self::semver($pluginVersion),
             self::semver($syliusVersion),

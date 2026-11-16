@@ -39,7 +39,7 @@ final readonly class GatewayConfiguration
     {
         $gatewayConfig = $paymentMethod->getGatewayConfig();
         if (!$gatewayConfig instanceof GatewayConfigInterface || self::FACTORY_NAME !== $gatewayConfig->getFactoryName()) {
-            throw new \InvalidArgumentException(sprintf('Payment method "%s" is not a MONEI payment method.', (string) $paymentMethod->getCode()));
+            throw new \InvalidArgumentException(\sprintf('Payment method "%s" is not a MONEI payment method.', (string) $paymentMethod->getCode()));
         }
 
         return self::fromArray($gatewayConfig->getConfig());
@@ -72,13 +72,13 @@ final readonly class GatewayConfiguration
         }
         $onsite = self::MODE_ONSITE === $mode;
         if ($onsite && !$method->supportsOnsite()) {
-            throw new InvalidGatewayConfigurationException(self::MODE, 'monei.gateway_configuration.mode.hosted_only', sprintf('MONEI %s has no onsite mode.', $method->value));
+            throw new InvalidGatewayConfigurationException(self::MODE, 'monei.gateway_configuration.mode.hosted_only', \sprintf('MONEI %s has no onsite mode.', $method->value));
         }
 
         // Truthy, as Sylius's DefaultActionProvider reads it to pick the `authorize` action.
         $authorize = (bool) ($config[self::USE_AUTHORIZE] ?? false);
         if ($authorize && !$method->supportsAuthorize()) {
-            throw new InvalidGatewayConfigurationException(self::USE_AUTHORIZE, 'monei.gateway_configuration.use_authorize.not_supported', sprintf('MONEI %s cannot authorize; it always charges at once.', $method->value));
+            throw new InvalidGatewayConfigurationException(self::USE_AUTHORIZE, 'monei.gateway_configuration.use_authorize.not_supported', \sprintf('MONEI %s cannot authorize; it always charges at once.', $method->value));
         }
 
         $orderIdPrefix = $config[self::ORDER_ID_PREFIX] ?? '';

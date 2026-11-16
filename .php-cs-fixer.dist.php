@@ -12,6 +12,7 @@ return (new PhpCsFixer\Config())
         '@Symfony' => true,
         'array_syntax' => ['syntax' => 'short'],
         'declare_strict_types' => true,
+        'native_function_invocation' => ['include' => ['@compiler_optimized'], 'scope' => 'namespaced', 'strict' => true],
         'no_unused_imports' => true,
         'ordered_imports' => ['sort_algorithm' => 'alpha'],
         'single_line_throw' => false,

@@ -7,11 +7,13 @@ namespace Monei\SyliusPlugin\EventListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Monei\SyliusPlugin\Callback\InvalidCallbackException;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
+use Monei\SyliusPlugin\Http\ApiRequest;
+use Monei\SyliusPlugin\Http\Flash;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -28,6 +30,7 @@ final readonly class MoneiExceptionListener
         private EntityManagerInterface $entityManager,
         private TranslatorInterface $translator,
         private UrlGeneratorInterface $urlGenerator,
+        private RequestStack $requestStack,
     ) {
     }
 
@@ -83,10 +86,7 @@ final readonly class MoneiExceptionListener
             return;
         }
 
-        $session = $request->hasSession() ? $request->getSession() : null;
-        if ($session instanceof FlashBagAwareSessionInterface) {
-            $session->getFlashBag()->add('error', ['message' => $refusal->getMessage(), 'parameters' => $refusal->parameters]);
-        }
+        Flash::add($this->requestStack, 'error', ['message' => $refusal->getMessage(), 'parameters' => $refusal->parameters]);
         $event->setResponse(new RedirectResponse($this->urlGenerator->generate('sylius_admin_order_show', ['id' => $refusal->orderId])));
     }
 

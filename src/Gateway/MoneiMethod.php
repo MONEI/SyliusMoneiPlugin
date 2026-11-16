@@ -27,12 +27,20 @@ enum MoneiMethod: string
         };
     }
 
-    /** MB WAY and Multibanco have no monei.js component. */
     public function supportsOnsite(): bool
     {
+        return null !== $this->onsiteComponent();
+    }
+
+    /** The monei.js component of the onsite page; null for MB WAY and Multibanco, which have none. */
+    public function onsiteComponent(): ?string
+    {
         return match ($this) {
-            self::MbWay, self::Multibanco => false,
-            default => true,
+            self::Card => 'card',
+            self::Bizum => 'bizum',
+            self::PayPal => 'paypal',
+            self::AppleGooglePay => 'payment_request',
+            self::MbWay, self::Multibanco => null,
         };
     }
 

@@ -26,7 +26,7 @@ final readonly class MoneiApi
     public const REFUNDABLE = [PaymentStatus::SUCCEEDED, PaymentStatus::PARTIALLY_REFUNDED];
 
     /** The code of the ApiException for a payment answer the SDK cannot read. */
-    public const UNREADABLE_ANSWER = 502;
+    private const UNREADABLE_ANSWER = 502;
 
     public function __construct(
         private PaymentsApi $payments,
@@ -129,7 +129,7 @@ final readonly class MoneiApi
             throw new ApiException('MONEI answered a payment the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
         }
         if (!$result instanceof Payment) {
-            throw new \UnexpectedValueException(sprintf('MONEI answered %s instead of a payment.', $result::class));
+            throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of a payment.', $result::class));
         }
 
         return $result;

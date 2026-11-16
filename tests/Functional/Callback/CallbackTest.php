@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Tests\Functional\Callback;
 
 use Monei\Internal\Psr\Http\Message\RequestInterface;
-use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Monolog\Level;
@@ -27,7 +26,7 @@ final class CallbackTest extends MoneiTestCase
     public function testAnUnsignedCallbackIsRefusedWithoutAMoneiCall(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order), null);
 
@@ -40,7 +39,7 @@ final class CallbackTest extends MoneiTestCase
     public function testASignedSucceededCallbackCompletesThePayment(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
@@ -68,7 +67,7 @@ final class CallbackTest extends MoneiTestCase
         $methodB = $this->createMoneiPaymentMethod('MONEI_CARD_B', ['api_key' => self::OTHER_API_KEY]);
         $order = $this->placeOrder($methodA);
         $this->switchMethod($order, $methodB);
-        $this->bind($order, 'pay_2', 'MONEI_CARD_B');
+        $this->bindPayment($order, 'pay_2', 'MONEI_CARD_B');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
@@ -99,7 +98,7 @@ final class CallbackTest extends MoneiTestCase
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
         $this->switchMethod($order, $this->createOfflinePaymentMethod('BANK_TRANSFER'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
@@ -114,7 +113,7 @@ final class CallbackTest extends MoneiTestCase
         $methodA = $this->createMoneiPaymentMethod('MONEI_CARD');
         $methodB = $this->createMoneiPaymentMethod('MONEI_BIZUM', ['payment_method' => 'bizum', 'api_key' => self::OTHER_API_KEY]);
         $order = $this->placeOrder($methodA);
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         $this->switchMethod($order, $methodB);
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
@@ -139,7 +138,7 @@ final class CallbackTest extends MoneiTestCase
     public function testASignedCallbackForAnUnboundMoneiPaymentFetchesTheSignedIdAndChangesNothing(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_2', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_2', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
@@ -152,7 +151,7 @@ final class CallbackTest extends MoneiTestCase
     public function testAMonei500OnTheFetchAnswers5xxSoMoneiRetries(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::error(500, 'Internal server error'));
 
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
@@ -165,7 +164,7 @@ final class CallbackTest extends MoneiTestCase
     public function testAnUnsignedReplayOfTheOpenNotifyRequestChangesNothing(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::error(500, 'Internal server error'));
         $this->postCallback('MONEI_CARD', $this->paymentId($order));
         $hash = $this->secondConnection()->fetchOne("SELECT BIN_TO_UUID(hash) FROM sylius_payment_request WHERE action = 'notify'");
@@ -182,7 +181,7 @@ final class CallbackTest extends MoneiTestCase
     public function testACallbackWaitsForThePaymentRowLock(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
         $this->holdPaymentRowLock($payment);
@@ -202,14 +201,6 @@ final class CallbackTest extends MoneiTestCase
         }
 
         $this->client->request('POST', '/payment-methods/'.$code.'?payment='.$paymentId, server: $server, content: self::BODY);
-    }
-
-    private function bind(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode): void
-    {
-        $payment = $order->getLastPayment();
-        \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode);
-        $this->entityManager()->flush();
     }
 
     private function switchMethod(OrderInterface $order, PaymentMethodInterface $paymentMethod): void

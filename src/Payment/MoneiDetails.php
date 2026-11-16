@@ -19,14 +19,14 @@ final class MoneiDetails
     {
         $id = self::read($payment)['id'] ?? null;
 
-        return is_string($id) && '' !== $id ? $id : null;
+        return \is_string($id) && '' !== $id ? $id : null;
     }
 
     public static function paymentMethodCode(PaymentInterface $payment): ?string
     {
         $code = self::read($payment)['payment_method'] ?? null;
 
-        return is_string($code) ? $code : null;
+        return \is_string($code) ? $code : null;
     }
 
     public static function bind(PaymentInterface $payment, string $moneiPaymentId, string $paymentMethodCode): void
@@ -44,6 +44,6 @@ final class MoneiDetails
     {
         $monei = $payment->getDetails()[self::KEY] ?? [];
 
-        return is_array($monei) ? $monei : [];
+        return \is_array($monei) ? $monei : [];
     }
 }

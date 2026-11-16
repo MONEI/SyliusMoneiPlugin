@@ -24,6 +24,7 @@ final readonly class CreatePaymentRequestFactory
 {
     private const MIN_LIFETIME = 3600;
     private const MAX_LIFETIME = 7 * 86400;
+    private const EXPIRY_MARGIN = 3600;
 
     /** @param string $orderExpirationPeriod `%sylius_order.order_expiration_period%`, for example "5 days" */
     public function __construct(
@@ -54,12 +55,12 @@ final readonly class CreatePaymentRequestFactory
         // Sylius stores every amount with 2 decimals. For a currency with 0 or 3 decimals
         // MONEI would read the same integer as 100 times or a tenth of the price.
         if (!Currencies::exists($currency) || 2 !== Currencies::getFractionDigits($currency)) {
-            throw new \InvalidArgumentException(sprintf('MONEI payments in Sylius support only currencies with 2 decimals, got "%s".', $currency));
+            throw new \InvalidArgumentException(\sprintf('MONEI payments in Sylius support only currencies with 2 decimals, got "%s".', $currency));
         }
 
         $amount = (int) $payment->getAmount();
         if ($amount <= 0) {
-            throw new \InvalidArgumentException(sprintf('The payment amount must be greater than 0, got %d.', $amount));
+            throw new \InvalidArgumentException(\sprintf('The payment amount must be greater than 0, got %d.', $amount));
         }
 
         $request = new CreatePaymentRequest([
@@ -121,7 +122,7 @@ final readonly class CreatePaymentRequestFactory
         }
 
         if (1 !== preg_match('/^[a-zA-Z0-9_@.\/#&+-]{1,40}$/D', $orderId)) {
-            throw new \InvalidArgumentException(sprintf('MONEI refuses the order ID "%s": use at most 40 letters, digits and _@./#&+-.', $orderId));
+            throw new \InvalidArgumentException(\sprintf('MONEI refuses the order ID "%s": use at most 40 letters, digits and _@./#&+-.', $orderId));
         }
 
         return $orderId;
@@ -136,7 +137,7 @@ final readonly class CreatePaymentRequestFactory
         $now = $this->clock->now();
         $expireAt = \DateTimeImmutable::createFromInterface($order->getCheckoutCompletedAt() ?? $now)
             ->modify('+'.$this->orderExpirationPeriod)
-            ->getTimestamp() - 3600;
+            ->getTimestamp() - self::EXPIRY_MARGIN;
 
         return max($now->getTimestamp() + self::MIN_LIFETIME, min($now->getTimestamp() + self::MAX_LIFETIME, $expireAt));
     }
@@ -146,8 +147,8 @@ final readonly class CreatePaymentRequestFactory
         $channelName = $order->getChannel()?->getName();
 
         return null !== $channelName && '' !== $channelName
-            ? sprintf('%s - #%s', $channelName, (string) $order->getNumber())
-            : sprintf('#%s', (string) $order->getNumber());
+            ? \sprintf('%s - #%s', $channelName, (string) $order->getNumber())
+            : \sprintf('#%s', (string) $order->getNumber());
     }
 
     /** @return array<string, mixed> */

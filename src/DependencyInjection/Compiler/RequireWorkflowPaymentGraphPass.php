@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 final class RequireWorkflowPaymentGraphPass implements CompilerPassInterface
 {
-    public const GRAPHS = ['sylius_payment', 'sylius_order'];
+    private const GRAPHS = ['sylius_payment', 'sylius_order'];
 
     private const WORKFLOW_ADAPTER = 'symfony_workflow';
 

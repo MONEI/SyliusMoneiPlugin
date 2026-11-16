@@ -49,7 +49,7 @@ final readonly class StatusApplier
     {
         $moneiPaymentId = (string) $moneiPayment->getId();
         $status = MoneiApi::status($moneiPayment);
-        $holdsMoney = in_array($status, self::MONEY, true);
+        $holdsMoney = \in_array($status, self::MONEY, true);
         $context = ['monei_payment' => $moneiPaymentId, 'status' => $status, 'payment' => $payment->getId()];
 
         if (MoneiDetails::paymentId($payment) !== $moneiPaymentId) {
@@ -73,7 +73,7 @@ final readonly class StatusApplier
             return;
         }
 
-        if (in_array($status, MoneiApi::PENDING, true)) {
+        if (\in_array($status, MoneiApi::PENDING, true)) {
             return;
         }
 
@@ -102,7 +102,7 @@ final readonly class StatusApplier
             }
         });
 
-        if ($holdsMoney && in_array($payment->getState(), [PaymentInterface::STATE_FAILED, PaymentInterface::STATE_CANCELLED], true)) {
+        if ($holdsMoney && \in_array($payment->getState(), [PaymentInterface::STATE_FAILED, PaymentInterface::STATE_CANCELLED], true)) {
             $this->logger->critical('MONEI payment {monei_payment} is {status}, but Sylius payment {payment} is {state}: MONEI holds money for it. Refund it in the MONEI dashboard or restore the order by hand.', $context + [
                 'state' => $payment->getState(),
             ]);

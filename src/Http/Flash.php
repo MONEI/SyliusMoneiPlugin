@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Monei\SyliusPlugin\EventListener;
+namespace Monei\SyliusPlugin\Http;
 
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;

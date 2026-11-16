@@ -106,7 +106,7 @@ final class MoneiMockHandler
         } else {
             self::$unanswered[] = $key;
 
-            return Create::rejectionFor(new \OutOfBoundsException(sprintf('No mocked MONEI response for "%s".', $key)));
+            return Create::rejectionFor(new \OutOfBoundsException(\sprintf('No mocked MONEI response for "%s".', $key)));
         }
 
         return $response instanceof \Throwable ? Create::rejectionFor($response) : Create::promiseFor($response);

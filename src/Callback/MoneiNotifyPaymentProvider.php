@@ -21,7 +21,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProviderInterface
 {
-    public const PAYMENT_QUERY = 'payment';
+    private const PAYMENT_QUERY = 'payment';
 
     /** @param PaymentRepositoryInterface<CorePaymentInterface> $paymentRepository */
     public function __construct(private PaymentRepositoryInterface $paymentRepository)

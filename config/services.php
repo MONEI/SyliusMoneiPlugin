@@ -129,6 +129,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('doctrine.orm.entity_manager'),
             service('translator'),
             service('router'),
+            service('request_stack'),
         ])
         ->tag('kernel.event_listener', ['event' => 'kernel.exception']);
 

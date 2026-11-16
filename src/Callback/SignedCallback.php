@@ -29,8 +29,8 @@ final readonly class SignedCallback
             throw InvalidCallbackException::refused('the signed body is not JSON');
         }
 
-        $id = is_array($data) ? ($data['id'] ?? null) : null;
-        if (!is_string($id) || '' === $id) {
+        $id = \is_array($data) ? ($data['id'] ?? null) : null;
+        if (!\is_string($id) || '' === $id) {
             throw InvalidCallbackException::refused('the signed body has no payment id');
         }
 
@@ -43,7 +43,7 @@ final readonly class SignedCallback
         $parts = [];
         foreach (explode(',', $header) as $part) {
             $pair = explode('=', trim($part), 2);
-            if (2 === count($pair)) {
+            if (2 === \count($pair)) {
                 $parts[$pair[0]] = $pair[1];
             }
         }

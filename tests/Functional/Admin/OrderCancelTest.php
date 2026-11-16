@@ -175,15 +175,6 @@ final class OrderCancelTest extends MoneiTestCase
         return $order;
     }
 
-    private function authorizedOrder(): OrderInterface
-    {
-        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
-        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
-        $this->applyMoneiStatus($order, 'pay_1', 'AUTHORIZED');
-
-        return $order;
-    }
-
     private function cancel(OrderInterface $order): void
     {
         $this->loginAdmin();

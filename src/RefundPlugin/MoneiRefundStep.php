@@ -6,9 +6,9 @@ namespace Monei\SyliusPlugin\RefundPlugin;
 
 use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApi;
-use Monei\SyliusPlugin\EventListener\Flash;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Http\Flash;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Monei\SyliusPlugin\Payment\PaymentLock;
@@ -56,7 +56,7 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
 
         $order = $this->orderRepository->findOneByNumber($unitsRefunded->orderNumber());
         if (!$order instanceof OrderInterface) {
-            throw new \LogicException(sprintf('Order "%s" not found.', $unitsRefunded->orderNumber()));
+            throw new \LogicException(\sprintf('Order "%s" not found.', $unitsRefunded->orderNumber()));
         }
 
         try {

@@ -8,6 +8,7 @@ use Monei\ApiException;
 use Monei\Model\PaymentStatus;
 use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
+use Monei\SyliusPlugin\Http\Flash;
 use Monei\SyliusPlugin\Payment\BoundPayment;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\MoneiDetails;
