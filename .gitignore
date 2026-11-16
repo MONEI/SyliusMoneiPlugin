@@ -6,3 +6,5 @@
 /.phpstan/
 /coverage/
 /var/
+/e2e/.env
+/e2e/.generated/
