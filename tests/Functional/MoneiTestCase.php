@@ -103,7 +103,7 @@ abstract class MoneiTestCase extends WebTestCase
         $method->setFallbackLocale('en_US');
         $method->setName($code);
         $method->setEnabled(true);
-        $method->addChannel($this->channel);
+        $method->addChannel($this->managed($this->channel));
 
         $gatewayConfig = $method->getGatewayConfig();
         \assert(null !== $gatewayConfig);
@@ -133,14 +133,14 @@ abstract class MoneiTestCase extends WebTestCase
     {
         /** @var OrderInterface $order */
         $order = $this->service('sylius.factory.order')->createNew();
-        $order->setChannel($this->channel);
+        $order->setChannel($this->managed($this->channel));
         $order->setLocaleCode('en_US');
         $order->setCurrencyCode('EUR');
-        $order->setCustomer($this->customer);
+        $order->setCustomer($this->managed($this->customer));
 
         /** @var OrderItemInterface $item */
         $item = $this->service('sylius.factory.order_item')->createNew();
-        $item->setVariant($this->variant);
+        $item->setVariant($this->managed($this->variant));
         $quantityModifier = $this->service('sylius.modifier.order_item_quantity');
         \assert($quantityModifier instanceof OrderItemQuantityModifierInterface);
         $quantityModifier->modify($item, 1);
@@ -160,7 +160,7 @@ abstract class MoneiTestCase extends WebTestCase
         }
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        $payment->setMethod($paymentMethod);
+        $payment->setMethod($this->managed($paymentMethod));
         $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_SELECT_PAYMENT);
         $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_COMPLETE);
 
@@ -222,6 +222,29 @@ abstract class MoneiTestCase extends WebTestCase
             $this->originalLockWaitTimeout = null;
         }
         $connection->close();
+    }
+
+    /**
+     * The entity as known to the current entity manager: KernelBrowser reboots the
+     * kernel between requests, which detaches the fixtures created in setUp.
+     *
+     * @template T of object
+     *
+     * @param T $entity
+     *
+     * @return T
+     */
+    private function managed(object $entity): object
+    {
+        $entityManager = $this->entityManager();
+        if ($entityManager->contains($entity)) {
+            return $entity;
+        }
+
+        $managed = $entityManager->find($entity::class, $entityManager->getClassMetadata($entity::class)->getIdentifierValues($entity));
+        \assert($managed instanceof $entity);
+
+        return $managed;
     }
 
     private function service(string $id): object
