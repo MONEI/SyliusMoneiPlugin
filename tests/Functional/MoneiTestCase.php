@@ -7,6 +7,7 @@ namespace Monei\SyliusPlugin\Tests\Functional;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
+use Monei\Internal\GuzzleHttp\Psr7\Response as MoneiResponse;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
 use Sylius\Component\Addressing\Model\AddressInterface;
 use Sylius\Component\Core\Model\AdminUserInterface;
@@ -26,6 +27,7 @@ use Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface;
 use Sylius\Component\Order\Modifier\OrderModifierInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Base for functional tests: an empty database with one channel, one admin, one
@@ -204,6 +206,94 @@ abstract class MoneiTestCase extends WebTestCase
     protected function moneiLogs(): array
     {
         return MoneiLogHandler::records();
+    }
+
+    /** Opens the order pay page; returns the `/pay/{hash}` path Sylius redirects to. */
+    protected function startPay(OrderInterface $order): string
+    {
+        $this->client->request('GET', '/en_US/order/'.$order->getTokenValue().'/pay');
+        $location = (string) $this->client->getResponse()->headers->get('Location');
+        self::assertMatchesRegularExpression('#^/en_US/payment-request/pay/[0-9a-f-]{36}$#', $location);
+
+        return $location;
+    }
+
+    protected function pay(OrderInterface $order): void
+    {
+        $this->client->request('GET', $this->startPay($order));
+    }
+
+    protected static function hash(string $payUrl): string
+    {
+        return substr($payUrl, -36);
+    }
+
+    protected static function assertRedirectsTo(string $url, int $status): void
+    {
+        $response = self::getClient()?->getResponse();
+        \assert($response instanceof Response);
+        self::assertSame([$status, $url], [$response->getStatusCode(), $response->headers->get('Location')]);
+    }
+
+    protected function paymentId(OrderInterface $order): int
+    {
+        $payment = $order->getLastPayment();
+        \assert($payment instanceof PaymentInterface);
+        $id = $payment->getId();
+        \assert(\is_int($id));
+
+        return $id;
+    }
+
+    /** Read by id: a failed payment makes Sylius add a new payment to the order. */
+    protected function paymentState(OrderInterface $order): string
+    {
+        $state = $this->secondConnection()->fetchOne('SELECT state FROM sylius_payment WHERE id = ?', [$this->paymentId($order)]);
+        \assert(\is_string($state));
+
+        return $state;
+    }
+
+    /** @return list<array{string, string}> action and state of each payment request of the order's payment */
+    protected function paymentRequests(OrderInterface $order): array
+    {
+        /** @var list<array{action: string, state: string}> $rows */
+        $rows = $this->secondConnection()->fetchAllAssociative('SELECT action, state FROM sylius_payment_request WHERE payment_id = ?', [$this->paymentId($order)]);
+
+        return array_map(static fn (array $row): array => [$row['action'], $row['state']], $rows);
+    }
+
+    /** @return list<string> */
+    protected function requestKeys(): array
+    {
+        return array_map(MoneiMockHandler::key(...), MoneiMockHandler::history());
+    }
+
+    /**
+     * @param array<string, string>|null $nextAction defaults to CONFIRM on the MONEI payment page for PENDING
+     * @param array<string, mixed>       $extra
+     */
+    protected static function moneiPayment(string $id, string $status, int $amount = self::PRODUCT_PRICE, ?array $nextAction = null, array $extra = []): MoneiResponse
+    {
+        $body = ['id' => $id, 'status' => $status, 'amount' => $amount, 'currency' => 'EUR'] + $extra;
+        if (null === $nextAction && 'PENDING' === $status) {
+            $nextAction = ['type' => 'CONFIRM', 'redirectUrl' => 'https://secure.monei.com/payments/'.$id];
+        }
+        if (null !== $nextAction) {
+            $body['nextAction'] = $nextAction;
+        }
+
+        return new MoneiResponse(200, ['Content-Type' => 'application/json'], json_encode($body, \JSON_THROW_ON_ERROR));
+    }
+
+    protected static function error(int $statusCode, string $message): MoneiResponse
+    {
+        return new MoneiResponse($statusCode, ['Content-Type' => 'application/json'], json_encode([
+            'status' => 'ERROR',
+            'statusCode' => $statusCode,
+            'message' => $message,
+            'requestId' => 'req_test',
+        ], \JSON_THROW_ON_ERROR));
     }
 
     private function closeSecondConnection(): void

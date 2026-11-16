@@ -6,6 +6,7 @@ use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
 use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
+use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
@@ -79,6 +80,17 @@ return static function (ContainerConfigurator $container): void {
             service('sylius_shop.provider.order_pay.after_pay_url'),
             service('router'),
             service('request_stack'),
+            service('monolog.logger.monei'),
+        ])
+        ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
+
+    $services->set(StatusPaymentRequestHandler::class)
+        ->args([
+            service('sylius.repository.payment_request'),
+            service(PaymentLock::class),
+            service(BoundPaymentAccess::class),
+            service(StatusApplier::class),
+            service('sylius_abstraction.state_machine'),
             service('monolog.logger.monei'),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
