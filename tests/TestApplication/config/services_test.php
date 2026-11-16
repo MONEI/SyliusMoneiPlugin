@@ -8,6 +8,7 @@ use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Tests\Functional\MoneiLogHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
+use Monei\SyliusPlugin\Tests\TestApplication\src\CommitPaymentStateListener;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
@@ -29,6 +30,11 @@ return static function (ContainerConfigurator $container): void {
         ->args([['handler' => service('monei.test.handler_stack')]]);
 
     $services->set('monei.test.log_handler', MoneiLogHandler::class);
+
+    // Above PaymentTransitionListener (priority 0).
+    $services->set(CommitPaymentStateListener::class)
+        ->args([service('doctrine.dbal.default_connection')])
+        ->tag('kernel.event_listener', ['event' => 'workflow.sylius_payment.transition.complete', 'priority' => 100]);
 
     // Tests fetch these before any plugin service uses them, so the container would remove them.
     $services->alias('monei.test.payment_lock', PaymentLock::class)->public();

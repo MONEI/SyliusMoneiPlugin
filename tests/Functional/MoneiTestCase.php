@@ -7,7 +7,12 @@ namespace Monei\SyliusPlugin\Tests\Functional;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Monei\Internal\GuzzleHttp\Psr7\Response as MoneiResponse;
+use Monei\Model\Payment as MoneiPayment;
+use Monei\SyliusPlugin\Payment\MoneiDetails;
+use Monei\SyliusPlugin\Payment\StatusApplier;
+use Monei\SyliusPlugin\Tests\TestApplication\src\CommitPaymentStateListener;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
 use Sylius\Component\Addressing\Model\AddressInterface;
 use Sylius\Component\Core\Model\AdminUserInterface;
@@ -27,7 +32,11 @@ use Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface;
 use Sylius\Component\Order\Modifier\OrderModifierInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\Session\SessionFactoryInterface;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * Base for functional tests: an empty database with one channel, one admin, one
@@ -56,6 +65,7 @@ abstract class MoneiTestCase extends WebTestCase
 
         MoneiMockHandler::reset();
         MoneiLogHandler::clear();
+        CommitPaymentStateListener::reset();
 
         $this->client = static::createClient();
         $this->purgeDatabase();
@@ -170,6 +180,115 @@ abstract class MoneiTestCase extends WebTestCase
         $this->entityManager()->flush();
 
         return $order;
+    }
+
+    /** Binds the order's last payment to a MONEI payment created with `$paymentMethodCode`. */
+    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode): void
+    {
+        $payment = $order->getLastPayment();
+        \assert($payment instanceof PaymentInterface);
+        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode);
+        $this->entityManager()->flush();
+    }
+
+    /** Moves the order's last (bound) payment and the order's payment state as MONEI's `$status` does. */
+    protected function applyMoneiStatus(OrderInterface $order, string $moneiPaymentId, string $status): void
+    {
+        $payment = $order->getLastPayment();
+        \assert($payment instanceof PaymentInterface);
+        $applier = $this->service('monei.test.status_applier');
+        \assert($applier instanceof StatusApplier);
+        $applier->apply($payment, new MoneiPayment([
+            'id' => $moneiPaymentId,
+            'status' => $status,
+            'amount' => $payment->getAmount(),
+            'currency' => $payment->getCurrencyCode(),
+        ]));
+        $this->entityManager()->flush();
+    }
+
+    protected function loginAdmin(): void
+    {
+        $this->client->loginUser($this->admin, 'admin');
+    }
+
+    /**
+     * The CSRF token of the admin transition routes (token id = resource id), stored in the
+     * browser's session: with the refund plugin the page does not render the core Refund button.
+     */
+    protected function csrfToken(int $tokenId): string
+    {
+        $sessionFactory = $this->service('session.factory');
+        \assert($sessionFactory instanceof SessionFactoryInterface);
+        $session = $sessionFactory->createSession();
+        $cookie = $this->client->getCookieJar()->get($session->getName());
+        \assert(null !== $cookie, 'Log in first.');
+        $session->setId($cookie->getValue());
+        $session->start();
+
+        $request = new Request();
+        $request->setSession($session);
+        $requestStack = $this->service('request_stack');
+        \assert($requestStack instanceof RequestStack);
+        $requestStack->push($request);
+        try {
+            $tokenManager = $this->service('security.csrf.token_manager');
+            \assert($tokenManager instanceof CsrfTokenManagerInterface);
+            $token = $tokenManager->getToken((string) $tokenId)->getValue();
+        } finally {
+            $requestStack->pop();
+        }
+        $session->save();
+
+        return $token;
+    }
+
+    /** Follows the refusal redirect to the admin order page and checks the plugin's error text. */
+    protected function assertOrderPageShows(OrderInterface $order, string $text): void
+    {
+        self::assertSame('/admin/orders/'.$order->getId(), $this->client->getResponse()->headers->get('Location'));
+        $this->client->followRedirect();
+        $content = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString($text, html_entity_decode($content, \ENT_QUOTES));
+        self::assertStringNotContainsString('successfully', $content);
+    }
+
+    /** A JWT for the admin API, as the admin with API access. */
+    protected function adminApiToken(): string
+    {
+        $admin = $this->managed($this->admin);
+        $admin->addRole('ROLE_API_ACCESS');
+        $this->entityManager()->flush();
+        $jwtManager = $this->service('lexik_jwt_authentication.jwt_manager');
+        \assert($jwtManager instanceof JWTTokenManagerInterface);
+
+        return $jwtManager->create($admin);
+    }
+
+    /** Call after a request, before the next: a refusal must not leave the kernel's transaction open. */
+    protected static function assertNoOpenTransaction(): void
+    {
+        $connection = self::getContainer()->get('doctrine.dbal.default_connection');
+        \assert($connection instanceof Connection);
+        self::assertSame(0, $connection->getTransactionNestingLevel());
+    }
+
+    protected function orderState(OrderInterface $order): string
+    {
+        $state = $this->secondConnection()->fetchOne('SELECT state FROM sylius_order WHERE id = ?', [$order->getId()]);
+        \assert(\is_string($state));
+
+        return $state;
+    }
+
+    /** @return array<string, mixed> */
+    protected static function lastRequestBody(): array
+    {
+        $history = MoneiMockHandler::history();
+        $last = end($history);
+        \assert(false !== $last);
+
+        return json_decode((string) $last->getBody(), true, flags: \JSON_THROW_ON_ERROR);
     }
 
     /** A DBAL connection to the test database, separate from the kernel's. */
