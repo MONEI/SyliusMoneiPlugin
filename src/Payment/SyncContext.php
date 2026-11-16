@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Payment;
 
 /**
- * Marks Sylius transitions that copy a state MONEI already has (callback, return page).
+ * Marks Sylius transitions that copy a state MONEI already has.
  * The transition listener then calls nothing at MONEI: the capture, cancel or refund
  * already happened there.
  */

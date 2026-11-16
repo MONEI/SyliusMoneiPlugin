@@ -43,6 +43,14 @@ final class RequireWorkflowPaymentGraphPassTest extends TestCase
         ]);
     }
 
+    /** Unknown at compile time: refusing it would break a container that resolves it to the workflow adapter. */
+    public function testAdapterFromAnEnvVarIsNotChecked(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $this->process('%env(SM_ADAPTER)%', []);
+    }
+
     /** @param array<string, string> $mapping */
     private function process(string $defaultAdapter, array $mapping): void
     {

@@ -136,6 +136,24 @@ abstract class MoneiTestCase extends WebTestCase
         return $method;
     }
 
+    protected function createOfflinePaymentMethod(string $code): PaymentMethodInterface
+    {
+        /** @var PaymentMethodInterface $method */
+        $method = $this->service('sylius.factory.payment_method')->createWithGateway('offline');
+        $method->setCode($code);
+        $method->setCurrentLocale('en_US');
+        $method->setFallbackLocale('en_US');
+        $method->setName($code);
+        $method->setEnabled(true);
+        $method->addChannel($this->managed($this->channel));
+        $method->getGatewayConfig()?->setGatewayName($code);
+
+        $this->entityManager()->persist($method);
+        $this->entityManager()->flush();
+
+        return $method;
+    }
+
     /**
      * Places an order through the Sylius checkout workflow: state `new`, payment state
      * `awaiting_payment`, number, token and checkout time set, and one `new` payment

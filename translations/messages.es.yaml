@@ -17,7 +17,7 @@ monei:
     form:
         gateway_configuration:
             api_key: Clave API
-            api_key_help: Tu clave API de MONEI (pk_test_… o pk_live_…), del MONEI Dashboard.
+            api_key_help: Tu clave API de MONEI (pk_test_… o pk_live_…), del panel de MONEI.
             payment_method: Método de pago MONEI
             mode: Modo
             mode_help: Alojado envía al cliente a la página de pago de MONEI. En tienda muestra el formulario de pago en tu tienda (no disponible para MB WAY y Multibanco).

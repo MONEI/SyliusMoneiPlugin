@@ -7,6 +7,7 @@ namespace Monei\SyliusPlugin\Tests\Functional\RefundPlugin;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Sylius\Component\Core\Model\OrderInterface;
+use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
 
 /** Refunds through sylius/refund-plugin of an order of two units paid with MONEI. */
@@ -69,7 +70,7 @@ final class PartialRefundTest extends MoneiTestCase
 
     public function testRefundingAUnitWithAnOfflineMethodMakesNoMoneiCall(): void
     {
-        $this->refundUnit(0, $this->createOfflinePaymentMethod());
+        $this->refundUnit(0, $this->createOfflinePaymentMethod('BANK_TRANSFER'));
 
         self::assertSame([], $this->requestKeys());
         self::assertSame([10000], $this->refundPayments());
@@ -106,6 +107,18 @@ final class PartialRefundTest extends MoneiTestCase
         self::assertSame(['GET /payments/pay_1'], $this->requestKeys());
         $this->assertNothingRecorded();
         $this->assertRefundsPageShows('MONEI has already refunded more of this payment than Sylius has recorded');
+    }
+
+    /** Two refunds at once (a double click) would both read refundedAmount 0 and refund the unit twice. */
+    public function testTheRefundWaitsForThePaymentRowLock(): void
+    {
+        $payment = $this->order->getLastPayment();
+        \assert($payment instanceof PaymentInterface);
+        $this->holdPaymentRowLock($payment);
+
+        $this->refundUnit(0, $this->moneiMethod);
+
+        self::assertSame([], MoneiMockHandler::history());
     }
 
     private function refundUnit(int $index, PaymentMethodInterface $refundMethod): void
@@ -166,21 +179,5 @@ final class PartialRefundTest extends MoneiTestCase
     {
         $this->client->followRedirect();
         self::assertStringContainsString($text, html_entity_decode((string) $this->client->getResponse()->getContent(), \ENT_QUOTES));
-    }
-
-    private function createOfflinePaymentMethod(): PaymentMethodInterface
-    {
-        $method = self::getContainer()->get('sylius.factory.payment_method')->createWithGateway('offline');
-        \assert($method instanceof PaymentMethodInterface);
-        $method->setCode('BANK_TRANSFER');
-        $method->setCurrentLocale('en_US');
-        $method->setFallbackLocale('en_US');
-        $method->setName('Bank transfer');
-        $method->setEnabled(true);
-        $method->getGatewayConfig()?->setGatewayName('BANK_TRANSFER');
-        $this->entityManager()->persist($method);
-        $this->entityManager()->flush();
-
-        return $method;
     }
 }

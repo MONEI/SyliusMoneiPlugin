@@ -94,6 +94,16 @@ final class GatewayFormTest extends MoneiTestCase
         ));
     }
 
+    public function testAnotherGatewayConfigKeepsUsePayum(): void
+    {
+        $method = $this->createOfflinePaymentMethod('BANK_TRANSFER');
+
+        self::assertSame(1, (int) $this->secondConnection()->fetchOne(
+            'SELECT use_payum FROM sylius_gateway_config WHERE id = ?',
+            [$method->getGatewayConfig()?->getId()],
+        ));
+    }
+
     private function createForm(string $code): Form
     {
         $crawler = $this->client->request('GET', '/admin/payment-methods/new/monei');

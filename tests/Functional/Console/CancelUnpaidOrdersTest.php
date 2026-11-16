@@ -93,6 +93,18 @@ final class CancelUnpaidOrdersTest extends MoneiTestCase
         self::assertContains(Level::Error, array_column($this->moneiLogs(), 'level'));
     }
 
+    /** The SDK refuses a status outside its enum; the command must still end. */
+    public function testAStatusTheSdkCannotReadLetsTheOrderBeCancelledWithAnError(): void
+    {
+        $order = $this->expiredOrder('pay_1');
+        MoneiMockHandler::appendFor('GET /payments/pay_1', self::moneiPayment('pay_1', 'ON_HOLD'));
+
+        $this->runCommand();
+
+        self::assertSame('cancelled', $this->orderState($order));
+        self::assertContains(Level::Error, array_column($this->moneiLogs(), 'level'));
+    }
+
     private function expiredOrder(string $moneiPaymentId): OrderInterface
     {
         $order = $this->placeOrder($this->method);

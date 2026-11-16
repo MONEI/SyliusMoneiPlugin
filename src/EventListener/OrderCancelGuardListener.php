@@ -19,13 +19,13 @@ use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Core\OrderPaymentStates;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Workflow\Event\TransitionEvent;
 
 /**
- * Runs before an order is cancelled (admin, API, unpaid-orders command). Refuses the cancel
- * when MONEI took money the store has not recorded, and cancels a PENDING MONEI payment so
- * that the buyer cannot pay a cancelled order. The release of an AUTHORIZED hold is left to
+ * Runs before an order is cancelled (admin, API, unpaid-orders command). When MONEI took money
+ * the store has not recorded, a request is refused; the unpaid-orders command records the
+ * payment, or logs at critical level and lets the cancel go on. Cancels a PENDING MONEI payment
+ * so that the buyer cannot pay a cancelled order. The release of an AUTHORIZED hold is left to
  * PaymentTransitionListener.
  */
 final readonly class OrderCancelGuardListener
@@ -33,8 +33,6 @@ final readonly class OrderCancelGuardListener
     private const OPEN = [PaymentInterface::STATE_NEW, PaymentInterface::STATE_PROCESSING, PaymentInterface::STATE_AUTHORIZED];
 
     private const PAID = [PaymentStatus::SUCCEEDED, PaymentStatus::PARTIALLY_REFUNDED];
-
-    private const PENDING = [PaymentStatus::PENDING, PaymentStatus::PENDING_PROCESSING];
 
     private const PENDING_WARNING_FLASH = 'monei.order.payment_still_pending';
 
@@ -67,7 +65,7 @@ final readonly class OrderCancelGuardListener
         $this->paymentLock->acquire($payment);
 
         try {
-            $bound = $this->boundPayments->fetch($payment);
+            $bound = $this->boundPayments->fetchBound($payment);
         } catch (UnreachableBoundPaymentException) {
             // Logged at critical level. The payment may still be payable in the other MONEI account.
             return;
@@ -75,9 +73,6 @@ final readonly class OrderCancelGuardListener
             $this->fetchFailed($order, $payment, $e);
 
             return;
-        }
-        if (null === $bound) {
-            throw new \LogicException('A bound MONEI payment is expected.');
         }
 
         $this->decide($order, $payment, $bound, true);
@@ -94,7 +89,7 @@ final readonly class OrderCancelGuardListener
 
             return;
         }
-        if (!$unpaidInSylius || !\in_array($status, self::PENDING, true)) {
+        if (!$unpaidInSylius || !\in_array($status, MoneiApi::PENDING, true)) {
             return;
         }
 
@@ -103,7 +98,7 @@ final readonly class OrderCancelGuardListener
         if (!$mayCancel) {
             // With the processor (for example an open Multibanco reference): the order can always be cancelled.
             $this->logger->warning('MONEI payment {monei_payment} of Sylius payment {payment} cannot be cancelled: order {order} is cancelled, and the MONEI payment stays payable until it expires. Refund it if it is paid.', $context);
-            $this->flashPendingWarning();
+            Flash::add($this->requestStack, 'warning', self::PENDING_WARNING_FLASH);
 
             return;
         }
@@ -132,12 +127,12 @@ final readonly class OrderCancelGuardListener
     {
         // A request refuses without the sync: the rollback would discard it.
         if (null !== $this->requestStack->getMainRequest()) {
-            throw new MoneiRefusedException('monei.refused.order_paid', ['%status%' => $status], self::orderId($order));
+            throw new MoneiRefusedException('monei.refused.order_paid', ['%status%' => $status], $order);
         }
 
         $this->statusApplier->apply($payment, $bound->payment);
         if (OrderPaymentStates::STATE_AWAITING_PAYMENT !== $order->getPaymentState()) {
-            throw new MoneiRefusedException('monei.refused.order_paid', ['%status%' => $status], self::orderId($order));
+            throw new MoneiRefusedException('monei.refused.order_paid', ['%status%' => $status], $order);
         }
 
         // Refusing would leave the order unpaid, and the unpaid-orders command would loop on it forever.
@@ -152,7 +147,7 @@ final readonly class OrderCancelGuardListener
     private function fetchFailed(OrderInterface $order, PaymentInterface $payment, ApiException $e): void
     {
         if (null !== $this->requestStack->getMainRequest()) {
-            throw MoneiRefusedException::fromApiException($e, 'monei.refused.unavailable', self::orderId($order));
+            throw MoneiRefusedException::fromApiException($e, 'monei.refused.unavailable', $order);
         }
 
         // The unpaid-orders command must end; a paid callback on the cancelled payment logs at critical level.
@@ -162,25 +157,5 @@ final readonly class OrderCancelGuardListener
             'code' => $e->getCode(),
             'order' => $order->getNumber(),
         ]);
-    }
-
-    private function flashPendingWarning(): void
-    {
-        $request = $this->requestStack->getMainRequest();
-        if (null === $request || ApiRequest::matches($request) || !$request->hasSession()) {
-            return;
-        }
-
-        $session = $request->getSession();
-        if ($session instanceof FlashBagAwareSessionInterface) {
-            $session->getFlashBag()->add('warning', self::PENDING_WARNING_FLASH);
-        }
-    }
-
-    private static function orderId(OrderInterface $order): ?int
-    {
-        $id = $order->getId();
-
-        return \is_int($id) ? $id : null;
     }
 }

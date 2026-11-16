@@ -27,6 +27,17 @@ final class GatewayConfigurationTest extends TestCase
         self::assertRefusedOn('use_authorize', ['payment_method' => 'bizum', 'use_authorize' => true]);
     }
 
+    public function testUnknownModeIsRefusedOnMode(): void
+    {
+        self::assertRefusedOn('mode', ['mode' => 'embedded']);
+    }
+
+    /** MONEI allows 40 characters in an order ID; the order number needs the rest. */
+    public function testPrefixOf21CharactersIsRefusedOnOrderIdPrefix(): void
+    {
+        self::assertRefusedOn('order_id_prefix', ['order_id_prefix' => str_repeat('a', 21)]);
+    }
+
     public function testSecretKeyIsRefusedOnApiKey(): void
     {
         self::assertRefusedOn('api_key', ['api_key' => 'sk_live_0123456789abcdef']);

@@ -9,7 +9,6 @@ use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Monei\SyliusPlugin\Tests\TestApplication\src\CommitPaymentStateListener;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
-use Sylius\Component\Core\Model\PaymentMethodInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /** Admin complete and refund of a MONEI payment (HTML routes and the admin API). */
@@ -35,6 +34,17 @@ final class PaymentTransitionTest extends MoneiTestCase
 
         self::assertSame('authorized', $this->paymentState($order));
         $this->assertOrderPageShows($order, 'MONEI did not capture the payment (The payment cannot be captured).');
+    }
+
+    public function testACaptureMoneiIsStillRunningAsksToTryAgain(): void
+    {
+        $order = $this->authorizedOrder();
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'AUTHORIZED'), self::error(409, 'Request already in progress'));
+
+        $this->transition($order, 'complete');
+
+        self::assertSame('authorized', $this->paymentState($order));
+        $this->assertOrderPageShows($order, 'MONEI is processing another operation on this payment. Try again in a moment.');
     }
 
     public function testACaptureAnswerThatIsNotSucceededIsRefused(): void
@@ -223,21 +233,5 @@ final class PaymentTransitionTest extends MoneiTestCase
         ]);
         self::assertSame(Response::HTTP_FOUND, $this->client->getResponse()->getStatusCode());
         self::assertNoOpenTransaction();
-    }
-
-    private function createOfflinePaymentMethod(string $code): PaymentMethodInterface
-    {
-        $method = self::getContainer()->get('sylius.factory.payment_method')->createWithGateway('offline');
-        \assert($method instanceof PaymentMethodInterface);
-        $method->setCode($code);
-        $method->setCurrentLocale('en_US');
-        $method->setFallbackLocale('en_US');
-        $method->setName($code);
-        $method->setEnabled(true);
-        $method->getGatewayConfig()?->setGatewayName($code);
-        $this->entityManager()->persist($method);
-        $this->entityManager()->flush();
-
-        return $method;
     }
 }

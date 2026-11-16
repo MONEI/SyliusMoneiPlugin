@@ -118,6 +118,18 @@ final class OrderCancelTest extends MoneiTestCase
         self::assertContains(Level::Critical, array_column($this->moneiLogs(), 'level'));
     }
 
+    /** User decision: the hold expires at MONEI, so the listener's fetch must not refuse either. */
+    public function testCancelOfAnUnreachableAuthorizedPaymentGoesOn(): void
+    {
+        $order = $this->authorizedOrder();
+        MoneiMockHandler::append(self::error(404, 'Resource not found'), self::error(404, 'Resource not found'));
+
+        $this->cancel($order);
+
+        self::assertSame(['GET /payments/pay_1', 'GET /payments/pay_1'], $this->requestKeys());
+        self::assertSame(['cancelled', 'cancelled'], [$this->orderState($order), $this->paymentState($order)]);
+    }
+
     public function testCancelIsRefusedWhenTheGuardCannotFetchThePayment(): void
     {
         $order = $this->boundOrder();

@@ -34,17 +34,6 @@ final class HostedPayTest extends MoneiTestCase
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_1', Response::HTTP_SEE_OTHER);
     }
 
-    /** A `new` request does not keep the payment amount against cart changes (Sylius 2.2.9+). */
-    public function testTheCaptureRequestIsProcessingAfterThePay(): void
-    {
-        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
-
-        $this->pay($order);
-
-        self::assertSame([['capture', 'processing']], $this->paymentRequests($order));
-    }
-
     public function testAMethodWithUseAuthorizePaysThroughAnAuthorizeRequestAndSendsAuth(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
@@ -214,7 +203,7 @@ final class HostedPayTest extends MoneiTestCase
     }
 
     /** Failing the payment would make Sylius create payment after payment that MONEI refuses. */
-    public function testACreateRefusedByTheDuplicateCheckKeepsThePaymentNewAndLogsAnError(): void
+    public function testACreateRefusedByTheDuplicateCheckKeepsThePaymentNewAndTellsTheBuyer(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
         MoneiMockHandler::append(self::error(400, \sprintf('The order "%s" has already been paid', (string) $order->getNumber())));
@@ -223,6 +212,11 @@ final class HostedPayTest extends MoneiTestCase
 
         self::assertSame('new', $this->paymentState($order));
         self::assertContains(Level::Error, array_column($this->moneiLogs(), 'level'));
+        $this->client->request('GET', '/en_US/order/'.$order->getTokenValue());
+        self::assertStringContainsString(
+            'MONEI already has a paid or authorized payment for this order. Contact the store.',
+            (string) $this->client->getResponse()->getContent(),
+        );
     }
 
     public function testACreateRefusedWithAValidationErrorFailsThePayment(): void

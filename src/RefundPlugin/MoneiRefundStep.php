@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\RefundPlugin;
 
 use Monei\ApiException;
-use Monei\Model\PaymentStatus;
 use Monei\SyliusPlugin\Api\MoneiApi;
+use Monei\SyliusPlugin\EventListener\Flash;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Monei\SyliusPlugin\Payment\PaymentLock;
-use Monei\SyliusPlugin\Payment\UnreachableBoundPaymentException;
 use Psr\Log\LoggerInterface;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
@@ -23,10 +22,9 @@ use Sylius\RefundPlugin\Event\UnitsRefunded;
 use Sylius\RefundPlugin\ProcessManager\UnitsRefundedProcessStepInterface;
 use Sylius\RefundPlugin\Provider\OrderRefundedTotalProviderInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 
 /**
- * Refunds the refund plugin's total at MONEI when the chosen refund method is a MONEI one.
+ * Refunds the amount of the refund plugin's refund at MONEI when the chosen refund method is a MONEI one.
  * Runs inside the refund command's transaction, before the plugin's own steps: a refusal
  * rolls back the unit refunds before any credit memo is written or sent. When a later step
  * fails after MONEI returned the money, the next MONEI refund of the order is refused
@@ -34,8 +32,6 @@ use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
  */
 final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterface
 {
-    private const REFUNDABLE = [PaymentStatus::SUCCEEDED, PaymentStatus::PARTIALLY_REFUNDED];
-
     /**
      * @param PaymentMethodRepositoryInterface<PaymentMethodInterface> $paymentMethodRepository
      * @param OrderRepositoryInterface<OrderInterface>                 $orderRepository
@@ -72,7 +68,7 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
                 'parameters' => $e->parameters,
             ]);
             // The refund plugin's action shows only a generic error for a failed step.
-            $this->flash($e);
+            Flash::add($this->requestStack, 'error', ['message' => $e->getMessage(), 'parameters' => $e->parameters]);
 
             throw $e;
         }
@@ -80,41 +76,30 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
 
     private function refund(OrderInterface $order, PaymentMethodInterface $paymentMethod, int $amount): void
     {
-        $orderId = \is_int($order->getId()) ? $order->getId() : null;
         $payment = self::paidPayment($order, $paymentMethod);
         if (null === $payment) {
-            throw new MoneiRefusedException('monei.refused.refund_method_not_paid', ['%payment_method%' => (string) $paymentMethod->getName()], $orderId);
+            throw new MoneiRefusedException('monei.refused.refund_method_not_paid', ['%payment_method%' => (string) $paymentMethod->getCode()], $order);
         }
 
         $this->paymentLock->acquire($payment);
-
-        try {
-            $bound = $this->boundPayments->fetch($payment);
-        } catch (UnreachableBoundPaymentException $e) {
-            throw new MoneiRefusedException('monei.refused.unreachable', ['%payment_method%' => (string) MoneiDetails::paymentMethodCode($payment)], $orderId, $e);
-        } catch (ApiException $e) {
-            throw MoneiRefusedException::fromApiException($e, 'monei.refused.unavailable', $orderId);
-        }
-        if (null === $bound) {
-            throw new \LogicException('A bound MONEI payment is expected.');
-        }
+        $bound = $this->boundPayments->fetchOrRefuse($payment, $order);
 
         $status = MoneiApi::status($bound->payment);
-        if (!\in_array($status, self::REFUNDABLE, true)) {
-            throw new MoneiRefusedException('monei.refused.not_refundable', ['%status%' => $status], $orderId);
+        if (!\in_array($status, MoneiApi::REFUNDABLE, true)) {
+            throw new MoneiRefusedException('monei.refused.not_refundable', ['%status%' => $status], $order);
         }
 
         // The refund plugin ties every refund of an order to the order's paid payment, and
         // has already recorded this one's unit refunds.
         $recorded = ($this->orderRefundedTotal)($order) - $amount;
         if ((int) $bound->payment->getRefundedAmount() > $recorded) {
-            throw new MoneiRefusedException('monei.refused.refund_answer_lost', [], $orderId);
+            throw new MoneiRefusedException('monei.refused.refund_answer_lost', [], $order);
         }
 
         try {
             $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
         } catch (ApiException $e) {
-            throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $orderId);
+            throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $order);
         }
     }
 
@@ -133,18 +118,5 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
         }
 
         return null;
-    }
-
-    private function flash(MoneiRefusedException $e): void
-    {
-        $request = $this->requestStack->getMainRequest();
-        if (null === $request || !$request->hasSession()) {
-            return;
-        }
-
-        $session = $request->getSession();
-        if ($session instanceof FlashBagAwareSessionInterface) {
-            $session->getFlashBag()->add('error', ['message' => $e->getMessage(), 'parameters' => $e->parameters]);
-        }
     }
 }

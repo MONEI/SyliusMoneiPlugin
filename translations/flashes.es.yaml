@@ -3,6 +3,7 @@ monei:
         domain_not_registered: 'MONEI no registró %domain% para Apple Pay (%reason%). Apple Pay no se muestra en ese dominio hasta que esté registrado. Guarda el método de pago otra vez para reintentarlo.'
     payment:
         in_progress: 'Un pago de este pedido sigue en curso. Complétalo o espera a que caduque.'
+        already_paid: 'MONEI ya tiene un pago cobrado o autorizado para este pedido. Contacta con la tienda.'
     order:
         payment_still_pending: 'El pedido está cancelado, pero MONEI no pudo cancelar su pago pendiente. El comprador aún puede completarlo hasta que caduque. Si lo paga, reembólsalo desde el panel de MONEI.'
     refused:

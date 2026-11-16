@@ -129,7 +129,7 @@ final readonly class CreatePaymentRequestFactory
 
     /**
      * One hour before the unpaid-orders command may cancel the order, so MONEI expires the
-     * payment first. MONEI refuses a past expireAt, and its own default is 7 days.
+     * payment first. MONEI refuses a past expireAt, and expires a PENDING payment after 7 days at most.
      */
     private function expireAt(OrderInterface $order): int
     {

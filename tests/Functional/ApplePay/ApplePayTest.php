@@ -81,6 +81,17 @@ final class ApplePayTest extends MoneiTestCase
         self::assertSame([], $this->requestKeys());
     }
 
+    public function testSavingAnOfflineMethodSendsNothingToMonei(): void
+    {
+        $method = $this->createOfflinePaymentMethod('BANK_TRANSFER');
+        $this->loginAdmin();
+
+        $this->client->submit($this->updateForm($method));
+
+        self::assertTrue($this->client->getResponse()->isRedirect());
+        self::assertSame([], $this->requestKeys());
+    }
+
     public function testAChannelWithoutHostnameRegistersTheRequestHost(): void
     {
         $this->setChannelHostname(null);

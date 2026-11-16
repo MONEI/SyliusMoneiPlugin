@@ -6,7 +6,9 @@ namespace Monei\SyliusPlugin\Payment;
 
 use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
+use Monei\SyliusPlugin\Exception\MoneiRefusedException;
 use Psr\Log\LoggerInterface;
+use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Payment\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 use Sylius\Component\Payment\Repository\PaymentMethodRepositoryInterface;
@@ -30,14 +32,39 @@ final readonly class BoundPaymentAccess
     /**
      * @return BoundPayment|null null when no MONEI payment is bound
      *
-     * @throws UnreachableBoundPaymentException when the method is gone, its config is invalid, or MONEI answers 401, 403 or 404
-     * @throws ApiException                     on any other MONEI error (5xx, timeout)
+     * @throws UnreachableBoundPaymentException
+     * @throws ApiException
      */
     public function fetch(PaymentInterface $payment): ?BoundPayment
     {
+        return null === MoneiDetails::paymentId($payment) ? null : $this->fetchBound($payment);
+    }
+
+    /**
+     * A key change must not turn a capture or a refund into a Sylius-only change.
+     *
+     * @throws MoneiRefusedException
+     */
+    public function fetchOrRefuse(PaymentInterface $payment, OrderInterface $order): BoundPayment
+    {
+        try {
+            return $this->fetchBound($payment);
+        } catch (UnreachableBoundPaymentException $e) {
+            throw new MoneiRefusedException('monei.refused.unreachable', ['%payment_method%' => (string) MoneiDetails::paymentMethodCode($payment)], $order, $e);
+        } catch (ApiException $e) {
+            throw MoneiRefusedException::fromApiException($e, 'monei.refused.unavailable', $order);
+        }
+    }
+
+    /**
+     * @throws UnreachableBoundPaymentException when the method is gone, its config is invalid, or MONEI answers 401, 403 or 404
+     * @throws ApiException                     on any other MONEI error (5xx, timeout)
+     */
+    public function fetchBound(PaymentInterface $payment): BoundPayment
+    {
         $moneiPaymentId = MoneiDetails::paymentId($payment);
         if (null === $moneiPaymentId) {
-            return null;
+            throw new \LogicException('A bound MONEI payment is expected.');
         }
 
         $code = MoneiDetails::paymentMethodCode($payment);

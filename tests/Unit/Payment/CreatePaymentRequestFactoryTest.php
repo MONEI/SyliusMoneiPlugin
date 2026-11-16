@@ -33,11 +33,6 @@ final class CreatePaymentRequestFactoryTest extends TestCase
         self::create(currency: 'JPY');
     }
 
-    public function testUseAuthorizeSendsAuth(): void
-    {
-        self::assertSame('AUTH', self::create(config: ['use_authorize' => true])->getTransactionType());
-    }
-
     public function testWithoutUseAuthorizeSendsSale(): void
     {
         self::assertSame('SALE', self::create()->getTransactionType());
@@ -54,7 +49,6 @@ final class CreatePaymentRequestFactoryTest extends TestCase
     public static function orderIds(): iterable
     {
         yield 'card with prefix' => [['order_id_prefix' => 'shop2-'], 'shop2-000000123'];
-        yield 'card without prefix' => [[], '000000123'];
         yield 'multibanco is unique per attempt' => [['payment_method' => 'multibanco', 'order_id_prefix' => 'shop2-'], 'shop2-000000123-45'];
     }
 

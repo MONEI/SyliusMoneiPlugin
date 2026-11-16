@@ -17,7 +17,7 @@ monei:
     form:
         gateway_configuration:
             api_key: API key
-            api_key_help: Your MONEI API key (pk_test_… or pk_live_…), from the MONEI Dashboard.
+            api_key_help: Your MONEI API key (pk_test_… or pk_live_…), from the MONEI dashboard.
             payment_method: MONEI payment method
             mode: Mode
             mode_help: Hosted sends the customer to the MONEI payment page. Onsite shows the payment form in your store (not available for MB WAY and Multibanco).

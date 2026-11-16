@@ -7,6 +7,7 @@ namespace Monei\SyliusPlugin\ApplePay;
 use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
+use Monei\SyliusPlugin\EventListener\Flash;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Psr\Log\LoggerInterface;
@@ -14,7 +15,6 @@ use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
 use Symfony\Component\EventDispatcher\GenericEvent;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 
 /**
  * Registers the hostnames of an enabled Apple Pay / Google Pay payment method's channels
@@ -46,14 +46,16 @@ final readonly class RegisterDomainOnSaveListener
             try {
                 $api->registerApplePayDomain($domain);
             } catch (ApiException $e) {
-                $reason = MoneiApi::errorMessage($e);
-                $reason = '' !== $reason ? $reason : 'HTTP '.$e->getCode();
+                $reason = MoneiApi::reason($e);
                 $this->logger->warning('MONEI did not register the Apple Pay domain {domain}: {reason}', [
                     'domain' => $domain,
                     'reason' => $reason,
                     'payment_method' => $paymentMethod->getCode(),
                 ]);
-                $this->flashWarning($domain, $reason);
+                Flash::add($this->requestStack, 'warning', [
+                    'message' => 'monei.apple_pay.domain_not_registered',
+                    'parameters' => ['%domain%' => $domain, '%reason%' => $reason],
+                ]);
             }
         }
     }
@@ -73,21 +75,5 @@ final readonly class RegisterDomainOnSaveListener
         }
 
         return array_values($domains);
-    }
-
-    private function flashWarning(string $domain, string $reason): void
-    {
-        $request = $this->requestStack->getMainRequest();
-        if (null === $request || !$request->hasSession()) {
-            return;
-        }
-
-        $session = $request->getSession();
-        if ($session instanceof FlashBagAwareSessionInterface) {
-            $session->getFlashBag()->add('warning', [
-                'message' => 'monei.apple_pay.domain_not_registered',
-                'parameters' => ['%domain%' => $domain, '%reason%' => $reason],
-            ]);
-        }
     }
 }

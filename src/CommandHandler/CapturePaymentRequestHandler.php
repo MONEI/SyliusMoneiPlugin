@@ -13,6 +13,7 @@ use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\Command\CapturePaymentRequest;
+use Monei\SyliusPlugin\EventListener\Flash;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Payment\BoundPayment;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
@@ -31,7 +32,6 @@ use Sylius\Component\Payment\PaymentRequestTransitions;
 use Sylius\Component\Payment\PaymentTransitions;
 use Sylius\Component\Payment\Repository\PaymentRequestRepositoryInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpFoundation\Session\FlashBagAwareSessionInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
@@ -43,12 +43,12 @@ final readonly class CapturePaymentRequestHandler
 {
     private const RETRYABLE = [PaymentStatus::FAILED, PaymentStatus::CANCELED, PaymentStatus::EXPIRED];
 
-    private const PENDING = [PaymentStatus::PENDING, PaymentStatus::PENDING_PROCESSING];
-
     /** MONEI's duplicate check: another payment of this order is with the processor, authorized or paid. */
     private const DUPLICATE_ORDER = '/^The order ".*" (is pending processing|has already been authorized|has already been paid)$/s';
 
     private const IN_PROGRESS_FLASH = 'monei.payment.in_progress';
+
+    private const ALREADY_PAID_FLASH = 'monei.payment.already_paid';
 
     /** @param PaymentRequestRepositoryInterface<PaymentRequestInterface> $paymentRequestRepository */
     public function __construct(
@@ -112,7 +112,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        if (!\in_array(MoneiApi::status($bound->payment), self::PENDING, true)) {
+        if (!\in_array(MoneiApi::status($bound->payment), MoneiApi::PENDING, true)) {
             $this->statusApplier->apply($payment, $bound->payment);
             $this->complete($paymentRequest);
 
@@ -153,7 +153,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        if (!\in_array(MoneiApi::status($bound->payment), self::PENDING, true)) {
+        if (!\in_array(MoneiApi::status($bound->payment), MoneiApi::PENDING, true)) {
             $this->handle($paymentRequest, $payment, $bound);
 
             return;
@@ -168,7 +168,7 @@ final readonly class CapturePaymentRequestHandler
         if ($createRequest->getOrderId() === $bound->payment->getOrderId()) {
             // MONEI's duplicate check would refuse a second payment of this order anyway.
             $this->logger->warning('MONEI payment {monei_payment} of Sylius payment {payment} is with the processor and cannot be cancelled ({code}): no new payment until it ends.', $context);
-            $this->flashInProgress();
+            Flash::add($this->requestStack, 'info', self::IN_PROGRESS_FLASH);
             $this->complete($paymentRequest);
 
             return;
@@ -215,9 +215,10 @@ final readonly class CapturePaymentRequestHandler
             $moneiPayment = $this->apiFactory->forPaymentMethod($paymentMethod)->createPayment($createRequest);
         } catch (ApiException $e) {
             $context += ['code' => $e->getCode(), 'message' => MoneiApi::errorMessage($e)];
-            if (400 === $e->getCode() && 1 === preg_match(self::DUPLICATE_ORDER, $context['message'])) {
+            if (400 === $e->getCode() && 1 === preg_match(self::DUPLICATE_ORDER, $context['message'], $match)) {
                 // Failing the payment would make Sylius create payment after payment for this order.
                 $this->logger->error('MONEI refused a new payment for Sylius payment {payment} (order ID {order_id}): {message}', $context);
+                Flash::add($this->requestStack, 'info', 'is pending processing' === $match[1] ? self::IN_PROGRESS_FLASH : self::ALREADY_PAID_FLASH);
                 $this->complete($paymentRequest);
 
                 return;
@@ -250,7 +251,7 @@ final readonly class CapturePaymentRequestHandler
     {
         $nextAction = $moneiPayment->getNextAction();
         if (PaymentNextAction::TYPE_COMPLETE === $nextAction?->getType()) {
-            $this->flashInProgress();
+            Flash::add($this->requestStack, 'info', self::IN_PROGRESS_FLASH);
             $this->complete($paymentRequest);
 
             return;
@@ -284,15 +285,6 @@ final readonly class CapturePaymentRequestHandler
     {
         if ($this->stateMachine->can($subject, $graph, $transition)) {
             $this->stateMachine->apply($subject, $graph, $transition);
-        }
-    }
-
-    private function flashInProgress(): void
-    {
-        $request = $this->requestStack->getMainRequest();
-        $session = null !== $request && $request->hasSession() ? $request->getSession() : null;
-        if ($session instanceof FlashBagAwareSessionInterface) {
-            $session->getFlashBag()->add('info', self::IN_PROGRESS_FLASH);
         }
     }
 }

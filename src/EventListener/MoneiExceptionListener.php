@@ -63,6 +63,8 @@ final readonly class MoneiExceptionListener
         while ($connection->isTransactionActive()) {
             $connection->rollBack();
         }
+        // The refused transition's changes (for example an order already `cancelled`) stay in memory otherwise.
+        $this->entityManager->clear();
         // An earlier MONEI call of the same action (for example another payment's hold release) is not rolled back.
         $this->logger->error('Action on order {order} refused: {reason}', [
             'order' => $refusal->orderId,
@@ -78,10 +80,6 @@ final readonly class MoneiExceptionListener
                 'message' => $this->translator->trans($refusal->getMessage(), $refusal->parameters, 'flashes'),
             ], Response::HTTP_CONFLICT));
 
-            return;
-        }
-
-        if (null === $refusal->orderId) {
             return;
         }
 

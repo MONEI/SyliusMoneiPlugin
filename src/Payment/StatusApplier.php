@@ -6,6 +6,7 @@ namespace Monei\SyliusPlugin\Payment;
 
 use Monei\Model\Payment as MoneiPayment;
 use Monei\Model\PaymentStatus;
+use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Psr\Log\LoggerInterface;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
@@ -14,7 +15,7 @@ use Sylius\Component\Payment\PaymentTransitions;
 
 /**
  * Copies the status of the MONEI payment (always fetched from the MONEI API) to the
- * Sylius payment it is bound to. The caller holds the payment lock.
+ * Sylius payment it is bound to. The caller has called PaymentLock::acquire.
  */
 final readonly class StatusApplier
 {
@@ -37,8 +38,6 @@ final readonly class StatusApplier
     /** MONEI holds or took money. */
     private const MONEY = [PaymentStatus::SUCCEEDED, PaymentStatus::AUTHORIZED, PaymentStatus::REFUNDED, PaymentStatus::PARTIALLY_REFUNDED];
 
-    private const PENDING = [PaymentStatus::PENDING, PaymentStatus::PENDING_PROCESSING];
-
     public function __construct(
         private StateMachineInterface $stateMachine,
         private SyncContext $syncContext,
@@ -49,9 +48,7 @@ final readonly class StatusApplier
     public function apply(PaymentInterface $payment, MoneiPayment $moneiPayment): void
     {
         $moneiPaymentId = (string) $moneiPayment->getId();
-        /** @var string|null $sdkStatus the SDK documents a PaymentStatus object but returns the enum's string value */
-        $sdkStatus = $moneiPayment->getStatus();
-        $status = (string) $sdkStatus;
+        $status = MoneiApi::status($moneiPayment);
         $holdsMoney = in_array($status, self::MONEY, true);
         $context = ['monei_payment' => $moneiPaymentId, 'status' => $status, 'payment' => $payment->getId()];
 
@@ -66,7 +63,7 @@ final readonly class StatusApplier
         }
 
         // The buyer switched to a non-MONEI method after the MONEI payment was bound.
-        if (GatewayConfiguration::FACTORY_NAME !== $payment->getMethod()?->getGatewayConfig()?->getFactoryName()) {
+        if (!GatewayConfiguration::isMonei($payment->getMethod())) {
             $this->logger->log(
                 $holdsMoney ? 'critical' : 'warning',
                 'MONEI payment {monei_payment} ({status}) is bound to Sylius payment {payment}, which now uses a non-MONEI payment method: no change. If it holds money, refund it in the MONEI dashboard.',
@@ -76,7 +73,7 @@ final readonly class StatusApplier
             return;
         }
 
-        if (in_array($status, self::PENDING, true)) {
+        if (in_array($status, MoneiApi::PENDING, true)) {
             return;
         }
 

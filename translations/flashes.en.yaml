@@ -3,6 +3,7 @@ monei:
         domain_not_registered: 'MONEI did not register %domain% for Apple Pay (%reason%). Apple Pay does not show on that domain until it is registered. Save the payment method again to retry.'
     payment:
         in_progress: 'A payment for this order is still in progress. Complete it or wait until it expires.'
+        already_paid: 'MONEI already has a paid or authorized payment for this order. Contact the store.'
     order:
         payment_still_pending: 'The order is cancelled, but MONEI could not cancel its pending payment. The buyer can still complete it until it expires. If the buyer pays it, refund it in the MONEI dashboard.'
     refused:

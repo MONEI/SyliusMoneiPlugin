@@ -66,6 +66,7 @@ final class MoneiLogHandler extends AbstractProcessingHandler
             return (string) $value;
         }
 
-        return get_debug_type($value);
+        // As Monolog's NormalizerFormatter does, which JSON-encodes an object's public properties.
+        return get_debug_type($value).' '.json_encode($value, \JSON_PARTIAL_OUTPUT_ON_ERROR);
     }
 }

@@ -219,22 +219,4 @@ final class CallbackTest extends MoneiTestCase
         $payment->setMethod($paymentMethod);
         $this->entityManager()->flush();
     }
-
-    private function createOfflinePaymentMethod(string $code): PaymentMethodInterface
-    {
-        $method = self::getContainer()->get('sylius.factory.payment_method')->createWithGateway('offline');
-        \assert($method instanceof PaymentMethodInterface);
-        $method->setCode($code);
-        $method->setCurrentLocale('en_US');
-        $method->setFallbackLocale('en_US');
-        $method->setName($code);
-        $method->setEnabled(true);
-        $method->addChannel($this->channel);
-        $method->getGatewayConfig()?->setGatewayName($code);
-
-        $this->entityManager()->persist($method);
-        $this->entityManager()->flush();
-
-        return $method;
-    }
 }
