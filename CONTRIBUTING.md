@@ -33,9 +33,16 @@ make test
 | `make analyse` | PHPStan, level 8. |
 | `make cs` | PHP CS Fixer, dry run. |
 | `make cs-fix` | PHP CS Fixer, fixes the files. |
-| `make down` | Removes the containers and the database volume. |
+| `make down` | Removes the containers and the Composer cache volume. MySQL keeps its data in memory (tmpfs), so it keeps no data after a stop. |
 
 Unit and functional tests never call MONEI: they mock its HTTP API.
+
+CI also checks `composer.json` and the service container. To run these checks locally:
+
+```bash
+docker compose run --rm php composer validate --strict
+docker compose run --rm php vendor/bin/console -e test lint:container
+```
 
 ## End-to-end tests
 
@@ -49,7 +56,9 @@ pnpm --dir e2e e2e         # run the specs
 pnpm --dir e2e e2e:stop    # remove the stack
 ```
 
-See [e2e/README.md](e2e/README.md) for the options and the secret rules. CI runs the suite every night, and on pull requests from branches of this repository. Pull requests from forks do not get the secrets, so CI skips the e2e job for them.
+See [e2e/README.md](e2e/README.md) for the options and the secret rules. CI runs the suite every night, and on pull requests from branches of this repository. Pull requests from forks do not get the secrets, so CI skips the e2e job for them. Maintainers: the suite reads the test mode key from the `MONEI_TEST_API_KEY` repository secret.
+
+All e2e runs share one MONEI sandbox, so they run one at a time. GitHub keeps only one waiting run: when a third run starts, it cancels the waiting one. The `CI` check of that pull request then fails without a defect. Run the cancelled jobs again.
 
 ## Reporting issues
 

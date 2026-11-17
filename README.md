@@ -66,11 +66,12 @@ sylius_state_machine_abstraction:
 MONEI posts each payment result to `https://<your store>/payment-methods/<payment method code>?payment=<Sylius payment id>`. This is the Sylius payment notify route. The plugin sets this URL on every MONEI payment.
 
 - The URL must answer without a redirect. MONEI counts a 3xx answer as a failed delivery. Check your HTTPS redirect, `www` redirect and proxy rules for this path.
+- Sylius builds the URL from the current request. Behind a reverse proxy or load balancer that ends TLS, configure Symfony's [trusted proxies](https://symfony.com/doc/current/deployment/proxies.html). Otherwise the URL starts with `http://`, your HTTPS redirect answers MONEI with a 3xx, and the delivery fails.
 - MONEI signs the callback with your API key. The plugin refuses an unsigned or changed callback.
 
 ### Synchronous commands
 
-The plugin's payment request commands always run in the web request, also when your store sends the `payment_request` transport to an async queue. The pay step needs the buyer's IP address and browser, and must get the MONEI payment page URL at once. You do not have to configure this.
+The plugin's payment request commands always run in the web request. This is also true when your store sends the `payment_request` transport to an async queue. The pay step needs the buyer's IP address and browser, and must get the MONEI payment page URL at once. You do not have to configure this.
 
 ## Installation
 
@@ -134,7 +135,7 @@ Create one Sylius payment method for each MONEI method that you offer.
 
 4. Enable the payment method in your channels.
 
-The form checks the format of the API key. It does not send the key to MONEI. Make sure that the MONEI method is enabled on your MONEI account.
+The form checks only the format of the API key. It does not check the key with MONEI. Make sure that the key is correct and that the MONEI method is enabled on your MONEI account.
 
 ### Order ID prefix
 
@@ -164,7 +165,7 @@ When you save an enabled Apple Pay / Google Pay payment method, the plugin regis
 - the hostname of each channel of the payment method;
 - the host of the admin request, for a channel without a hostname.
 
-When MONEI refuses a domain, the admin shows a warning and the save still completes. Apple Pay does not show on that domain until it is registered. Save the payment method again to retry. Apple Pay needs HTTPS and the route import from [step 4](#4-import-the-routes). Google Pay needs no domain registration.
+When MONEI refuses a domain, the admin shows a warning and the save still completes. Apple Pay does not show on that domain until it is registered. Save the payment method again to retry. When you add a channel to the payment method or change a channel hostname, save the payment method again to register the new domain. Apple Pay needs HTTPS and the route import from [step 4](#4-import-the-routes). Google Pay needs no domain registration.
 
 ## How it works
 
@@ -184,7 +185,7 @@ When MONEI refuses a domain, the admin shows a warning and the save still comple
 - **Amount check.** Before it completes or authorizes a payment, the plugin compares the MONEI amount and currency with the Sylius payment. On a difference it changes nothing and logs a critical message.
 - **Expiry.** A MONEI payment expires one hour before Sylius may cancel the unpaid order (`sylius_order.expiration.order`, default 5 days), and after 7 days at most.
 - **Order cancel.** Before Sylius cancels an order, the plugin checks its MONEI payments. It refuses the cancel when MONEI took the money, cancels a pending MONEI payment, and releases an authorized hold.
-- **Admin API.** The admin API (`/api/v2/admin/payments/{id}/complete`, `/refund`, `/api/v2/admin/orders/{tokenValue}/cancel`) follows the same rules. A MONEI refusal answers 409 with the reason.
+- **Admin API.** The admin API (`/api/v2/admin/payments/{id}/complete`, `/api/v2/admin/payments/{id}/refund`, `/api/v2/admin/orders/{tokenValue}/cancel`) follows the same rules. A MONEI refusal answers 409 with the reason.
 - **Logs.** The plugin logs on the Monolog channel `monei`. Send its `critical` messages to an alert: each one is a payment that needs a manual action in the MONEI dashboard.
 
 ## Limits
@@ -192,10 +193,13 @@ When MONEI refuses a domain, the admin shows a warning and the save still comple
 - **Currencies with 2 decimals only.** Sylius stores every amount with 2 decimals. A payment in a currency with 0 or 3 decimals fails before any call to MONEI.
 - **No dashboard webhook.** The plugin uses only the callback URL that it sets on each payment. Do not add a webhook for Sylius in the MONEI dashboard: its events carry no Sylius payment id, and the plugin refuses them.
 - **Actions in the MONEI dashboard are not recorded in Sylius.** MONEI sends no callback for refunds, captures, voids or expiry. The return page and the plugin's admin actions still read the current MONEI status.
+- **A refund in the MONEI dashboard blocks the next refund plugin refund.** With `sylius/refund-plugin`, the plugin refuses a MONEI refund when MONEI refunded more than Sylius recorded. Record the dashboard refund first, with an offline refund method, then make the next refund.
+- **Captures and refunds use the API key that created the payment.** Do not delete a MONEI payment method, or change its API key to a key of another MONEI account, while it has payments to capture or refund. The plugin then cannot read those payments and refuses the action.
+- **Changing Authorize only on a payment method with open payments.** A buyer who pays again after the change gets a new payment of the new type. When the old payment is already with the payment processor (for example a card payment in 3D Secure, or an open PayPal approval), MONEI cannot cancel it. The buyer then sees that a payment is in progress until the old payment ends or expires.
 - **Capture is always for the full amount.** The plugin has no partial capture.
 - **Duplicate refunds.** MONEI ignores a second refund of the same payment and the same amount sent within 3 seconds. The plugin then refuses the refund and shows a message, so Sylius does not record a refund that MONEI did not make. Check the payment in the MONEI dashboard before you try again.
 - **A payment that is already with the payment processor cannot be cancelled.** This applies, for example, to an open Multibanco reference, an open MB WAY request or an open PayPal approval. Such a payment stays payable until it expires:
-  - **After a method change.** A buyer opens a Multibanco, MB WAY or PayPal page and then pays with another method. The old payment cannot be cancelled and the buyer could still pay it. If the buyer pays it, the plugin logs a critical message. Refund that payment in the MONEI dashboard. The same applies when the buyer changes to a payment method of another gateway: no MONEI code runs on that change.
+  - **After a method change.** A buyer opens a Multibanco, MB WAY or PayPal page and then pays with another method. The old payment cannot be cancelled. The buyer can still pay it. If the buyer pays it, the plugin logs a critical message. Refund that payment in the MONEI dashboard. The same applies when the buyer changes to a payment method of another gateway. No MONEI code runs on that change.
   - **After an order cancel.** The order cancel goes on and the admin shows a warning. If the buyer pays the payment later, the plugin logs a critical message. Refund it in the MONEI dashboard.
 - **Payment deadline.** A pay attempt in the last hour before the order's payment deadline gets a MONEI expiry up to 1 hour after that deadline, because the plugin gives each MONEI payment at least one hour. A payment that succeeds on an order that Sylius already cancelled changes nothing in Sylius, and the plugin logs a critical message. Refund it in the MONEI dashboard.
 - **A hold voided in the MONEI dashboard blocks the order.** MONEI then refuses every new payment for that order ID, so the buyer cannot pay that order again. Create a new order.
@@ -203,7 +207,7 @@ When MONEI refuses a domain, the admin shows a warning and the save still comple
 - **Orders with more than one MONEI payment.** When an order cancel releases the hold of one payment and is then refused for a second payment, Sylius rolls back, but the first hold is gone at MONEI. Sylius orders normally have one payment.
 - **Refund plugin steps after MONEI.** With `sylius/refund-plugin`, MONEI refunds first. If a later step fails (credit memo, e-mail, database), MONEI returned the money but Sylius has no record. The next MONEI refund of that order is refused. Record the missing refund with an offline refund method.
 - **No protection against parallel actions in the admin API and the unpaid-orders command.** The admin pages, the pay step, the return page and the callback wait for each other on the same payment. The admin API and `sylius:cancel-unpaid-orders` do not.
-- **Apple Pay / Google Pay end-to-end tests check only that the button shows.** No automated test can approve a wallet payment, so no wallet payment runs end to end in CI.
+- **Apple Pay / Google Pay have no end-to-end payment test.** No automated test can approve a wallet payment. The only end-to-end wallet test checks that the onsite Google Pay button shows. No end-to-end test covers Apple Pay or wallets on the hosted payment page.
 - **MB WAY and Multibanco have no end-to-end tests.** The MONEI test account of the suite cannot pay them. Unit and functional tests cover them.
 
 ## Testing
@@ -236,10 +240,13 @@ To test the payment flow in your store, use a `pk_test_` key and the [MONEI test
 
 Version 1.x did not load in Sylius. It failed before any call to MONEI, so it took no payment. There is no data to migrate.
 
-1. Update the package: `composer require monei/sylius-monei-plugin:^2.0`.
-2. Replace the 1.x route import (`@MoneiSyliusPlugin/config/routes.xml` under `/monei`) with the import in [step 4](#4-import-the-routes).
-3. If you have a payment method with the MONEI gateway from 1.x, delete it.
-4. Create one payment method for each MONEI method. See [Payment method setup](#payment-method-setup).
+1. Make sure that your store runs Sylius 2.2.12 or later, or 2.3.2 or later. Version 2.0.0 does not support Sylius 2.1.
+2. Make sure that `sylius_payment` and `sylius_order` use the `symfony_workflow` state machine adapter. See [State machine adapter](#state-machine-adapter).
+3. Update the package: `composer require monei/sylius-monei-plugin:^2.0`.
+4. Add the configuration import from [step 3](#3-import-the-configuration).
+5. Replace the 1.x route import (`@MoneiSyliusPlugin/config/routes.xml` under `/monei`) with the import in [step 4](#4-import-the-routes).
+6. If you have a payment method with the MONEI gateway from 1.x, delete it.
+7. Create one payment method for each MONEI method. See [Payment method setup](#payment-method-setup).
 
 Changes:
 

@@ -9,38 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Full rewrite. See the README section "Upgrade from 1.x".
 
-### Breaking changes
-
-- Requires Sylius 2.2.12 or later on the 2.2 line, or Sylius 2.3.2 or later. These versions fix Sylius security advisories.
-- Requires the `symfony_workflow` state machine adapter for the `sylius_payment` and `sylius_order` graphs. The container does not build when either graph is mapped to another adapter.
-- Uses the Sylius Payment Requests API instead of Payum.
-- One Sylius payment method per MONEI method. Delete the 1.x MONEI payment method and create one per method.
-- Gateway config keys `account_id`, `sandbox` and `integration_type` are removed. New keys: `payment_method`, `mode` (`hosted` or `onsite`), `use_authorize`, `order_id_prefix`.
-- Routes: import `@MoneiSyliusPlugin/config/routes.yaml` without a prefix. `config/routes.xml` is removed.
-- Payment callbacks go only to the callback URL set on each payment. A webhook in the MONEI dashboard is not supported.
-- Translations: English and Spanish. Catalan and French are removed.
-
 ### Added
 
 - PayPal, MB WAY and Multibanco, next to card, Bizum and Apple Pay / Google Pay.
 - Hosted or onsite (monei.js v3) mode per payment method. MB WAY and Multibanco are hosted only.
 - Authorize and capture: capture with the admin Complete button, release with an order cancel.
 - Refunds with the core Refund button, and full and partial refunds with `sylius/refund-plugin` 2.2 or later.
+- A refund that MONEI answers without refunding (an equal refund sent within 3 seconds) is refused, so Sylius does not record it.
 - Order cancel guard: refuses the cancel of an order that MONEI says is paid, and cancels its pending MONEI payment.
 - MONEI refusals show as an admin flash message, or as a 409 answer in the admin API. The Sylius state does not change.
+- The pay step, the return page, the callback and the admin pages lock the payment row, so they do not act on one payment at the same time.
 - Apple Pay domain registration when an Apple Pay / Google Pay payment method is saved, and the domain association file route.
 - Optional order ID prefix, for several stores on one MONEI account.
 - MONEI payments expire before Sylius cancels the unpaid order.
 - Amount and currency check before a payment is completed or authorized.
 - Monolog channel `monei`.
 - `MONEI/Sylius/<version>` User-Agent on MONEI API requests.
-- Docker `Makefile` for unit, functional and static checks, and an end-to-end suite against the MONEI test API, run every night in CI.
+- Docker `Makefile` for unit, functional and static checks, and an end-to-end suite against the MONEI test API. CI runs it every night and on pull requests from branches of this repository.
+
+### Changed
+
+- **BREAKING:** Requires Sylius 2.2.12 or later on the 2.2 line, or Sylius 2.3.2 or later. These versions fix Sylius security advisories.
+- **BREAKING:** Requires the `symfony_workflow` state machine adapter for the `sylius_payment` and `sylius_order` graphs. The container does not build when either graph is mapped to another adapter.
+- **BREAKING:** Uses the Sylius Payment Requests API instead of Payum.
+- **BREAKING:** One Sylius payment method per MONEI method. Delete the 1.x MONEI payment method and create one per method.
+- **BREAKING:** New gateway config keys: `payment_method`, `mode` (`hosted` or `onsite`), `use_authorize`, `order_id_prefix`.
+- **BREAKING:** Routes: import `@MoneiSyliusPlugin/config/routes.yaml` without a prefix.
+- **BREAKING:** Payment callbacks go only to the callback URL set on each payment. A webhook in the MONEI dashboard is not supported.
+
+### Removed
+
+- **BREAKING:** Sylius 2.1 support.
+- **BREAKING:** Gateway config keys `account_id`, `sandbox` and `integration_type`.
+- **BREAKING:** `config/routes.xml`.
+- **BREAKING:** Catalan and French translations. English and Spanish remain.
 
 ### Fixed
 
 - The plugin loads in Sylius. 1.x did not load: it failed before any call to MONEI and took no payment.
 
 ## [1.0.1] - 2026-09-29
+
+1.0.1 did not load in Sylius either, so no store ran these fixes. See 2.0.0.
 
 ### Fixed
 
