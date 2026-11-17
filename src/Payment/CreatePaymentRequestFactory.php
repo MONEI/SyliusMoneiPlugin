@@ -10,7 +10,6 @@ use Monei\Model\PaymentBillingDetails;
 use Monei\Model\PaymentCustomer;
 use Monei\Model\PaymentSessionDetails;
 use Monei\Model\PaymentShippingDetails;
-use Monei\Model\PaymentTransactionType;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Psr\Clock\ClockInterface;
@@ -73,7 +72,7 @@ final readonly class CreatePaymentRequestFactory
             'cancel_url' => $returnUrl,
             'callback_url' => $callbackUrl,
             'allowed_payment_methods' => $configuration->method->allowedPaymentMethods(),
-            'transaction_type' => $configuration->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE,
+            'transaction_type' => $configuration->transactionType(),
             'expire_at' => $this->expireAt($order),
         ]);
 

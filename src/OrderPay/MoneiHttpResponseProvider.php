@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\OrderPay;
 
-use Monei\Model\PaymentTransactionType;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Sylius\Bundle\CoreBundle\OrderPay\Provider\UrlProviderInterface;
 use Sylius\Bundle\PaymentBundle\Provider\HttpResponseProviderInterface;
@@ -59,7 +58,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
                 'component' => $configuration->method->onsiteComponent()
                     ?? throw new \LogicException(\sprintf('MONEI %s has no onsite mode.', $configuration->method->value)),
                 // monei.js loads PayPal for a capture unless it gets AUTH, and a capture cannot pay an AUTH payment.
-                'transaction_type' => $configuration->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE,
+                'transaction_type' => $configuration->transactionType(),
                 'after_pay_url' => $this->afterPayUrlProvider->getUrl($paymentRequest),
             ],
         ]));

@@ -204,18 +204,18 @@ abstract class MoneiTestCase extends WebTestCase
     protected function authorizedOrder(): OrderInterface
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
-        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD', 'AUTH');
         $this->applyMoneiStatus($order, 'pay_1', 'AUTHORIZED');
 
         return $order;
     }
 
     /** Binds the order's last payment to a MONEI payment created with `$paymentMethodCode`. */
-    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode): void
+    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE'): void
     {
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode);
+        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType);
         $this->entityManager()->flush();
     }
 

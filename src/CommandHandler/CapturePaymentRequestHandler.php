@@ -119,8 +119,10 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
+        // The type check catches a `use_authorize` change after the payment was created.
         if (MoneiDetails::paymentMethodCode($payment) === $paymentRequest->getMethod()->getCode()
-            && $bound->payment->getAmount() === $payment->getAmount()) {
+            && $bound->payment->getAmount() === $payment->getAmount()
+            && MoneiDetails::transactionType($payment) === GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod())->transactionType()) {
             $this->forward($paymentRequest, $bound->payment);
 
             return;
@@ -129,7 +131,7 @@ final readonly class CapturePaymentRequestHandler
         $this->replace($paymentRequest, $payment, $bound);
     }
 
-    /** The bound PENDING payment was made for another method or amount. */
+    /** The bound PENDING payment was made for another method, amount or transaction type. */
     private function replace(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, BoundPayment $bound): void
     {
         $moneiPaymentId = (string) $bound->payment->getId();
@@ -231,7 +233,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode());
+        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), GatewayConfiguration::fromPaymentMethod($paymentMethod)->transactionType());
 
         if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
             $this->logger->error('MONEI created payment {monei_payment} for Sylius payment {payment} as FAILED: {message}', $context + [

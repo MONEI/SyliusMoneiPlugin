@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Gateway;
 
+use Monei\Model\PaymentTransactionType;
 use Sylius\Component\Payment\Model\GatewayConfigInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 
@@ -28,6 +29,11 @@ final readonly class GatewayConfiguration
         public bool $authorize,
         public string $orderIdPrefix,
     ) {
+    }
+
+    public function transactionType(): string
+    {
+        return $this->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE;
     }
 
     public static function isMonei(?PaymentMethodInterface $paymentMethod): bool

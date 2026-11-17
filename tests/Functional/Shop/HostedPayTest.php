@@ -108,6 +108,24 @@ final class HostedPayTest extends MoneiTestCase
         self::assertSame(10000, $this->body(MoneiMockHandler::history()[2])['amount']);
     }
 
+    /** Paying the old SALE payment would charge at once a buyer the store now only authorizes. */
+    public function testAPendingSalePaymentIsReplacedByAnAuthPaymentAfterUseAuthorizeIsSwitchedOn(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
+        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_1', 'PENDING'),
+            self::moneiPayment('pay_1', 'CANCELED'),
+            self::moneiPayment('pay_2', 'PENDING'),
+        );
+
+        $this->pay($order);
+
+        self::assertSame(['GET /payments/pay_1', 'POST /payments/pay_1/cancel', 'POST /payments'], $this->requestKeys());
+        self::assertSame('AUTH', $this->body(MoneiMockHandler::history()[2])['transactionType']);
+        self::assertRedirectsTo('https://secure.monei.com/payments/pay_2', Response::HTTP_SEE_OTHER);
+    }
+
     public function testAfterAMethodChangeTheOldPaymentIsCancelledWithTheOldKeyAndTheNewOneCreatedWithTheNewKey(): void
     {
         $this->createMoneiPaymentMethod('MONEI_OLD');
@@ -160,7 +178,7 @@ final class HostedPayTest extends MoneiTestCase
         self::assertSame(['GET /payments/pay_old', 'POST /payments/pay_old/cancel', 'GET /payments/pay_old'], $this->requestKeys());
         self::assertContains(Level::Warning, array_column($this->moneiLogs(), 'level'));
         self::assertSame('new', $this->paymentState($order));
-        self::assertSame(['id' => 'pay_old', 'payment_method' => 'MONEI_CARD_A'], $this->paymentDetails($order)['monei']);
+        self::assertSame(['id' => 'pay_old', 'payment_method' => 'MONEI_CARD_A', 'transaction_type' => 'SALE'], $this->paymentDetails($order)['monei']);
     }
 
     public function testAfterAMultibancoToCardChangeAnUncancellablePendingPaymentDoesNotBlockTheCardPayment(): void
@@ -395,10 +413,11 @@ final class HostedPayTest extends MoneiTestCase
         self::assertStringNotContainsString(self::API_KEY, implode(' ', array_column($logs, 'text')));
     }
 
+    /** Binds a SALE payment, as a method without `use_authorize` creates it. */
     private function bind(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode): void
     {
         $this->secondConnection()->executeStatement('UPDATE sylius_payment SET details = ? WHERE id = ?', [
-            json_encode(['monei' => ['id' => $moneiPaymentId, 'payment_method' => $paymentMethodCode]], \JSON_THROW_ON_ERROR),
+            json_encode(['monei' => ['id' => $moneiPaymentId, 'payment_method' => $paymentMethodCode, 'transaction_type' => 'SALE']], \JSON_THROW_ON_ERROR),
             $this->paymentId($order),
         ]);
     }
