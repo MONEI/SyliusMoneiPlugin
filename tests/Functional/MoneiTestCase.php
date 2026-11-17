@@ -12,7 +12,7 @@ use Monei\Internal\GuzzleHttp\Psr7\Response as MoneiResponse;
 use Monei\Model\Payment as MoneiPayment;
 use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Monei\SyliusPlugin\Payment\StatusApplier;
-use Monei\SyliusPlugin\Tests\TestApplication\src\CommitPaymentStateListener;
+use Monei\SyliusPlugin\Tests\TestApplication\src\ConcurrentPaymentWriteListener;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
 use Sylius\Component\Addressing\Model\AddressInterface;
 use Sylius\Component\Core\Model\AdminUserInterface;
@@ -65,7 +65,7 @@ abstract class MoneiTestCase extends WebTestCase
 
         MoneiMockHandler::reset();
         MoneiLogHandler::clear();
-        CommitPaymentStateListener::reset();
+        ConcurrentPaymentWriteListener::reset();
 
         $this->client = static::createClient();
         $this->purgeDatabase();

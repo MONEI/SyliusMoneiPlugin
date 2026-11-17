@@ -77,7 +77,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testAMonei500OnTheFetchFailsTheRequestOnlyAndTheNextPayReusesThePayment(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::error(500, 'Internal server error'));
 
         $payUrl = $this->startPay($order);
@@ -97,7 +97,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testAMonei404OnTheFetchCreatesANewPaymentAndAlerts(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_other_account', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_other_account', 'MONEI_CARD');
         MoneiMockHandler::append(self::error(404, 'Resource not found'), self::moneiPayment('pay_2', 'PENDING'));
 
         $this->pay($order);
@@ -110,7 +110,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testABoundPendingPaymentWithAnotherAmountIsCancelledAndReplaced(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(
             self::moneiPayment('pay_1', 'PENDING', amount: 5000),
             self::moneiPayment('pay_1', 'CANCELED', amount: 5000),
@@ -127,7 +127,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testAPendingSalePaymentIsReplacedByAnAuthPaymentAfterUseAuthorizeIsSwitchedOn(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(
             self::moneiPayment('pay_1', 'PENDING'),
             self::moneiPayment('pay_1', 'CANCELED'),
@@ -145,7 +145,7 @@ final class HostedPayTest extends MoneiTestCase
     {
         $this->createMoneiPaymentMethod('MONEI_OLD');
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_NEW', ['api_key' => self::OTHER_API_KEY]));
-        $this->bind($order, 'pay_old', 'MONEI_OLD');
+        $this->bindPayment($order, 'pay_old', 'MONEI_OLD');
         MoneiMockHandler::append(
             self::moneiPayment('pay_old', 'PENDING'),
             self::moneiPayment('pay_old', 'CANCELED'),
@@ -180,7 +180,7 @@ final class HostedPayTest extends MoneiTestCase
     {
         $this->createMoneiPaymentMethod('MONEI_CARD_A');
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD_B'));
-        $this->bind($order, 'pay_old', 'MONEI_CARD_A');
+        $this->bindPayment($order, 'pay_old', 'MONEI_CARD_A');
         $orderId = (string) $order->getNumber();
         MoneiMockHandler::append(
             self::moneiPayment('pay_old', 'PENDING', extra: ['orderId' => $orderId]),
@@ -200,7 +200,7 @@ final class HostedPayTest extends MoneiTestCase
     {
         $this->createMoneiPaymentMethod('MONEI_MB', ['payment_method' => 'multibanco']);
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_old', 'MONEI_MB');
+        $this->bindPayment($order, 'pay_old', 'MONEI_MB');
         $orderNumber = (string) $order->getNumber();
         $multibancoOrderId = $orderNumber.'-'.$this->paymentId($order);
         MoneiMockHandler::append(
@@ -222,7 +222,7 @@ final class HostedPayTest extends MoneiTestCase
     {
         $this->createMoneiPaymentMethod('MONEI_MB', ['payment_method' => 'multibanco']);
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_old', 'MONEI_MB');
+        $this->bindPayment($order, 'pay_old', 'MONEI_MB');
         MoneiMockHandler::append(
             self::moneiPayment('pay_old', 'PENDING'),
             self::error(400, 'The payment cannot be canceled'),
@@ -333,7 +333,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testAPendingPaymentWithTheProcessorIsNotReopenedAndTheBuyerSeesItIsInProgress(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING', nextAction: [
             'type' => 'COMPLETE',
             'redirectUrl' => 'http://localhost/en_US/order/after-pay/x?id=pay_1&status=PENDING',
@@ -354,7 +354,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testAPendingPaymentWithAChallengeRedirectsToTheChallenge(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING', nextAction: [
             'type' => 'CHALLENGE',
             'redirectUrl' => 'https://secure.monei.com/payments/pay_1/challenge',
@@ -402,7 +402,7 @@ final class HostedPayTest extends MoneiTestCase
     public function testABoundSucceededPaymentCompletesThePaymentAndCreatesNothing(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        $this->bind($order, 'pay_1', 'MONEI_CARD');
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'));
 
         $this->pay($order);
@@ -450,15 +450,6 @@ final class HostedPayTest extends MoneiTestCase
         $logs = $this->moneiLogs();
         self::assertContains(Level::Error, array_column($logs, 'level'));
         self::assertStringNotContainsString(self::API_KEY, implode(' ', array_column($logs, 'text')));
-    }
-
-    /** Binds a SALE payment, as a method without `use_authorize` creates it. */
-    private function bind(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode): void
-    {
-        $this->secondConnection()->executeStatement('UPDATE sylius_payment SET details = ? WHERE id = ?', [
-            json_encode(['monei' => ['id' => $moneiPaymentId, 'payment_method' => $paymentMethodCode, 'transaction_type' => 'SALE']], \JSON_THROW_ON_ERROR),
-            $this->paymentId($order),
-        ]);
     }
 
     /** @return array<string, mixed> */

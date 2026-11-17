@@ -14,7 +14,7 @@ use Symfony\Component\Workflow\Event\TransitionEvent;
  * method from another connection, as a concurrent request would. Off unless a test switches
  * it on; it fires once. State is static: KernelBrowser reboots the kernel between requests.
  */
-final class CommitPaymentStateListener
+final class ConcurrentPaymentWriteListener
 {
     private static ?string $state = null;
 

@@ -6,7 +6,7 @@ namespace Monei\SyliusPlugin\Tests\Functional\Admin;
 
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
-use Monei\SyliusPlugin\Tests\TestApplication\src\CommitPaymentStateListener;
+use Monei\SyliusPlugin\Tests\TestApplication\src\ConcurrentPaymentWriteListener;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Symfony\Component\HttpFoundation\Response;
@@ -113,7 +113,7 @@ final class PaymentTransitionTest extends MoneiTestCase
         $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
         $offlineMethodId = $this->createOfflinePaymentMethod('BANK_TRANSFER')->getId();
         \assert(\is_int($offlineMethodId));
-        CommitPaymentStateListener::commitMethodOnce($offlineMethodId);
+        ConcurrentPaymentWriteListener::commitMethodOnce($offlineMethodId);
 
         $this->transition($order, 'complete');
 
@@ -137,7 +137,7 @@ final class PaymentTransitionTest extends MoneiTestCase
     public function testCompleteIsRefusedWhenThePaymentStateChangedWhileItWaited(): void
     {
         $order = $this->authorizedOrder();
-        CommitPaymentStateListener::commitOnce('completed');
+        ConcurrentPaymentWriteListener::commitOnce('completed');
 
         $this->transition($order, 'complete');
 
