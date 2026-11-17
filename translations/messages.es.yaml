@@ -13,6 +13,10 @@ monei:
             title: Paga tu pedido
             cardholder_name: Titular de la tarjeta
             cardholder_name_required: Introduce el nombre del titular de la tarjeta.
+            card_details: Datos de la tarjeta
+            card_number: Número de tarjeta
+            card_expiry: Fecha de caducidad
+            card_cvc: CVC
             pay: Pagar
     form:
         gateway_configuration:

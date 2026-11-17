@@ -20,6 +20,26 @@ final class OnsitePayTest extends MoneiTestCase
         self::assertSame(['https://js.monei.com/v3/monei.js'], $page->filterXPath('//script[contains(@src, "monei")]')->extract(['src']));
     }
 
+    /** Separate fields are the default, also for methods saved before the option existed. */
+    public function testTheCardPageShowsSeparateLabelledCardFieldsByDefault(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'card']);
+
+        self::assertSame('split', $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-card-layout'));
+        self::assertSame(
+            ['monei-card-number' => 'Card number', 'monei-card-expiry' => 'Expiry date', 'monei-card-cvc' => 'CVC'],
+            self::cardFields($page),
+        );
+    }
+
+    public function testTheSingleCardLayoutShowsOneLabelledCardField(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'card', 'card_layout' => 'single']);
+
+        self::assertSame('single', $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-card-layout'));
+        self::assertSame(['monei-card-input' => 'Card details'], self::cardFields($page));
+    }
+
     public function testPayPalWithUseAuthorizePassesTransactionTypeAuth(): void
     {
         $page = $this->payOnsite(['payment_method' => 'paypal', 'use_authorize' => true]);
@@ -62,6 +82,21 @@ final class OnsitePayTest extends MoneiTestCase
         $this->pay($order);
 
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_1/challenge', Response::HTTP_SEE_OTHER);
+    }
+
+    /** @return array<string, string> the label of each card field container, by container id */
+    private static function cardFields(Crawler $page): array
+    {
+        $fields = [];
+        $page->filterXPath('//form[@id="monei-onsite"]//div[contains(concat(" ", @class, " "), " monei-card-part ")]')->each(
+            static function (Crawler $container) use (&$fields): void {
+                $label = $container->previousAll()->first();
+                self::assertSame('label', $label->nodeName());
+                $fields[(string) $container->attr('id')] = $label->text();
+            },
+        );
+
+        return $fields;
     }
 
     /** @param array<string, mixed> $config */

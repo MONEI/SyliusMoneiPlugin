@@ -13,6 +13,10 @@ monei:
             title: Pay your order
             cardholder_name: Cardholder name
             cardholder_name_required: Enter the cardholder name.
+            card_details: Card details
+            card_number: Card number
+            card_expiry: Expiry date
+            card_cvc: CVC
             pay: Pay
     form:
         gateway_configuration:

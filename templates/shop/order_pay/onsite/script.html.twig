@@ -36,12 +36,68 @@
             return;
         }
 
-        var card = monei.CardInput({ paymentId: data.paymentId, onChange: function (event) { showError(event.error); } });
-        card.render('#monei-card-input');
+        function px(value) {
+            return parseFloat(value) || 0;
+        }
+
+        // The card fields are cross-origin iframes: they get the theme look from the cardholder input.
+        var cardholder = form.elements.cardholder_name;
+        var ref = window.getComputedStyle(cardholder);
+        var contentHeight = (px(ref.lineHeight) || px(ref.fontSize) * 1.5) + px(ref.paddingTop) + px(ref.paddingBottom);
+        var input = { fontFamily: ref.fontFamily, fontSize: ref.fontSize, fontWeight: ref.fontWeight, color: ref.color };
+        var placeholderColor = window.getComputedStyle(cardholder, '::placeholder').color;
+        if (placeholderColor) {
+            input['::placeholder'] = { color: placeholderColor };
+        }
+        var style = { base: { height: contentHeight + 'px', padding: '0 ' + ref.paddingRight + ' 0 ' + ref.paddingLeft }, input: input };
+
+        var containers = form.querySelectorAll('.monei-card-part');
+        containers.forEach(function (container) {
+            container.style.height = contentHeight + px(ref.borderTopWidth) + px(ref.borderBottomWidth) + 'px';
+        });
+        copyThemeStateRules();
+
+        var card;
+        if ('single' === data.cardLayout) {
+            // CardInput sets no state classes: set the ones the part containers get from monei.js.
+            var box = document.getElementById('monei-card-input');
+            card = monei.CardInput({
+                paymentId: data.paymentId,
+                style: style,
+                onChange: function (event) {
+                    box.classList.toggle('monei-component--invalid', Boolean(event.error));
+                    showError(event.error);
+                },
+                onFocus: function () { box.classList.add('monei-component--focus'); },
+                onBlur: function () { box.classList.remove('monei-component--focus'); }
+            });
+            card.render(box);
+        } else {
+            card = monei.CardGroup({ paymentId: data.paymentId, style: style, onChange: function (event) { showError(event.error); } });
+            var parts = [[monei.CardNumber, 'monei-card-number'], [monei.CardExpiry, 'monei-card-expiry'], [monei.CardCvc, 'monei-card-cvc']].map(function (part) {
+                var container = document.getElementById(part[1]);
+                var instance = part[0]({ group: card });
+                instance.render(container);
+                // A label cannot focus an input in an iframe.
+                container.previousElementSibling.addEventListener('click', function () { instance.focus(); });
+
+                return instance;
+            });
+            // monei.js requires the parts to go before their group. A page kept in the back-forward cache keeps its fields.
+            window.addEventListener('pagehide', function (event) {
+                if (event.persisted) {
+                    return;
+                }
+                parts.forEach(function (part) { part.destroy(); });
+                card.destroy();
+            });
+        }
+        applyStoreWebFont(card, ref);
+
         var button = form.querySelector('button[type=submit]');
         form.addEventListener('submit', function (event) {
             event.preventDefault();
-            var cardholderName = form.elements.cardholder_name.value.trim();
+            var cardholderName = cardholder.value.trim();
             if ('' === cardholderName) {
                 showError(data.cardholderNameRequired);
                 return;
@@ -59,5 +115,109 @@
                 onError(error);
             });
         });
+
+        function readableRules() {
+            var rules = [];
+            Array.prototype.forEach.call(document.styleSheets, function (sheet) {
+                try {
+                    Array.prototype.forEach.call(sheet.cssRules, function (rule) { rules.push({ rule: rule, sheet: sheet }); });
+                } catch (e) {
+                    // A cross-origin stylesheet cannot be read.
+                }
+            });
+
+            return rules;
+        }
+
+        // The theme's own focus and invalid look, so the card boxes match the cardholder input in every state.
+        function copyThemeStateRules() {
+            var focus = '';
+            var invalidBorder = '';
+            readableRules().forEach(function (entry) {
+                var rule = entry.rule;
+                if (!(rule instanceof CSSStyleRule)) {
+                    return;
+                }
+                var selectors = rule.selectorText.split(',').map(function (selector) { return selector.trim(); });
+                if (-1 !== selectors.indexOf('.form-control:focus')) {
+                    focus += rule.style.cssText;
+                }
+                if (-1 !== selectors.indexOf('.form-control.is-invalid') && rule.style.borderColor) {
+                    // Only the border: the rule also adds an icon and padding for a text input.
+                    invalidBorder = 'border-color: ' + rule.style.borderColor + ';';
+                }
+            });
+            var css = document.createElement('style');
+            css.textContent = '.monei-card-part.monei-component--focus { ' + (focus || 'border-color: currentColor; box-shadow: 0 0 0 .05rem currentColor;') + ' }'
+                + ' .monei-card-part.monei-component--invalid { ' + (invalidBorder || 'border-color: var(--bs-form-invalid-border-color, #dc3545);') + ' }';
+            document.head.appendChild(css);
+        }
+
+        // An iframe cannot use a web font of this page. Pass the store's same-origin @font-face as a data: URL
+        // (monei.js refuses a url(...) wrapper; a cross-origin font would need CORS). monei.js drops a data: URL
+        // longer than 256 KB, and the field keeps the fallback font. Best effort.
+        function applyStoreWebFont(component, refStyle) {
+            var family = refStyle.fontFamily.split(',')[0].replace(/["']/g, '').trim();
+            var target = parseInt(refStyle.fontWeight, 10) || 400;
+            var face = null;
+            readableRules().forEach(function (entry) {
+                var rule = entry.rule;
+                if (!(rule instanceof CSSFontFaceRule) || 'italic' === rule.style.getPropertyValue('font-style')) {
+                    return;
+                }
+                if (rule.style.getPropertyValue('font-family').replace(/["']/g, '').trim() !== family) {
+                    return;
+                }
+                var woff2 = /url\(\s*['"]?([^'")]+\.woff2[^'")]*)['"]?\s*\)/i.exec(rule.style.getPropertyValue('src'));
+                if (!woff2) {
+                    return;
+                }
+                var url = new URL(woff2[1], entry.sheet.href || document.baseURI);
+                if (url.origin !== window.location.origin) {
+                    return;
+                }
+                // A variable font declares a weight range; the range holding the target weight is an exact match.
+                var weight = rule.style.getPropertyValue('font-weight') || '400';
+                var range = weight.split(' ').map(function (value) { return parseInt(value, 10) || ({ bold: 700 })[value] || 400; });
+                var distance = Math.max(0, range[0] - target, target - range[range.length - 1]);
+                // A subset face renders the field only if it holds digits and Latin letters.
+                var unicodeRange = rule.style.getPropertyValue('unicode-range');
+                var rank = (unicodeRangeCovers(unicodeRange, 0x30) && unicodeRangeCovers(unicodeRange, 0x41) ? 0 : 10000) + distance;
+                if (!face || rank < face.rank) {
+                    face = { src: url.href, weight: weight, rank: rank };
+                }
+            });
+            if (!face) {
+                return;
+            }
+            fetch(face.src).then(function (response) {
+                return response.ok ? response.blob() : Promise.reject(new Error(response.statusText));
+            }).then(function (blob) {
+                return new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onload = function () { resolve(reader.result); };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+            }).then(function (src) {
+                return component.updateProps({ fonts: [{ family: family, src: src, weight: face.weight }] });
+            }).catch(function () {
+                // The field keeps the fallback font.
+            });
+        }
+
+        // A unicode-range is CSS like "U+0-FF, U+131, U+4??".
+        function unicodeRangeCovers(unicodeRange, codePoint) {
+            if (!unicodeRange) {
+                return true;
+            }
+
+            return unicodeRange.split(',').some(function (token) {
+                token = token.trim().replace(/^U\+/i, '');
+                var bounds = -1 !== token.indexOf('?') ? [token.replace(/\?/g, '0'), token.replace(/\?/g, 'F')] : token.split('-');
+
+                return codePoint >= parseInt(bounds[0], 16) && codePoint <= parseInt(bounds[bounds.length - 1], 16);
+            });
+        }
     })();
 </script>
