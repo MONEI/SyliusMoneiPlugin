@@ -57,7 +57,7 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --dir e2e exec playwright install --with-deps chromium
 
-      # The seed container reads the key only from e2e/.env, and the specs load that file too.
+      # Compose (for the seed container) and the specs read the key from e2e/.env.
       - name: Write e2e/.env
         env:
           MONEI_TEST_API_KEY: ${{ secrets.MONEI_TEST_API_KEY }}

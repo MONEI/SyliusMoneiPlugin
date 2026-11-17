@@ -9,8 +9,7 @@ const STORE_URL_FILE = resolve(GENERATED_DIR, "store-url");
 const FIXTURES_FILE = resolve(GENERATED_DIR, "fixtures.json");
 const ADMIN_PASSWORD_FILE = resolve(GENERATED_DIR, "admin-password");
 
-// e2e/.env is the only source the seed container reads, so CI writes it too. An exported
-// variable wins here.
+// CI writes e2e/.env too. An exported variable wins, here and in the seed container.
 if (existsSync(resolve(E2E_DIR, ".env"))) process.loadEnvFile(resolve(E2E_DIR, ".env"));
 
 /** Trimmed: a secret pasted into a CI store often carries a trailing newline. */

@@ -65,11 +65,10 @@ services:
     seed:
         image: sylius-monei-e2e-php
         profiles: ['tools']
-        env_file:
-            - path: ./.env
-              required: false
         environment:
             <<: *app-env
+            # Compose reads e2e/.env, and an exported variable wins, as in e2e/utils/env.ts.
+            MONEI_TEST_API_KEY: ${MONEI_TEST_API_KEY:-}
             E2E_RUN_ID: ${E2E_RUN_ID:-}
             E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-}
         volumes:
