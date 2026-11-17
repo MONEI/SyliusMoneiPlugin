@@ -141,6 +141,24 @@ final class HostedPayTest extends MoneiTestCase
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_2', Response::HTTP_SEE_OTHER);
     }
 
+    /** Paying the old card payment would ignore that the store now takes this method as Bizum. */
+    public function testAPendingCardPaymentIsReplacedByABizumPaymentAfterTheMoneiMethodIsChanged(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['payment_method' => 'bizum']));
+        $this->bindPayment($order, 'pay_1', 'MONEI_CARD');
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_1', 'PENDING'),
+            self::moneiPayment('pay_1', 'CANCELED'),
+            self::moneiPayment('pay_2', 'PENDING'),
+        );
+
+        $this->pay($order);
+
+        self::assertSame(['GET /payments/pay_1', 'POST /payments/pay_1/cancel', 'POST /payments'], $this->requestKeys());
+        self::assertSame(['bizum'], $this->body(MoneiMockHandler::history()[2])['allowedPaymentMethods']);
+        self::assertRedirectsTo('https://secure.monei.com/payments/pay_2', Response::HTTP_SEE_OTHER);
+    }
+
     public function testAfterAMethodChangeTheOldPaymentIsCancelledWithTheOldKeyAndTheNewOneCreatedWithTheNewKey(): void
     {
         $this->createMoneiPaymentMethod('MONEI_OLD');
@@ -193,7 +211,7 @@ final class HostedPayTest extends MoneiTestCase
         self::assertSame(['GET /payments/pay_old', 'POST /payments/pay_old/cancel', 'GET /payments/pay_old'], $this->requestKeys());
         self::assertContains(Level::Warning, array_column($this->moneiLogs(), 'level'));
         self::assertSame('new', $this->paymentState($order));
-        self::assertSame(['id' => 'pay_old', 'payment_method' => 'MONEI_CARD_A', 'transaction_type' => 'SALE'], $this->paymentDetails($order)['monei']);
+        self::assertSame(['id' => 'pay_old', 'monei_method' => 'card', 'payment_method' => 'MONEI_CARD_A', 'transaction_type' => 'SALE'], $this->paymentDetails($order)['monei']);
     }
 
     public function testAfterAMultibancoToCardChangeAnUncancellablePendingPaymentDoesNotBlockTheCardPayment(): void

@@ -211,11 +211,11 @@ abstract class MoneiTestCase extends WebTestCase
     }
 
     /** Binds the order's last payment to a MONEI payment created with `$paymentMethodCode`. */
-    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE'): void
+    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE', string $moneiMethod = 'card'): void
     {
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType);
+        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType, $moneiMethod);
         $this->entityManager()->flush();
     }
 

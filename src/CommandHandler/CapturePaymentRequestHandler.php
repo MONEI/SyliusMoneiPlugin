@@ -119,10 +119,12 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        // The type check catches a `use_authorize` change after the payment was created.
+        // The type and MONEI method checks catch a gateway config change after the payment was created.
+        $configuration = GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod());
         if (MoneiDetails::paymentMethodCode($payment) === $paymentRequest->getMethod()->getCode()
             && $bound->payment->getAmount() === $payment->getAmount()
-            && MoneiDetails::transactionType($payment) === GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod())->transactionType()) {
+            && MoneiDetails::transactionType($payment) === $configuration->transactionType()
+            && MoneiDetails::moneiMethod($payment) === $configuration->method->value) {
             $this->forward($paymentRequest, $bound->payment);
 
             return;
@@ -131,7 +133,7 @@ final readonly class CapturePaymentRequestHandler
         $this->replace($paymentRequest, $payment, $bound);
     }
 
-    /** The bound PENDING payment was made for another method, amount or transaction type. */
+    /** The bound PENDING payment was made for another method, amount, transaction type or MONEI method. */
     private function replace(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, BoundPayment $bound): void
     {
         $moneiPaymentId = (string) $bound->payment->getId();
@@ -233,7 +235,8 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), GatewayConfiguration::fromPaymentMethod($paymentMethod)->transactionType());
+        $configuration = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), $configuration->transactionType(), $configuration->method->value);
 
         if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
             $this->logger->error('MONEI created payment {monei_payment} for Sylius payment {payment} as FAILED: {message}', $context + [

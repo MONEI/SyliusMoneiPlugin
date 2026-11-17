@@ -8,9 +8,10 @@ use Sylius\Component\Payment\Model\PaymentInterface;
 
 /**
  * The MONEI part of a Sylius payment's details: `details.monei` = `{id, payment_method,
- * transaction_type}`. Only `id` binds the Sylius payment to a MONEI payment; `payment_method`
- * is the code of the Sylius payment method whose API key created it, and `transaction_type`
- * the SALE or AUTH it was created with (a MONEI payment does not tell it).
+ * transaction_type, monei_method}`. Only `id` binds the Sylius payment to a MONEI payment;
+ * `payment_method` is the code of the Sylius payment method whose API key created it,
+ * `transaction_type` the SALE or AUTH it was created with (a MONEI payment does not tell it),
+ * and `monei_method` the MONEI method that method was configured with.
  */
 final class MoneiDetails
 {
@@ -37,13 +38,21 @@ final class MoneiDetails
         return \is_string($type) ? $type : null;
     }
 
-    public static function bind(PaymentInterface $payment, string $moneiPaymentId, string $paymentMethodCode, string $transactionType): void
+    public static function moneiMethod(PaymentInterface $payment): ?string
+    {
+        $method = self::read($payment)['monei_method'] ?? null;
+
+        return \is_string($method) ? $method : null;
+    }
+
+    public static function bind(PaymentInterface $payment, string $moneiPaymentId, string $paymentMethodCode, string $transactionType, string $moneiMethod): void
     {
         $details = $payment->getDetails();
         $details[self::KEY] = [
             'id' => $moneiPaymentId,
             'payment_method' => $paymentMethodCode,
             'transaction_type' => $transactionType,
+            'monei_method' => $moneiMethod,
         ];
         $payment->setDetails($details);
     }

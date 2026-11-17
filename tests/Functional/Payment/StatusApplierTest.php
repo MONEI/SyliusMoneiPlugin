@@ -25,7 +25,7 @@ final class StatusApplierTest extends MoneiTestCase
 
         $payment = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'))->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, self::BOUND_ID, 'MONEI_CARD', 'SALE');
+        MoneiDetails::bind($payment, self::BOUND_ID, 'MONEI_CARD', 'SALE', 'card');
         $this->entityManager()->flush();
         $this->payment = $payment;
     }
