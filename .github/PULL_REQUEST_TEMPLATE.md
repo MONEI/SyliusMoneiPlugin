@@ -6,7 +6,7 @@
 
 - [ ] Tests pass (`make test`)
 - [ ] Static analysis passes (`make analyse`)
-- [ ] Code style is clean (`make check`)
+- [ ] Code style is clean (`make cs`)
 - [ ] CHANGELOG.md updated (if applicable)
 - [ ] README.md updated (if applicable)
 
