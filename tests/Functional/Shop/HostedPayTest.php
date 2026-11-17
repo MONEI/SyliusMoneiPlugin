@@ -237,6 +237,22 @@ final class HostedPayTest extends MoneiTestCase
         );
     }
 
+    /** Another payment of the order is with the processor: the buyer must finish it, not hear the order is paid. */
+    public function testACreateRefusedAsPendingProcessingKeepsThePaymentNewAndSaysItIsInProgress(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
+        MoneiMockHandler::append(self::error(400, \sprintf('The order "%s" is pending processing', (string) $order->getNumber())));
+
+        $this->pay($order);
+
+        self::assertSame('new', $this->paymentState($order));
+        $this->client->request('GET', '/en_US/order/'.$order->getTokenValue());
+        self::assertStringContainsString(
+            'A payment for this order is still in progress. Complete it or wait until it expires.',
+            (string) $this->client->getResponse()->getContent(),
+        );
+    }
+
     public function testACreateRefusedWithAValidationErrorFailsThePayment(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
