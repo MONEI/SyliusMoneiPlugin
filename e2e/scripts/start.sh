@@ -29,7 +29,7 @@ console doctrine:schema:create
 console sylius:payment:generate-key
 console sylius:fixtures:load e2e
 
-store_ready() { curl -fsS -o /dev/null http://localhost:18080/en_US/; }
+store_ready() { curl -fsS --max-time 10 -o /dev/null http://localhost:18080/en_US/; }
 wait_for 120 nginx "the store on http://localhost:18080" store_ready
 
 # A fresh order ID prefix per run: MONEI's duplicate check on orderId never expires.
@@ -54,7 +54,7 @@ gha_mask "${store_url#https://}"
 # Written, never printed: the public repo's CI logs must not show the tunnel host.
 printf '%s\n' "$store_url" >"$GENERATED_DIR/store-url"
 
-tunnel_ready() { curl -fsS -o /dev/null "$store_url/en_US/"; }
+tunnel_ready() { curl -fsS --max-time 10 -o /dev/null "$store_url/en_US/"; }
 wait_for 120 tunnel "the store through the tunnel" tunnel_ready
 
 echo "e2e stack ready: Sylius $SYLIUS_VERSION on PHP $PHP_VERSION; local store http://localhost:18080, tunnel URL in e2e/.generated/store-url"
