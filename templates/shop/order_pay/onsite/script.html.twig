@@ -43,7 +43,12 @@
         // The card fields are cross-origin iframes: they get the theme look from the cardholder input.
         var cardholder = form.elements.cardholder_name;
         var ref = window.getComputedStyle(cardholder);
-        var contentHeight = (px(ref.lineHeight) || px(ref.fontSize) * 1.5) + px(ref.paddingTop) + px(ref.paddingBottom);
+        var borders = px(ref.borderTopWidth) + px(ref.borderBottomWidth);
+        // A theme can set an explicit input height; the rendered height then wins over line height + padding.
+        var outerHeight = 'border-box' === ref.boxSizing ? px(ref.height) : px(ref.height) + px(ref.paddingTop) + px(ref.paddingBottom) + borders;
+        var contentHeight = outerHeight > borders
+            ? outerHeight - borders
+            : (px(ref.lineHeight) || px(ref.fontSize) * 1.5) + px(ref.paddingTop) + px(ref.paddingBottom);
         var input = { fontFamily: ref.fontFamily, fontSize: ref.fontSize, fontWeight: ref.fontWeight, color: ref.color };
         var placeholderColor = window.getComputedStyle(cardholder, '::placeholder').color;
         if (placeholderColor) {
@@ -53,7 +58,7 @@
 
         var containers = form.querySelectorAll('.monei-card-part');
         containers.forEach(function (container) {
-            container.style.height = contentHeight + px(ref.borderTopWidth) + px(ref.borderBottomWidth) + 'px';
+            container.style.height = contentHeight + borders + 'px';
         });
         copyThemeStateRules();
 
