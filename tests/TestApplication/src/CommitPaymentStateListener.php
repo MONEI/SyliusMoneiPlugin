@@ -10,13 +10,15 @@ use Sylius\Component\Payment\Model\PaymentInterface;
 use Symfony\Component\Workflow\Event\TransitionEvent;
 
 /**
- * Test env only: just before PaymentTransitionListener runs, commits a new payment state
- * from another connection, as a concurrent request would. Off unless a test switches it
- * on; it fires once. State is static: KernelBrowser reboots the kernel between requests.
+ * Test env only: just before PaymentTransitionListener runs, commits a new payment state or
+ * method from another connection, as a concurrent request would. Off unless a test switches
+ * it on; it fires once. State is static: KernelBrowser reboots the kernel between requests.
  */
 final class CommitPaymentStateListener
 {
     private static ?string $state = null;
+
+    private static ?int $methodId = null;
 
     public function __construct(private readonly Connection $connection)
     {
@@ -27,24 +29,35 @@ final class CommitPaymentStateListener
         self::$state = $state;
     }
 
+    public static function commitMethodOnce(int $methodId): void
+    {
+        self::$methodId = $methodId;
+    }
+
     public static function reset(): void
     {
         self::$state = null;
+        self::$methodId = null;
     }
 
     public function __invoke(TransitionEvent $event): void
     {
         $payment = $event->getSubject();
-        if (null === self::$state || !$payment instanceof PaymentInterface) {
+        if ((null === self::$state && null === self::$methodId) || !$payment instanceof PaymentInterface) {
             return;
         }
 
         $other = DriverManager::getConnection($this->connection->getParams());
         try {
-            $other->executeStatement('UPDATE sylius_payment SET state = ? WHERE id = ?', [self::$state, $payment->getId()]);
+            if (null !== self::$state) {
+                $other->executeStatement('UPDATE sylius_payment SET state = ? WHERE id = ?', [self::$state, $payment->getId()]);
+            }
+            if (null !== self::$methodId) {
+                $other->executeStatement('UPDATE sylius_payment SET method_id = ? WHERE id = ?', [self::$methodId, $payment->getId()]);
+            }
         } finally {
             $other->close();
-            self::$state = null;
+            self::reset();
         }
     }
 }

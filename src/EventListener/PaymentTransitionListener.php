@@ -59,8 +59,9 @@ final readonly class PaymentTransitionListener
             throw new MoneiRefusedException('monei.refused.state_changed', [], $order);
         }
 
-        // An offline settlement: no MONEI payment to act on.
-        if (null === MoneiDetails::paymentId($payment)) {
+        // The refresh may show a switch to another gateway, or an offline settlement: no MONEI payment to act on.
+        // @phpstan-ignore booleanNot.alwaysFalse (PHPStan does not see that the lock's refresh reloads the method)
+        if (!GatewayConfiguration::isMonei($payment->getMethod()) || null === MoneiDetails::paymentId($payment)) {
             return;
         }
 

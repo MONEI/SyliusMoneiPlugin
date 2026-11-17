@@ -106,6 +106,20 @@ final class PaymentTransitionTest extends MoneiTestCase
         self::assertSame('completed', $this->paymentState($order));
     }
 
+    /** A concurrent switch to an offline method while this request waited must not capture the old hold. */
+    public function testCompleteAfterAConcurrentSwitchToAnOfflineMethodMakesNoMoneiCall(): void
+    {
+        $order = $this->authorizedOrder();
+        $offlineMethodId = $this->createOfflinePaymentMethod('BANK_TRANSFER')->getId();
+        \assert(\is_int($offlineMethodId));
+        CommitPaymentStateListener::commitMethodOnce($offlineMethodId);
+
+        $this->transition($order, 'complete');
+
+        self::assertSame([], $this->requestKeys());
+        self::assertSame('completed', $this->paymentState($order));
+    }
+
     public function testCompleteOfAnAuthorizedMoneiPaymentOneCentShortIsRefusedWithoutCapture(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
