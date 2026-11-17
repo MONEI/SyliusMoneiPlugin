@@ -1,0 +1,96 @@
+# e2e store only. scripts/seed.php adds the MONEI payment methods and the fixed prices.
+sylius_fixtures:
+    suites:
+        e2e:
+            listeners:
+                logger: ~
+            fixtures:
+                locale:
+                    options:
+                        locales: ['en_US']
+                currency:
+                    options:
+                        currencies: ['EUR']
+                geographical:
+                    options:
+                        countries: ['ES', 'PT']
+                        zones:
+                            IBERIA:
+                                name: 'Iberia'
+                                countries: ['ES', 'PT']
+                taxon:
+                    options:
+                        custom:
+                            e2e:
+                                code: 'e2e'
+                                name: 'E2E'
+                                slug: 'e2e'
+                channel:
+                    options:
+                        custom:
+                            e2e:
+                                code: 'E2E'
+                                name: 'MONEI e2e'
+                                # No hostname: the single channel answers on localhost and on the tunnel host.
+                                hostname: ~
+                                enabled: true
+                                locales: ['en_US']
+                                default_locale: 'en_US'
+                                currencies: ['EUR']
+                                base_currency: 'EUR'
+                                default_tax_zone: 'IBERIA'
+                                menu_taxon: 'e2e'
+                                skipping_shipping_step_allowed: false
+                                skipping_payment_step_allowed: false
+                                account_verification_required: false
+                                shipping_address_in_checkout_required: false
+                shipping_method:
+                    options:
+                        custom:
+                            free:
+                                code: 'free'
+                                name: 'Free shipping'
+                                enabled: true
+                                zone: 'IBERIA'
+                                channels: ['E2E']
+                                calculator:
+                                    type: 'flat_rate'
+                                    configuration:
+                                        E2E: { amount: 0 }
+                product:
+                    options:
+                        custom:
+                            t_shirt:
+                                code: 'E2E_T_SHIRT'
+                                name: 'E2E T-shirt'
+                                slug: 'e2e-t-shirt'
+                                main_taxon: 'e2e'
+                                taxons: ['e2e']
+                                channels: ['E2E']
+                                tracked: false
+                            sticker:
+                                code: 'E2E_STICKER'
+                                name: 'E2E Sticker'
+                                slug: 'e2e-sticker'
+                                main_taxon: 'e2e'
+                                taxons: ['e2e']
+                                channels: ['E2E']
+                                tracked: false
+
+when@prod:
+    # The test application's prod config wraps these pools in Symfony\Component\Cache\DoctrineProvider,
+    # which current symfony/cache no longer has; Doctrine takes the PSR-6 pools directly.
+    doctrine:
+        orm:
+            metadata_cache_driver: { type: pool, pool: doctrine.system_cache_pool }
+            query_cache_driver: { type: pool, pool: doctrine.system_cache_pool }
+            result_cache_driver: { type: pool, pool: doctrine.result_cache_pool }
+
+    monolog:
+        handlers:
+            # The plugin's channel, in the php container log.
+            monei_stderr:
+                type: stream
+                path: 'php://stderr'
+                level: info
+                channels: ['monei']

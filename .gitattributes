@@ -1,0 +1,11 @@
+/.github export-ignore
+/e2e export-ignore
+/tests export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/compose.yaml export-ignore
+/Makefile export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml.dist export-ignore
+/CONTRIBUTING.md export-ignore

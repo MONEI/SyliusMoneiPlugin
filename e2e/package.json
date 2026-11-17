@@ -1,0 +1,18 @@
+{
+  "name": "sylius-monei-plugin-e2e",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "e2e:start": "bash scripts/start.sh",
+    "e2e": "playwright test",
+    "e2e:stop": "bash scripts/stop.sh"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2"
+  }
+}

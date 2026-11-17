@@ -1,0 +1,24 @@
+monei:
+    apple_pay:
+        domain_not_registered: 'MONEI did not register %domain% for Apple Pay (%reason%). Apple Pay does not show on that domain until it is registered. Save the payment method again to retry.'
+    payment:
+        in_progress: 'A payment for this order is still in progress. Complete it or wait until it expires.'
+        already_paid: 'MONEI already has a paid or authorized payment for this order. Contact the store.'
+    order:
+        payment_still_pending: 'The order is cancelled, but MONEI could not cancel its pending payment. The buyer can still complete it until it expires. If the buyer pays it, refund it in the MONEI dashboard.'
+    refused:
+        state_changed: 'The payment changed while this action waited. Reload the order and try again.'
+        not_paid: 'MONEI says the payment is %status%: it cannot be marked as paid.'
+        amount_mismatch: 'The MONEI payment amount or currency differs from this payment. Check it in the MONEI dashboard.'
+        capture: 'MONEI did not capture the payment (%reason%).'
+        cancel: 'MONEI did not cancel the payment (%reason%).'
+        refund: 'MONEI did not refund the payment (%reason%).'
+        cannot_cancel: 'MONEI says the payment is %status%: it cannot be cancelled.'
+        not_refundable: 'MONEI says the payment is %status%: it cannot be refunded.'
+        unreachable: 'The MONEI payment cannot be reached with the API key of payment method %payment_method%. Restore the API key that created it, then try again.'
+        unavailable: 'MONEI could not be reached (%reason%). Try again later.'
+        order_paid: 'MONEI says a payment of this order is %status%: the order cannot be cancelled.'
+        try_again: 'MONEI is processing another operation on this payment. Try again in a moment.'
+        refund_method_not_paid: 'No payment of this order was paid with %payment_method% through MONEI. Choose the payment method that paid the order.'
+        refund_answer_lost: 'MONEI has already refunded more of this payment than Sylius has recorded (a refund made in the MONEI dashboard, or an earlier refund whose answer was lost). Do not refund it again through MONEI. Record the missing refund with an offline refund method enabled in this channel.'
+        refund_not_applied: 'MONEI did not apply this refund: an equal refund of this payment was sent seconds before. Check the payment in the MONEI dashboard before you try again.'

@@ -1,0 +1,14 @@
+monei:
+    gateway_configuration:
+        api_key:
+            missing: Introduce la clave API de MONEI.
+            invalid: La clave API de MONEI debe empezar por pk_test_ o pk_live_.
+        payment_method:
+            invalid: Elige un método de pago MONEI.
+        mode:
+            invalid: El modo debe ser alojado o en tienda.
+            hosted_only: Este método de pago no tiene modo en tienda. Usa la página de pago alojada.
+        use_authorize:
+            not_supported: Este método de pago no puede autorizar. Siempre cobra al momento.
+        order_id_prefix:
+            invalid: El prefijo admite como máximo 20 letras, dígitos, - y _.

@@ -1,0 +1,29 @@
+monei:
+    gateway_factory:
+        monei: MONEI
+    method:
+        card: Card
+        bizum: Bizum
+        paypal: PayPal
+        apple_google_pay: Apple Pay / Google Pay
+        mbway: MB WAY
+        multibanco: Multibanco
+    ui:
+        onsite:
+            title: Pay your order
+            cardholder_name: Cardholder name
+            cardholder_name_required: Enter the cardholder name.
+            pay: Pay
+    form:
+        gateway_configuration:
+            api_key: API key
+            api_key_help: Your MONEI API key (pk_test_… or pk_live_…), from the MONEI dashboard.
+            payment_method: MONEI payment method
+            mode: Mode
+            mode_help: Hosted sends the customer to the MONEI payment page. Onsite shows the payment form in your store (not available for MB WAY and Multibanco).
+            mode_hosted: Hosted payment page
+            mode_onsite: Onsite (monei.js)
+            use_authorize: Authorize only, capture later
+            use_authorize_help: The payment is held and you capture it from the order page. Only card, Apple Pay / Google Pay and PayPal.
+            order_id_prefix: Order ID prefix
+            order_id_prefix_help: Optional. Added before the order number sent to MONEI. Set a different prefix for each store that uses the same MONEI account. At most 20 letters, digits, - and _.

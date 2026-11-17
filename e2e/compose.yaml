@@ -1,0 +1,84 @@
+# Driven by e2e/scripts/{start,stop}.sh. Host port 18080 serves the store on localhost; the
+# cloudflared tunnel serves it on a public host for the MONEI callbacks.
+name: sylius-monei-e2e
+
+x-app-env: &app-env
+    PHP_DATE_TIMEZONE: UTC
+    # scripts/start.sh sets a random one per run; the test application's .env has a public default.
+    APP_SECRET: ${APP_SECRET:-}
+    SYLIUS_PAYMENT_ENCRYPTION_KEY_PATH: /app/var/encryption/key
+    SYLIUS_MESSENGER_TRANSPORT_MAIN_DSN: sync://
+    SYLIUS_MESSENGER_TRANSPORT_MAIN_FAILED_DSN: sync://
+    SYLIUS_MESSENGER_TRANSPORT_CATALOG_PROMOTION_REMOVAL_DSN: sync://
+    SYLIUS_MESSENGER_TRANSPORT_CATALOG_PROMOTION_REMOVAL_FAILED_DSN: sync://
+    SYLIUS_MESSENGER_TRANSPORT_PAYMENT_REQUEST_DSN: sync://
+    SYLIUS_MESSENGER_TRANSPORT_PAYMENT_REQUEST_FAILED_DSN: sync://
+
+services:
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+        tmpfs:
+            - /var/lib/mysql
+        healthcheck:
+            test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-proot', '--silent']
+            interval: 2s
+            timeout: 5s
+            retries: 60
+
+    php:
+        image: sylius-monei-e2e-php
+        build:
+            context: ..
+            dockerfile: e2e/docker/php/Dockerfile
+            target: php
+            args:
+                PHP_VERSION: ${PHP_VERSION:-8.4}
+                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.2}
+        environment: *app-env
+        volumes:
+            - encryption:/app/var/encryption
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    nginx:
+        image: sylius-monei-e2e-nginx
+        build:
+            context: ..
+            dockerfile: e2e/docker/php/Dockerfile
+            target: nginx
+            args:
+                PHP_VERSION: ${PHP_VERSION:-8.4}
+                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.2}
+        depends_on:
+            - php
+        ports:
+            - '127.0.0.1:18080:80'
+
+    tunnel:
+        image: cloudflare/cloudflared:2026.10.7
+        command: ['tunnel', '--no-autoupdate', '--url', 'http://nginx:80']
+        depends_on:
+            - nginx
+
+    # One-shot: the only service that gets the API key and the admin password (scripts/start.sh runs it).
+    seed:
+        image: sylius-monei-e2e-php
+        profiles: ['tools']
+        environment:
+            <<: *app-env
+            # Compose reads e2e/.env, and an exported variable wins, as in e2e/utils/env.ts.
+            MONEI_TEST_API_KEY: ${MONEI_TEST_API_KEY:-}
+            E2E_RUN_ID: ${E2E_RUN_ID:-}
+            E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-}
+        volumes:
+            - encryption:/app/var/encryption
+            - ./scripts/seed.php:/app/seed.php:ro
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+volumes:
+    encryption:

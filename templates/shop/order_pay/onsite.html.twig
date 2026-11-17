@@ -1,0 +1,9 @@
+{% extends '@SyliusShop/checkout/common/layout.html.twig' %}
+
+{% set prefixes = ['monei.shop.order_pay'] %}
+
+{% block title %}{{ 'monei.ui.onsite.title'|trans }} | {{ parent() }}{% endblock %}
+
+{% block content %}
+    {% hook 'onsite' with { _prefixes: prefixes, order, monei } %}
+{% endblock %}

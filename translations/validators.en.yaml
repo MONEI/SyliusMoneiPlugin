@@ -1,0 +1,14 @@
+monei:
+    gateway_configuration:
+        api_key:
+            missing: Enter the MONEI API key.
+            invalid: The MONEI API key must start with pk_test_ or pk_live_.
+        payment_method:
+            invalid: Choose a MONEI payment method.
+        mode:
+            invalid: The mode must be hosted or onsite.
+            hosted_only: This payment method has no onsite mode. Use the hosted payment page.
+        use_authorize:
+            not_supported: This payment method cannot authorize. It always charges at once.
+        order_id_prefix:
+            invalid: The prefix allows at most 20 letters, digits, - and _.

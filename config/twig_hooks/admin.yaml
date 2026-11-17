@@ -1,0 +1,9 @@
+sylius_twig_hooks:
+    hooks:
+        'sylius_admin.payment_method.create.content.form.sections.gateway_configuration.monei':
+            fields:
+                template: '@MoneiSyliusPlugin/admin/payment_method/gateway_configuration.html.twig'
+
+        'sylius_admin.payment_method.update.content.form.sections.gateway_configuration.monei':
+            fields:
+                template: '@MoneiSyliusPlugin/admin/payment_method/gateway_configuration.html.twig'

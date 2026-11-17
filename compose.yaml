@@ -1,0 +1,28 @@
+services:
+    php:
+        image: ghcr.io/sylius/sylius-php:${PHP_IMAGE_TAG:-8.3-alpine}
+        working_dir: /app
+        environment:
+            PHP_DATE_TIMEZONE: UTC
+        volumes:
+            - .:/app
+            - composer-cache:/root/.composer/cache
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+        tmpfs:
+            - /var/lib/mysql
+        healthcheck:
+            # TCP, not the socket: the entrypoint's temporary init server answers on the socket only.
+            test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-proot', '--silent']
+            interval: 2s
+            timeout: 5s
+            retries: 60
+
+volumes:
+    composer-cache:

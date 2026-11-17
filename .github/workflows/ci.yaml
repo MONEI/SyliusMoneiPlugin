@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   tests:
     name: PHP ${{ matrix.php }} / Sylius ${{ matrix.sylius }}
@@ -14,66 +21,114 @@ jobs:
       matrix:
         include:
           - php: '8.2'
-            sylius: '^2.1'
+            sylius: '2.2.12'
           - php: '8.3'
-            sylius: '^2.1'
-          - php: '8.3'
-            sylius: '^2.2'
+            sylius: '~2.2.12'
           - php: '8.4'
-            sylius: '^2.2'
+            sylius: '^2.3.2'
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=2s
+          --health-timeout=5s
+          --health-retries=60
+
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/sylius_monei_%kernel.environment%
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
-          extensions: intl, mbstring, curl
-          coverage: pcov
+          extensions: intl, gd, exif, pdo_mysql, sodium, zip
+          ini-values: memory_limit=3G, date.timezone=UTC
+          coverage: none
 
       - name: Install dependencies
         run: |
           composer require "sylius/sylius:${{ matrix.sylius }}" --no-update --no-interaction
-          composer install --prefer-dist --no-progress
+          composer update --no-interaction --no-progress --no-audit
 
-      - name: Run PHPUnit
-        run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+      - name: Payment encryption key
+        run: vendor/bin/console -e test sylius:payment:generate-key --no-interaction
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: matrix.php == '8.3' && matrix.sylius == '^2.2'
-        with:
-          files: coverage.xml
+      - name: Database schema
+        run: |
+          vendor/bin/console -e test doctrine:database:create --if-not-exists
+          vendor/bin/console -e test doctrine:schema:update --force
 
-  static-analysis:
-    name: Static Analysis
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - name: Unit tests
+        run: vendor/bin/phpunit --testsuite unit
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          extensions: intl, mbstring, curl
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
+      - name: Functional tests
+        run: vendor/bin/phpunit --testsuite functional
 
       - name: PHPStan
-        run: vendor/bin/phpstan analyse
+        run: vendor/bin/phpstan analyse --memory-limit=1G
+
+      - name: Lint container
+        run: vendor/bin/console -e test lint:container
+
+      # The test kernel tracks only its own bundles.php, so this run needs its own cache.
+      - name: Container test without the refund plugin
+        env:
+          MONEI_TEST_WITHOUT_REFUND_PLUGIN: '1'
+          APP_CACHE_DIR: ${{ github.workspace }}/var/cache-without-refund-plugin
+        run: vendor/bin/phpunit --testsuite functional --filter ContainerTest
+
+  code-style:
+    name: Code style and composer.json
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.3'
+          extensions: intl, gd, exif, sodium, zip
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress --no-audit
 
       - name: PHP CS Fixer
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+  # Fork and Dependabot pull requests get no secrets: the job is skipped for them.
+  e2e:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    needs: tests
+    uses: ./.github/workflows/e2e.yaml
+    secrets:
+      MONEI_TEST_API_KEY: ${{ secrets.MONEI_TEST_API_KEY }}
 
   ci:
     # Single aggregate status for the branch ruleset's required "CI" check.
     name: CI
     if: always()
-    needs: [tests, static-analysis]
+    needs: [tests, code-style, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: All jobs passed
         run: |
-          [ "${{ needs.tests.result }}" = "success" ] && [ "${{ needs.static-analysis.result }}" = "success" ]
+          [ "${{ needs.tests.result }}" = "success" ] && [ "${{ needs.code-style.result }}" = "success" ] \
+            && { [ "${{ needs.e2e.result }}" = "success" ] || [ "${{ needs.e2e.result }}" = "skipped" ]; }

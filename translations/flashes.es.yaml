@@ -1,0 +1,24 @@
+monei:
+    apple_pay:
+        domain_not_registered: 'MONEI no registró %domain% para Apple Pay (%reason%). Apple Pay no se muestra en ese dominio hasta que esté registrado. Guarda el método de pago otra vez para reintentarlo.'
+    payment:
+        in_progress: 'Un pago de este pedido sigue en curso. Complétalo o espera a que caduque.'
+        already_paid: 'MONEI ya tiene un pago cobrado o autorizado para este pedido. Contacta con la tienda.'
+    order:
+        payment_still_pending: 'El pedido está cancelado, pero MONEI no pudo cancelar su pago pendiente. El comprador aún puede completarlo hasta que caduque. Si lo paga, reembólsalo desde el panel de MONEI.'
+    refused:
+        state_changed: 'El pago cambió mientras esta acción esperaba. Recarga el pedido y vuelve a intentarlo.'
+        not_paid: 'MONEI indica que el pago está %status%: no se puede marcar como pagado.'
+        amount_mismatch: 'El importe o la divisa del pago en MONEI no coinciden con este pago. Revísalo en el panel de MONEI.'
+        capture: 'MONEI no capturó el pago (%reason%).'
+        cancel: 'MONEI no canceló el pago (%reason%).'
+        refund: 'MONEI no reembolsó el pago (%reason%).'
+        cannot_cancel: 'MONEI indica que el pago está %status%: no se puede cancelar.'
+        not_refundable: 'MONEI indica que el pago está %status%: no se puede reembolsar.'
+        unreachable: 'No se puede acceder al pago de MONEI con la clave API del método de pago %payment_method%. Restaura la clave API que lo creó y vuelve a intentarlo.'
+        unavailable: 'No se pudo contactar con MONEI (%reason%). Inténtalo más tarde.'
+        order_paid: 'MONEI indica que un pago de este pedido está %status%: el pedido no se puede cancelar.'
+        try_again: 'MONEI está procesando otra operación en este pago. Inténtalo de nuevo en un momento.'
+        refund_method_not_paid: 'Ningún pago de este pedido se pagó con %payment_method% a través de MONEI. Elige el método de pago con el que se pagó el pedido.'
+        refund_answer_lost: 'MONEI ya ha reembolsado de este pago más de lo que Sylius tiene registrado (un reembolso hecho desde el panel de MONEI, o un reembolso anterior cuya respuesta se perdió). No lo vuelvas a reembolsar a través de MONEI. Registra el reembolso que falta con un método de reembolso offline activo en este canal.'
+        refund_not_applied: 'MONEI no ha aplicado este reembolso: hace unos segundos se envió un reembolso igual de este pago. Revisa el pago en el panel de MONEI antes de volver a intentarlo.'
