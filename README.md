@@ -143,6 +143,7 @@ Create one Sylius payment method for each MONEI method that you offer.
    | MONEI payment method | Card, Bizum, PayPal, Apple Pay / Google Pay, MB WAY or Multibanco. |
    | Mode | **Hosted payment page** or **Onsite (monei.js)**. MB WAY and Multibanco are hosted only. |
    | Authorize only, capture later | The payment is held, and you capture it from the order page. Card, Apple Pay / Google Pay and PayPal only. |
+   | Card field layout | **Separate fields** (default: card number, expiry date and CVC in separate boxes) or **Single line**. Card in onsite mode only. The card fields take the size, colours, font and focus style of your theme's inputs. |
    | Order ID prefix | Optional. Added before the order number that MONEI receives. At most 20 letters, digits, `-` and `_`. |
 
 4. Enable the payment method in your channels.
