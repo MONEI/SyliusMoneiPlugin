@@ -48,7 +48,15 @@ if (!str_starts_with($apiKey, 'pk_test_')) {
 }
 
 // MONEI's duplicate check never expires on the shared sandbox account: every run needs its own prefix.
-$orderIdPrefix = sprintf('e2e%s-', (string) getenv('E2E_RUN_ID'));
+$runId = (string) getenv('E2E_RUN_ID');
+if ('' === $runId) {
+    throw new RuntimeException('E2E_RUN_ID is missing.');
+}
+$orderIdPrefix = sprintf('e2e%s-', $runId);
+$adminPassword = (string) getenv('E2E_ADMIN_PASSWORD');
+if ('' === $adminPassword) {
+    throw new RuntimeException('E2E_ADMIN_PASSWORD is missing.');
+}
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
@@ -92,7 +100,7 @@ foreach (PRICES as $variantCode => $price) {
 $admin = $container->get('sylius.factory.admin_user')->createNew();
 $admin->setEmail(ADMIN_EMAIL);
 $admin->setUsername(ADMIN_EMAIL);
-$admin->setPlainPassword((string) getenv('E2E_ADMIN_PASSWORD'));
+$admin->setPlainPassword($adminPassword);
 $admin->setEnabled(true);
 $admin->setLocaleCode('en_US');
 $entityManager->persist($admin);

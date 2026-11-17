@@ -9,6 +9,9 @@ const STORE_URL_FILE = resolve(GENERATED_DIR, "store-url");
 const FIXTURES_FILE = resolve(GENERATED_DIR, "fixtures.json");
 const ADMIN_PASSWORD_FILE = resolve(GENERATED_DIR, "admin-password");
 
+/** The store on the host port, bound to 127.0.0.1 only (compose.yaml). */
+export const LOCAL_STORE_URL = "http://localhost:18080";
+
 // CI writes e2e/.env too. An exported variable wins, here and in the seed container.
 if (existsSync(resolve(E2E_DIR, ".env"))) process.loadEnvFile(resolve(E2E_DIR, ".env"));
 

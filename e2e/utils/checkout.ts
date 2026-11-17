@@ -1,13 +1,20 @@
 import { expect, type FrameLocator, type Page } from "@playwright/test";
 
-/** Seeded products (scripts/seed.php). The sticker stays below the 5 EUR Bizum test limit. */
+/** Products of the e2e fixtures (docker/php/config.yaml); scripts/seed.php sets their prices. */
 export const PRODUCTS = { tShirt: "e2e-t-shirt", sticker: "e2e-sticker" } as const;
 
 /** MONEI test card, 3DS v2.1, always challenged. Expiry 12/34, CVC 123. */
 export const VISA_CHALLENGE = "4444444444444406";
 
-/** Bizum test phone: approved below 5 EUR. */
+/** Bizum test phone. */
 const BIZUM_PHONE = "+34500000000";
+
+/** A MONEI or PayPal component or frame shows up. */
+export const MOUNT_TIMEOUT = 60_000;
+/** MONEI sends the buyer back to the store. */
+const RETURN_TIMEOUT = 90_000;
+/** Between keystrokes in MONEI and PayPal inputs. */
+export const KEYSTROKE_DELAY = 40;
 
 /** A guest email no other test used, so one test's orders can be told apart. */
 export const uniqueEmail = (tag: string) =>
@@ -57,7 +64,7 @@ export const placeHostedOrder = (page: Page): Promise<string> =>
 
 /** The order page Sylius sends the buyer back to after an unpaid payment. */
 export async function expectOrderPage(page: Page): Promise<void> {
-  await page.waitForURL(/\/en_US\/order\/(?!thank-you|after-pay)[^/?#]+$/, { timeout: 90_000 });
+  await page.waitForURL(/\/en_US\/order\/(?!thank-you|after-pay)[^/?#]+$/, { timeout: RETURN_TIMEOUT });
 }
 
 /** Pays again from the order page. */
@@ -74,10 +81,10 @@ async function fillCardFrame(frame: FrameLocator, card: string): Promise<void> {
     ["cvc-input", "123"],
   ]) {
     const input = frame.getByTestId(testId);
-    await expect(input).toBeEditable({ timeout: 60_000 });
+    await expect(input).toBeEditable({ timeout: MOUNT_TIMEOUT });
     await input.click();
     // Keystrokes: MONEI formats and auto-advances on key events.
-    await input.pressSequentially(text, { delay: 40 });
+    await input.pressSequentially(text, { delay: KEYSTROKE_DELAY });
   }
   await expect(frame.getByTestId("expiry-date-input")).toHaveValue("12 / 34");
 }
@@ -93,8 +100,10 @@ export async function payCardOnHostedPage(page: Page, card: string): Promise<voi
 export async function placeOnsiteOrder(page: Page): Promise<string> {
   await page.locator("#confirmation-button").click();
   const form = page.locator("#monei-onsite");
-  await expect(form).toBeAttached({ timeout: 60_000 });
-  return (await form.getAttribute("data-payment-id"))!;
+  await expect(form).toBeAttached({ timeout: MOUNT_TIMEOUT });
+  const moneiId = await form.getAttribute("data-payment-id");
+  if (!moneiId) throw new Error("the onsite form has no data-payment-id");
+  return moneiId;
 }
 
 /** Fills the plugin's onsite card form (cardholder name and monei.js CardInput) and pays. */
@@ -116,14 +125,14 @@ export async function payBizumOnHostedPage(page: Page): Promise<void> {
  */
 export async function payBizumOnsite(page: Page): Promise<void> {
   const button = page.frameLocator('#monei-component iframe[title="monei_bizum_button"]').getByTestId("bizum-button");
-  await expect(button, "the Bizum component mounted").toBeVisible({ timeout: 60_000 });
+  await expect(button, "the Bizum component mounted").toBeVisible({ timeout: MOUNT_TIMEOUT });
   await button.click();
   const modal = page.frameLocator('iframe[title="monei_bizum"]');
   const phone = modal.getByTestId("bizum-phone-input");
   const digits = (value: string) => value.replace(/\D/g, "");
   await expect(async () => {
     await phone.fill("");
-    await phone.pressSequentially(BIZUM_PHONE, { delay: 30 });
+    await phone.pressSequentially(BIZUM_PHONE, { delay: KEYSTROKE_DELAY });
     expect(digits(await phone.inputValue())).toBe(digits(BIZUM_PHONE));
   }).toPass({ timeout: 30_000 });
   await modal.getByTestId("bizum-pay-button").click();
@@ -132,7 +141,7 @@ export async function payBizumOnsite(page: Page): Promise<void> {
 /** Answers MONEI's 3DS simulator. Strict: fails when no challenge shows. */
 export async function answerThreeDsChallenge(page: Page, outcome: "complete" | "fail"): Promise<void> {
   const button = page.getByTestId(`${outcome}-button`);
-  await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: 60_000 });
+  await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: MOUNT_TIMEOUT });
   await button.click();
 }
 
@@ -146,12 +155,12 @@ export async function answerOnsiteThreeDs(page: Page, outcome: "complete" | "fai
     .frameLocator('iframe[title="monei_payment_modal"]')
     .frameLocator("iframe")
     .getByTestId(`${outcome}-button`);
-  await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: 60_000 });
+  await expect(button, "3DS challenge is displayed").toBeVisible({ timeout: MOUNT_TIMEOUT });
   await button.focus();
   await page.keyboard.press("Enter");
 }
 
 export async function expectThankYou(page: Page): Promise<void> {
-  await page.waitForURL(/\/en_US\/order\/thank-you/, { timeout: 90_000 });
+  await page.waitForURL(/\/en_US\/order\/thank-you/, { timeout: RETURN_TIMEOUT });
   await expect(page.getByText("Thank you!")).toBeVisible();
 }

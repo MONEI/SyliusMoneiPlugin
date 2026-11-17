@@ -15,7 +15,7 @@ import {
 } from "../utils/checkout.ts";
 import { methodName } from "../utils/env.ts";
 import { getPayment } from "../utils/monei.ts";
-import { approveInPayPal } from "../utils/paypal.ts";
+import { PAYPAL_TEST_TIMEOUT, approveInPayPal } from "../utils/paypal.ts";
 import { expectSyliusPayment, paymentByMoneiId } from "../utils/sylius.ts";
 
 test.describe("hosted payment page", () => {
@@ -84,7 +84,7 @@ test.describe("hosted PayPal", () => {
   test.describe.configure({ retries: process.env.CI ? 1 : 0 });
 
   test("PayPal with the sandbox buyer ends on the thank-you page", async ({ page }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(PAYPAL_TEST_TIMEOUT);
     await addToCart(page, PRODUCTS.tShirt);
     await checkoutToSummary(page, methodName("monei_paypal_hosted"), uniqueEmail("paypal"));
     const moneiId = await placeHostedOrder(page);

@@ -24,9 +24,9 @@ export APP_SECRET
 compose build php nginx
 compose up -d mysql php nginx
 
-# The test env swaps the MONEI HTTP client for a mock, so the store must not run in it.
+# The test env swaps the MONEI HTTP client for a mock; utils/sylius.ts reads the prod database.
 app_env="$(compose exec -T php printenv APP_ENV)"
-[[ "$app_env" =~ ^(prod|dev)$ ]] || fail "the store runs with APP_ENV \"$app_env\"; it must be prod or dev"
+[ "$app_env" = prod ] || fail "the store runs with APP_ENV \"$app_env\"; it must be prod"
 
 console() { compose exec -T php vendor/bin/console --no-interaction "$@"; }
 console doctrine:database:create --if-not-exists
@@ -36,8 +36,8 @@ console sylius:payment:generate-key
 console lexik:jwt:generate-keypair --overwrite
 console sylius:fixtures:load e2e
 
-store_ready() { curl -fsS --max-time 10 -o /dev/null http://localhost:18080/en_US/; }
-wait_for 120 nginx "the store on http://localhost:18080" store_ready
+store_ready() { curl -fsS --max-time 10 -o /dev/null "$LOCAL_STORE_URL/en_US/"; }
+wait_for 120 nginx "the store on $LOCAL_STORE_URL" store_ready
 
 # A fresh order ID prefix per run: MONEI's duplicate check on orderId never expires.
 E2E_RUN_ID="$(printf '%x%04x' "$(date +%s)" "$RANDOM")"
@@ -63,4 +63,4 @@ printf '%s\n' "$store_url" >"$GENERATED_DIR/store-url"
 tunnel_ready() { curl -fsS --max-time 10 -o /dev/null "$store_url/en_US/"; }
 wait_for 120 tunnel "the store through the tunnel" tunnel_ready
 
-echo "e2e stack ready: Sylius $SYLIUS_VERSION on PHP $PHP_VERSION; local store http://localhost:18080, tunnel URL in e2e/.generated/store-url"
+echo "e2e stack ready: Sylius $SYLIUS_VERSION on PHP $PHP_VERSION; local store $LOCAL_STORE_URL, tunnel URL in e2e/.generated/store-url"

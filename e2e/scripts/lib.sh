@@ -2,6 +2,7 @@
 # seed container gets the API key.
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GENERATED_DIR="$E2E_DIR/.generated"
+LOCAL_STORE_URL="http://localhost:18080"
 
 compose() {
   docker compose -f "$E2E_DIR/compose.yaml" "$@"

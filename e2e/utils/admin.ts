@@ -2,9 +2,7 @@
 // The login runs in Node's fetch, never in Playwright: a fill step title, trace or report would
 // show the password. Errors carry HTTP statuses only.
 import type { Browser, Page } from "@playwright/test";
-import { adminPassword, fixtures } from "./env.ts";
-
-const ADMIN_URL = "http://localhost:18080";
+import { LOCAL_STORE_URL as ADMIN_URL, adminPassword, fixtures } from "./env.ts";
 
 type Jar = Map<string, string>;
 
