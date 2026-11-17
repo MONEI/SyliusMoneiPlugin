@@ -78,10 +78,14 @@ The plugin's payment request commands always run in the web request. This is als
 ### 1. Install the package
 
 ```bash
-composer require monei/sylius-monei-plugin
+composer require monei/sylius-monei-plugin:^2.0
 ```
 
+Keep the `^2.0` constraint. Without it, Composer can select 1.x on an older Sylius. Version 1.x does not work.
+
 ### 2. Register the bundle
+
+Symfony Flex adds this line. Add it by hand only when your project does not use Flex.
 
 ```php
 // config/bundles.php
@@ -116,6 +120,13 @@ Do not add a `prefix`, and do not put this import under the shop's `/{_locale}` 
 ```bash
 bin/console cache:clear
 ```
+
+The plugin adds no database tables, so it needs no migration.
+
+### Web server and content security policy
+
+- Hardened web server configurations often block paths that start with a dot, for example nginx `location ~ /\.`. Let `/.well-known/` through to `public/index.php`, or Apple Pay cannot read the domain association file.
+- The onsite mode loads `https://js.monei.com/v3/monei.js`. If your store sends a content security policy, allow that origin.
 
 ## Payment method setup
 
@@ -242,9 +253,9 @@ Version 1.x did not load in Sylius. It failed before any call to MONEI, so it to
 
 1. Make sure that your store runs Sylius 2.2.12 or later, or 2.3.2 or later. Version 2.0.0 does not support Sylius 2.1.
 2. Make sure that `sylius_payment` and `sylius_order` use the `symfony_workflow` state machine adapter. See [State machine adapter](#state-machine-adapter).
-3. Update the package: `composer require monei/sylius-monei-plugin:^2.0`.
-4. Add the configuration import from [step 3](#3-import-the-configuration).
-5. Replace the 1.x route import (`@MoneiSyliusPlugin/config/routes.xml` under `/monei`) with the import in [step 4](#4-import-the-routes).
+3. Delete the 1.x route import, usually `config/routes/monei.yaml` (it imports `@MoneiSyliusPlugin/config/routes.xml` under `/monei`). Do this before you update: version 2.0.0 has no `routes.xml`, and `composer require` clears the cache.
+4. Update the package: `composer require monei/sylius-monei-plugin:^2.0`.
+5. Add the configuration import from [step 3](#3-import-the-configuration) and the route import from [step 4](#4-import-the-routes).
 6. If you have a payment method with the MONEI gateway from 1.x, delete it.
 7. Create one payment method for each MONEI method. See [Payment method setup](#payment-method-setup).
 
