@@ -127,6 +127,7 @@ The plugin adds no database tables, so it needs no migration.
 
 - Hardened web server configurations often block paths that start with a dot, for example nginx `location ~ /\.`. Let `/.well-known/` through to `public/index.php`, or Apple Pay cannot read the domain association file.
 - The onsite mode loads `https://js.monei.com/v3/monei.js`. If your store sends a content security policy, allow that origin.
+- To show the theme's exact web font in the onsite card fields, serve the font files with `Access-Control-Allow-Origin: https://js.monei.com` (or `*`). Without it, the card fields use the fallback fonts of the same font stack.
 
 ## Payment method setup
 
@@ -142,6 +143,7 @@ Create one Sylius payment method for each MONEI method that you offer.
    | MONEI payment method | Card, Bizum, PayPal, Apple Pay / Google Pay, MB WAY or Multibanco. |
    | Mode | **Hosted payment page** or **Onsite (monei.js)**. MB WAY and Multibanco are hosted only. |
    | Authorize only, capture later | The payment is held, and you capture it from the order page. Card, Apple Pay / Google Pay and PayPal only. |
+   | Card field layout | **Separate fields** (default: card number, expiry date and CVC in separate boxes) or **Single line**. Card in onsite mode only. The card fields take the size, colours, font and focus style of your theme's inputs. |
    | Order ID prefix | Optional. Added before the order number that MONEI receives. At most 20 letters, digits, `-` and `_`. |
 
 4. Enable the payment method in your channels.

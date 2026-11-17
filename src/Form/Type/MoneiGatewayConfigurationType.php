@@ -58,6 +58,16 @@ final class MoneiGatewayConfigurationType extends AbstractType
                 'required' => false,
                 'empty_data' => '',
             ])
+            ->add(GatewayConfiguration::CARD_LAYOUT, ChoiceType::class, [
+                'label' => 'monei.form.gateway_configuration.card_layout',
+                'help' => 'monei.form.gateway_configuration.card_layout_help',
+                // Split first: a stored config without the key preselects the first option.
+                'choices' => [
+                    'monei.form.gateway_configuration.card_layout_split' => GatewayConfiguration::CARD_LAYOUT_SPLIT,
+                    'monei.form.gateway_configuration.card_layout_single' => GatewayConfiguration::CARD_LAYOUT_SINGLE,
+                ],
+                'empty_data' => GatewayConfiguration::CARD_LAYOUT_SPLIT,
+            ])
         ;
     }
 

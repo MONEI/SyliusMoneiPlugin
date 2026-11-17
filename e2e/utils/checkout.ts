@@ -73,26 +73,32 @@ export async function payAgainOnHostedPage(page: Page, paymentMethod: string): P
   return toHostedPage(page, () => page.getByRole("button", { name: "Pay", exact: true }).click());
 }
 
-/** Types a test card into a MONEI card input frame (hosted page or monei.js CardInput). */
-async function fillCardFrame(frame: FrameLocator, card: string): Promise<void> {
-  for (const [testId, text] of [
-    ["card-number-input", card],
-    ["expiry-date-input", "1234"],
-    ["cvc-input", "123"],
-  ]) {
-    const input = frame.getByTestId(testId);
+export type CardField = "number" | "expiry" | "cvc";
+
+/**
+ * Types a test card into MONEI card frames: one frame for every field (hosted page, monei.js
+ * CardInput) or one frame per field (monei.js card parts).
+ */
+async function fillCardFrames(frameOf: (field: CardField) => FrameLocator, card: string): Promise<void> {
+  for (const [field, testId, text] of [
+    ["number", "card-number-input", card],
+    ["expiry", "expiry-date-input", "1234"],
+    ["cvc", "cvc-input", "123"],
+  ] as const) {
+    const input = frameOf(field).getByTestId(testId);
     await expect(input).toBeEditable({ timeout: MOUNT_TIMEOUT });
     await input.click();
     // Keystrokes: MONEI formats and auto-advances on key events.
     await input.pressSequentially(text, { delay: KEYSTROKE_DELAY });
   }
-  await expect(frame.getByTestId("expiry-date-input")).toHaveValue("12 / 34");
+  await expect(frameOf("expiry").getByTestId("expiry-date-input")).toHaveValue("12 / 34");
 }
 
 /** Fills the card form of the MONEI hosted page and pays. */
 export async function payCardOnHostedPage(page: Page, card: string): Promise<void> {
   await page.getByTestId("cardholder-name-input").fill("Ana Garcia");
-  await fillCardFrame(page.frameLocator('iframe[title="monei_card_input"]'), card);
+  const frame = page.frameLocator('iframe[title="monei_card_input"]');
+  await fillCardFrames(() => frame, card);
   await page.getByTestId("pay-button").click();
 }
 
@@ -106,11 +112,31 @@ export async function placeOnsiteOrder(page: Page): Promise<string> {
   return moneiId;
 }
 
-/** Fills the plugin's onsite card form (cardholder name and monei.js CardInput) and pays. */
+/** The containers of the onsite split layout; each holds one monei.js card part frame. */
+export const CARD_PART_CONTAINERS = {
+  number: "#monei-card-number",
+  expiry: "#monei-card-expiry",
+  cvc: "#monei-card-cvc",
+} as const satisfies Record<CardField, string>;
+
+/** The frame of a card part. Scoped by title: the CardGroup also mounts a hidden controller frame. */
+export const cardPartFrame = (page: Page, field: CardField): FrameLocator =>
+  page.frameLocator(`${CARD_PART_CONTAINERS[field]} iframe[title="monei_card_${field}"]`);
+
+/**
+ * Fills the plugin's onsite card form and pays: the cardholder name, then the three monei.js card
+ * part frames (split layout) or the CardInput frame (single layout).
+ */
 export async function payCardOnsite(page: Page, card: string, cardholderName: string): Promise<void> {
+  const form = page.locator("#monei-onsite");
   await page.locator("#monei-cardholder-name").fill(cardholderName);
-  await fillCardFrame(page.frameLocator('#monei-card-input iframe[title="monei_card_input"]'), card);
-  await page.locator("#monei-onsite").getByRole("button", { name: "Pay" }).click();
+  if ("single" === (await form.getAttribute("data-card-layout"))) {
+    const frame = page.frameLocator('#monei-card-input iframe[title="monei_card_input"]');
+    await fillCardFrames(() => frame, card);
+  } else {
+    await fillCardFrames((field) => cardPartFrame(page, field), card);
+  }
+  await form.getByRole("button", { name: "Pay" }).click();
 }
 
 /** Bizum on the hosted page: phone, then pay; the test processor approves on its own. */

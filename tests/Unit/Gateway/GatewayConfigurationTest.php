@@ -49,6 +49,18 @@ final class GatewayConfigurationTest extends TestCase
         self::assertTrue(GatewayConfiguration::fromArray(['use_authorize' => '1'] + self::VALID)->authorize);
     }
 
+    /** Methods saved before the option existed keep working and get the default layout. */
+    public function testConfigWithoutCardLayoutUsesSplit(): void
+    {
+        self::assertSame('split', GatewayConfiguration::fromArray(self::VALID)->cardLayout);
+    }
+
+    /** A refused config makes bound payments unreachable; a cosmetic key must not block capture or refund. */
+    public function testUnknownCardLayoutFallsBackToSplit(): void
+    {
+        self::assertSame('split', GatewayConfiguration::fromArray(['card_layout' => 'grid'] + self::VALID)->cardLayout);
+    }
+
     /** @param array<string, mixed> $config */
     private static function assertRefusedOn(string $field, array $config): void
     {

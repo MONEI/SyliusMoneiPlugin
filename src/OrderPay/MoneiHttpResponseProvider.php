@@ -60,6 +60,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
                 // monei.js loads PayPal for a capture unless it gets AUTH, and a capture cannot pay an AUTH payment.
                 'transaction_type' => $configuration->transactionType(),
                 'after_pay_url' => $this->afterPayUrlProvider->getUrl($paymentRequest),
+                'card_layout' => $configuration->cardLayout,
             ],
         ]));
     }

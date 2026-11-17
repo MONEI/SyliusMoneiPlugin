@@ -13,6 +13,10 @@ monei:
             title: Paga tu pedido
             cardholder_name: Titular de la tarjeta
             cardholder_name_required: Introduce el nombre del titular de la tarjeta.
+            card_details: Datos de la tarjeta
+            card_number: Número de tarjeta
+            card_expiry: Fecha de caducidad
+            card_cvc: CVC
             pay: Pagar
     form:
         gateway_configuration:
@@ -27,3 +31,7 @@ monei:
             use_authorize_help: El importe queda retenido y lo capturas desde la página del pedido. Solo tarjeta, Apple Pay / Google Pay y PayPal.
             order_id_prefix: Prefijo del ID de pedido
             order_id_prefix_help: Opcional. Se añade antes del número de pedido que se envía a MONEI. Usa un prefijo distinto en cada tienda que comparta la misma cuenta MONEI. Como máximo 20 letras, dígitos, - y _.
+            card_layout: Diseño de los campos de tarjeta
+            card_layout_help: Muestra los campos de la tarjeta en una sola línea, o como campos separados de número de tarjeta, caducidad y CVC. Solo tarjeta en modo en tienda.
+            card_layout_split: Campos separados
+            card_layout_single: Una sola línea

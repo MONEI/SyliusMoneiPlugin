@@ -18,9 +18,13 @@ final readonly class GatewayConfiguration
     public const MODE = 'mode';
     public const USE_AUTHORIZE = 'use_authorize';
     public const ORDER_ID_PREFIX = 'order_id_prefix';
+    public const CARD_LAYOUT = 'card_layout';
 
     public const MODE_HOSTED = 'hosted';
     public const MODE_ONSITE = 'onsite';
+
+    public const CARD_LAYOUT_SPLIT = 'split';
+    public const CARD_LAYOUT_SINGLE = 'single';
 
     private function __construct(
         public string $apiKey,
@@ -28,6 +32,8 @@ final readonly class GatewayConfiguration
         public bool $onsite,
         public bool $authorize,
         public string $orderIdPrefix,
+        /** Used by the card method in onsite mode only. */
+        public string $cardLayout,
     ) {
     }
 
@@ -92,6 +98,9 @@ final readonly class GatewayConfiguration
             throw new InvalidGatewayConfigurationException(self::ORDER_ID_PREFIX, 'monei.gateway_configuration.order_id_prefix.invalid', 'The order ID prefix allows at most 20 letters, digits, - and _.');
         }
 
-        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix);
+        // Read leniently: a refused config makes bound payments unreachable, and a cosmetic key must not block capture or refund.
+        $cardLayout = self::CARD_LAYOUT_SINGLE === ($config[self::CARD_LAYOUT] ?? null) ? self::CARD_LAYOUT_SINGLE : self::CARD_LAYOUT_SPLIT;
+
+        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout);
     }
 }

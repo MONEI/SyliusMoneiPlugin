@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-17
+
+### Added
+
+- Card field layout option for the onsite card: **Separate fields** (default, monei.js CardGroup: card number, expiry date and CVC) or **Single line**.
+- The onsite card fields look like the theme's own inputs: they get the label, box, size, colours, font and focus style of the cardholder name input. The theme's web font loads inside the card fields; a font too large for an inline copy is loaded by its URL, which needs `Access-Control-Allow-Origin: https://js.monei.com` on the font files.
+
+### Changed
+
+- Existing onsite card payment methods show separate card fields after the update. Set **Card field layout** to **Single line** to keep one field.
+
 ## [2.0.0] - 2026-11-17
 
 Full rewrite. See the README section "Upgrade from 1.x".

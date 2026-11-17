@@ -27,6 +27,7 @@ const PAYMENT_METHODS = [
     'monei_bizum_hosted' => ['name' => 'MONEI Bizum', 'payment_method' => 'bizum', 'mode' => 'hosted', 'use_authorize' => false],
     'monei_paypal_hosted' => ['name' => 'MONEI PayPal', 'payment_method' => 'paypal', 'mode' => 'hosted', 'use_authorize' => false],
     'monei_card_onsite' => ['name' => 'MONEI card onsite', 'payment_method' => 'card', 'mode' => 'onsite', 'use_authorize' => false],
+    'monei_card_onsite_single' => ['name' => 'MONEI card onsite single', 'payment_method' => 'card', 'mode' => 'onsite', 'use_authorize' => false, 'card_layout' => 'single'],
     'monei_bizum_onsite' => ['name' => 'MONEI Bizum onsite', 'payment_method' => 'bizum', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_paypal_onsite' => ['name' => 'MONEI PayPal onsite', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_wallet_onsite' => ['name' => 'MONEI wallet onsite', 'payment_method' => 'apple_google_pay', 'mode' => 'onsite', 'use_authorize' => false],
@@ -85,7 +86,7 @@ foreach (PAYMENT_METHODS as $code => $config) {
         'mode' => $config['mode'],
         'use_authorize' => $config['use_authorize'],
         'order_id_prefix' => $orderIdPrefix,
-    ]);
+    ] + array_intersect_key($config, ['card_layout' => true]));
     $entityManager->persist($paymentMethod);
     $paymentMethods[$code] = ['name' => $config['name']];
 }
