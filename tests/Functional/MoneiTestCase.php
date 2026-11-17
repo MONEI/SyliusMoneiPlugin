@@ -402,11 +402,11 @@ abstract class MoneiTestCase extends WebTestCase
         return $state;
     }
 
-    /** @return list<array{string, string}> action and state of each payment request of the order's payment */
+    /** @return list<array{string, string}> action and state of each payment request of the order's payment, sorted (the key is a UUID) */
     protected function paymentRequests(OrderInterface $order): array
     {
         /** @var list<array{action: string, state: string}> $rows */
-        $rows = $this->secondConnection()->fetchAllAssociative('SELECT action, state FROM sylius_payment_request WHERE payment_id = ?', [$this->paymentId($order)]);
+        $rows = $this->secondConnection()->fetchAllAssociative('SELECT action, state FROM sylius_payment_request WHERE payment_id = ? ORDER BY action, state', [$this->paymentId($order)]);
 
         return array_map(static fn (array $row): array => [$row['action'], $row['state']], $rows);
     }
