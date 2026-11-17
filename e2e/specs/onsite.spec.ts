@@ -2,10 +2,13 @@
 // in the store's own page, then the after-pay URL whatever the confirm returns.
 import { expect, test, type Page } from "@playwright/test";
 import {
+  CARD_PART_CONTAINERS,
+  MOUNT_TIMEOUT,
   PRODUCTS,
   VISA_CHALLENGE,
   addToCart,
   answerOnsiteThreeDs,
+  cardPartFrame,
   checkoutToSummary,
   expectOrderPage,
   expectThankYou,
@@ -38,6 +41,84 @@ test.describe("onsite page", () => {
     // MONEI stores it upper-cased; only the onsite page's own field can have sent it.
     expect(payment.paymentMethod?.card?.cardholderName).toBe("ANA ONSITE");
     await expectSyliusPayment(moneiId, "completed");
+  });
+
+  test("card with the single line layout ends on the thank-you page", async ({ page }) => {
+    const moneiId = await toOnsitePage(page, "monei_card_onsite_single", PRODUCTS.tShirt, "onsite-card-single");
+
+    await payCardOnsite(page, VISA_CHALLENGE, "Ana Onsite");
+    await answerOnsiteThreeDs(page, "complete");
+    await expectThankYou(page);
+
+    expect((await getPayment(moneiId)).status).toBe("SUCCEEDED");
+    await expectSyliusPayment(moneiId, "completed");
+  });
+
+  // The card parts are cross-origin iframes: the plugin copies the theme look of the cardholder
+  // input onto their boxes and into the frames. A bare part is unbordered, 45px tall, in its own font.
+  test("the separate card fields look like the cardholder input", async ({ page }) => {
+    await toOnsitePage(page, "monei_card_onsite", PRODUCTS.sticker, "onsite-card-look");
+    // Bootstrap animates the focus border and shadow.
+    await page.addStyleTag({ content: "* { transition: none !important; }" });
+    const cardholder = page.locator("#monei-cardholder-name");
+    const box = (el: Element) => {
+      const style = getComputedStyle(el);
+      return {
+        height: style.height,
+        borderWidth: style.borderWidth,
+        borderStyle: style.borderStyle,
+        borderColor: style.borderColor,
+        borderRadius: style.borderRadius,
+      };
+    };
+    const focusLook = (el: Element) => {
+      const style = getComputedStyle(el);
+      return { borderColor: style.borderColor, boxShadow: style.boxShadow };
+    };
+    // The plugin script runs after the theme stylesheet; the form is in the DOM before.
+    await expect(cardPartFrame(page, "number").locator("input")).toBeEditable({ timeout: MOUNT_TIMEOUT });
+    const expectedBox = await cardholder.evaluate(box);
+    const expectedText = await cardholder.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { fontFamily: style.fontFamily, fontSize: style.fontSize, color: style.color };
+    });
+    const family = expectedText.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+    await cardholder.focus();
+    const expectedFocus = await cardholder.evaluate(focusLook);
+    await cardholder.blur();
+
+    for (const field of ["number", "expiry", "cvc"] as const) {
+      const container = page.locator(CARD_PART_CONTAINERS[field]);
+      const input = cardPartFrame(page, field).locator("input");
+      await expect(input).toBeEditable();
+      expect(await container.evaluate(box), `${field} box`).toEqual(expectedBox);
+
+      const frame = await (await container.locator(`iframe[title="monei_card_${field}"]`).elementHandle())!.contentFrame();
+      // check() alone passes for a family without any face; the face must have loaded in the frame.
+      await expect
+        .poll(
+          () =>
+            frame!.evaluate(
+              ({ family, size }) =>
+                [...document.fonts].some((face) => face.family.replace(/["']/g, "") === family && "loaded" === face.status) &&
+                document.fonts.check(`${size} ${family}`),
+              { family, size: expectedText.fontSize },
+            ),
+          { message: `${family} loaded in the ${field} frame` },
+        )
+        .toBe(true);
+      expect(
+        await input.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return { fontFamily: style.fontFamily, fontSize: style.fontSize, color: style.color };
+        }),
+        `${field} text`,
+      ).toEqual(expectedText);
+
+      await input.click();
+      await expect(container).toHaveClass(/monei-component--focus/);
+      expect(await container.evaluate(focusLook), `${field} focus`).toEqual(expectedFocus);
+    }
   });
 
   test("a failed 3DS leaves the page for the order page with the failed flash", async ({ page }) => {
