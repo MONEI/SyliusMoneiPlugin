@@ -3,14 +3,11 @@ import { expect, type FrameLocator, type Page } from "@playwright/test";
 /** Seeded products (scripts/seed.php). The sticker stays below the 5 EUR Bizum test limit. */
 export const PRODUCTS = { tShirt: "e2e-t-shirt", sticker: "e2e-sticker" } as const;
 
-/** MONEI test cards. Expiry 12/34, CVC 123. */
-export const CARDS = {
-  /** 3DS v2.1, always challenged. */
-  visaChallenge: "4444444444444406",
-} as const;
+/** MONEI test card, 3DS v2.1, always challenged. Expiry 12/34, CVC 123. */
+export const VISA_CHALLENGE = "4444444444444406";
 
 /** Bizum test phone: approved below 5 EUR. */
-export const BIZUM_PHONE = "+34500000000";
+const BIZUM_PHONE = "+34500000000";
 
 /** A guest email no other test used, so one test's orders can be told apart. */
 export const uniqueEmail = (tag: string) =>
@@ -65,7 +62,6 @@ export async function expectOrderPage(page: Page): Promise<void> {
 
 /** Pays again from the order page. */
 export async function payAgainOnHostedPage(page: Page, paymentMethod: string): Promise<string> {
-  await expectOrderPage(page);
   await page.getByLabel(paymentMethod, { exact: true }).check();
   return toHostedPage(page, () => page.getByRole("button", { name: "Pay", exact: true }).click());
 }

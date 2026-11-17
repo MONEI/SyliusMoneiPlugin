@@ -2,10 +2,11 @@
 import { expect, type Frame, type Locator, type Page } from "@playwright/test";
 
 /** Public sandbox buyer from https://docs.monei.com/testing */
-export const PAYPAL_BUYER = { email: "paypal-personal@monei.net", password: "monei12345" } as const;
+const PAYPAL_BUYER = { email: "paypal-personal@monei.net", password: "monei12345" } as const;
 
 /** Signs in to the sandbox and approves; each step matches every markup PayPal has used. */
-export async function approveInPayPal(surface: Page | Frame, timeout = 90_000): Promise<void> {
+export async function approveInPayPal(surface: Page | Frame): Promise<void> {
+  const timeout = 90_000;
   const anyOf = (selectors: string[]) => surface.locator(selectors.join(", ")).first();
   const email = anyOf(["#email:visible", '[name="login_email"]:visible']);
   const confirm = anyOf([
@@ -60,7 +61,8 @@ const payPalButton = (page: Page): Locator =>
  * popup, a headed browser an in-page overlay frame. Only a surface on paypal.com counts (zoid
  * first opens about:blank).
  */
-export async function openPayPalFromButton(page: Page, timeout = 90_000): Promise<Page | Frame> {
+export async function openPayPalFromButton(page: Page): Promise<Page | Frame> {
+  const timeout = 90_000;
   const button = payPalButton(page);
   await expect(button, "the PayPal button mounted").toBeVisible({ timeout: 60_000 });
   const isLogin = (url: string) => url.includes("paypal.com") && !url.includes("smart/buttons");

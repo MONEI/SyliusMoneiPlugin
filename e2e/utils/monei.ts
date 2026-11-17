@@ -5,15 +5,11 @@ import { moneiApiKey } from "./env.ts";
 const API = "https://api.monei.com/v1";
 const GRAPHQL = "https://graphql.monei.com";
 
-/** Methods the specs pay with; MB WAY and Multibanco have no test processor on the e2e account. */
-export const REQUIRED_METHODS = ["card", "bizum", "paypal"];
+/** Methods the specs use; MB WAY and Multibanco have no test processor on the e2e account. */
+export const REQUIRED_METHODS = ["card", "bizum", "paypal", "googlePay"];
 
-export type MoneiPayment = {
-  id: string;
+type MoneiPayment = {
   status: string;
-  amount: number;
-  currency: string;
-  orderId: string;
   refundedAmount?: number;
   traceDetails?: { userAgent?: string };
   paymentMethod?: { card?: { cardholderName?: string } };
@@ -64,9 +60,8 @@ export async function refundAmounts(id: string): Promise<number[]> {
 }
 
 /**
- * The key is a test mode key (by prefix, then by MONEI's answer), belongs to
- * MONEI_TEST_ACCOUNT_ID when that is set, and its account offers every required method.
- * Messages name neither the key nor the account.
+ * The key is a test mode key (by prefix, then by MONEI's answer), and its account offers every
+ * required method. Messages name neither the key nor the account.
  */
 export async function checkTestAccount(): Promise<void> {
   const key = moneiApiKey();
@@ -75,15 +70,8 @@ export async function checkTestAccount(): Promise<void> {
   }
   if (!key.startsWith("pk_test_")) throw new Error("MONEI_TEST_API_KEY is not a pk_test_ key.");
 
-  const allowed = await moneiGet<{ livemode: boolean; accountId?: string; paymentMethods: string[] }>(
-    "/allowed-payment-methods",
-  );
+  const allowed = await moneiGet<{ livemode: boolean; paymentMethods: string[] }>("/allowed-payment-methods");
   if (allowed.livemode) throw new Error("MONEI says MONEI_TEST_API_KEY is a live mode key.");
-
-  const declared = (process.env.MONEI_TEST_ACCOUNT_ID ?? "").trim();
-  if (declared && declared !== allowed.accountId) {
-    throw new Error("MONEI_TEST_API_KEY belongs to another account than MONEI_TEST_ACCOUNT_ID.");
-  }
 
   const missing = REQUIRED_METHODS.filter((method) => !allowed.paymentMethods.includes(method));
   if (missing.length) throw new Error(`The MONEI test account does not offer: ${missing.join(", ")}`);

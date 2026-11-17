@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const E2E_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const E2E_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const COMPOSE_FILE = resolve(E2E_DIR, "docker-compose.yml");
 const GENERATED_DIR = resolve(E2E_DIR, ".generated");
 const STORE_URL_FILE = resolve(GENERATED_DIR, "store-url");
@@ -31,13 +31,15 @@ function generated(file: string): string {
 /** The store on the cloudflared tunnel host, so Sylius builds public callback URLs. */
 export const storeUrl = (): string => generated(STORE_URL_FILE);
 
-export type Fixtures = {
-  orderIdPrefix: string;
+type Fixtures = {
   paymentMethods: Record<string, { name: string }>;
   adminEmail: string;
 };
 
 export const fixtures = (): Fixtures => JSON.parse(generated(FIXTURES_FILE));
+
+/** The name of a seeded payment method, as the checkout shows it. */
+export const methodName = (code: string): string => fixtures().paymentMethods[code].name;
 
 /** Random per run (scripts/start.sh). Never log it or pass it to a Playwright call. */
 export const adminPassword = (): string => generated(ADMIN_PASSWORD_FILE);

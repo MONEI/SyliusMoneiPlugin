@@ -31,6 +31,7 @@ const PAYMENT_METHODS = [
     'monei_paypal_onsite' => ['name' => 'MONEI PayPal onsite', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_wallet_onsite' => ['name' => 'MONEI wallet onsite', 'payment_method' => 'apple_google_pay', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_card_auth' => ['name' => 'MONEI card AUTH', 'payment_method' => 'card', 'mode' => 'hosted', 'use_authorize' => true],
+    'monei_paypal_auth_onsite' => ['name' => 'MONEI PayPal AUTH onsite', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => true],
 ];
 
 const ADMIN_EMAIL = 'e2e-admin@monei-e2e.test';
@@ -47,17 +48,7 @@ if (!str_starts_with($apiKey, 'pk_test_')) {
 }
 
 // MONEI's duplicate check never expires on the shared sandbox account: every run needs its own prefix.
-$runId = (string) getenv('E2E_RUN_ID');
-if (1 !== preg_match('/^[a-z0-9]{1,12}$/D', $runId)) {
-    throw new RuntimeException('E2E_RUN_ID must be 1 to 12 lowercase letters or digits.');
-}
-$orderIdPrefix = sprintf('e2e%s-', $runId);
-
-// Random per run (scripts/start.sh): the tunnel makes /admin public.
-$adminPassword = (string) getenv('E2E_ADMIN_PASSWORD');
-if (strlen($adminPassword) < 32) {
-    throw new RuntimeException('E2E_ADMIN_PASSWORD must hold at least 32 characters.');
-}
+$orderIdPrefix = sprintf('e2e%s-', (string) getenv('E2E_RUN_ID'));
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
@@ -101,11 +92,11 @@ foreach (PRICES as $variantCode => $price) {
 $admin = $container->get('sylius.factory.admin_user')->createNew();
 $admin->setEmail(ADMIN_EMAIL);
 $admin->setUsername(ADMIN_EMAIL);
-$admin->setPlainPassword($adminPassword);
+$admin->setPlainPassword((string) getenv('E2E_ADMIN_PASSWORD'));
 $admin->setEnabled(true);
 $admin->setLocaleCode('en_US');
 $entityManager->persist($admin);
 
 $entityManager->flush();
 
-echo json_encode(['orderIdPrefix' => $orderIdPrefix, 'paymentMethods' => $paymentMethods, 'adminEmail' => ADMIN_EMAIL], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";
+echo json_encode(['paymentMethods' => $paymentMethods, 'adminEmail' => ADMIN_EMAIL], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";

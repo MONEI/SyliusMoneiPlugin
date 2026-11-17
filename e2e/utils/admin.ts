@@ -4,7 +4,7 @@
 import type { Browser, Page } from "@playwright/test";
 import { adminPassword, fixtures } from "./env.ts";
 
-export const ADMIN_URL = "http://localhost:18080";
+const ADMIN_URL = "http://localhost:18080";
 
 type Jar = Map<string, string>;
 

@@ -9,16 +9,13 @@ import { storeUrl } from "./utils/env.ts";
  */
 export default defineConfig({
   testDir: "./specs",
-  outputDir: "./test-results",
   globalSetup: "./utils/global-setup.ts",
-  fullyParallel: false,
   workers: 1,
   forbidOnly: !!process.env.CI,
-  retries: 0,
   // Hosted page, 3DS and the callback round trip sit inside one test.
   timeout: 180_000,
   expect: { timeout: 30_000 },
-  reporter: [["list"], ["html", { outputFolder: "./playwright-report", open: "never" }]],
+  reporter: [["list"], ["html", { open: "never" }]],
   use: {
     // The tunnel host, not localhost: Sylius builds the callback URL from the request.
     baseURL: storeUrl(),
@@ -26,7 +23,6 @@ export default defineConfig({
     navigationTimeout: 60_000,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    video: "off",
   },
   projects: [{ name: "chromium", use: devices["Desktop Chrome"] }],
 });

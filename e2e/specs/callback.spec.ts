@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
-  CARDS,
   PRODUCTS,
+  VISA_CHALLENGE,
   addToCart,
   answerThreeDsChallenge,
   checkoutToSummary,
@@ -9,7 +9,7 @@ import {
   placeHostedOrder,
   uniqueEmail,
 } from "../utils/checkout.ts";
-import { fixtures } from "../utils/env.ts";
+import { methodName } from "../utils/env.ts";
 import { getPayment } from "../utils/monei.ts";
 import { paymentByMoneiId, statusRequestCount } from "../utils/sylius.ts";
 
@@ -22,10 +22,10 @@ test("with the return page blocked, the callback alone completes the payment", a
   });
 
   await addToCart(page, PRODUCTS.tShirt);
-  await checkoutToSummary(page, fixtures().paymentMethods.monei_card_hosted.name, uniqueEmail("callback"));
+  await checkoutToSummary(page, methodName("monei_card_hosted"), uniqueEmail("callback"));
   const moneiId = await placeHostedOrder(page);
 
-  await payCardOnHostedPage(page, CARDS.visaChallenge);
+  await payCardOnHostedPage(page, VISA_CHALLENGE);
   await answerThreeDsChallenge(page, "complete");
   await expect.poll(() => blocked, { message: "MONEI sent the buyer to the blocked return page" }).toBe(true);
   expect((await getPayment(moneiId)).status).toBe("SUCCEEDED");
