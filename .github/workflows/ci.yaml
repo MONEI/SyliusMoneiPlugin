@@ -110,13 +110,25 @@ jobs:
       - name: PHP CS Fixer
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
 
+  # Fork and Dependabot pull requests get no secrets: the job is skipped for them.
+  e2e:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    needs: tests
+    uses: ./.github/workflows/e2e.yml
+    secrets:
+      MONEI_TEST_API_KEY: ${{ secrets.MONEI_TEST_API_KEY }}
+
   ci:
     # Single aggregate status for the branch ruleset's required "CI" check.
     name: CI
     if: always()
-    needs: [tests, code-style]
+    needs: [tests, code-style, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: All jobs passed
         run: |
-          [ "${{ needs.tests.result }}" = "success" ] && [ "${{ needs.code-style.result }}" = "success" ]
+          [ "${{ needs.tests.result }}" = "success" ] && [ "${{ needs.code-style.result }}" = "success" ] \
+            && { [ "${{ needs.e2e.result }}" = "success" ] || [ "${{ needs.e2e.result }}" = "skipped" ]; }

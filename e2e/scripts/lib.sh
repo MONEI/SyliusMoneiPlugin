@@ -27,3 +27,8 @@ wait_for() {
     sleep 2
   done
 }
+
+# Hides a value in the rest of the GitHub Actions job log. Outside Actions it would print it.
+gha_mask() {
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "::add-mask::$1"; fi
+}

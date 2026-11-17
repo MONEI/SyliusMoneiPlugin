@@ -39,6 +39,7 @@ export E2E_RUN_ID
 # specs read. Never printed.
 (umask 077 && openssl rand -hex 24 >"$GENERATED_DIR/admin-password")
 E2E_ADMIN_PASSWORD="$(cat "$GENERATED_DIR/admin-password")"
+gha_mask "$E2E_ADMIN_PASSWORD"
 export E2E_ADMIN_PASSWORD
 compose run --rm -T seed php /app/seed.php >"$GENERATED_DIR/fixtures.json"
 unset E2E_ADMIN_PASSWORD
@@ -49,6 +50,7 @@ registered() { compose logs --no-color tunnel 2>/dev/null | grep -q 'Registered 
 wait_for 90 tunnel "the cloudflared tunnel to register" registered
 store_url="$(compose logs --no-color tunnel 2>/dev/null | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)"
 [ -n "$store_url" ] || fail "cloudflared registered a connection but printed no trycloudflare.com URL"
+gha_mask "${store_url#https://}"
 # Written, never printed: the public repo's CI logs must not show the tunnel host.
 printf '%s\n' "$store_url" >"$GENERATED_DIR/store-url"
 
