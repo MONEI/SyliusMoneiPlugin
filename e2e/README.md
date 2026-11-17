@@ -41,9 +41,9 @@ JWT keypair that the test application ships, so nobody can sign an admin API tok
   one-shot `seed` container gets it and writes it, encrypted, into the gateway config in the
   database. The `php` container reads it from there. It is never in the image, a log, a trace or
   a screenshot. Scripts never print it.
-- `e2e:start` sets a random `APP_SECRET` per run, kept only in `e2e/.generated/app-secret`. The
-  test application's `.env` ships a public one, which would let anyone sign live component props.
-  Scripts never print it.
+- `e2e:start` sets a random `APP_SECRET` per run, in `e2e/.generated/app-secret` and in the
+  environment of the `php` and `seed` containers. The test application's `.env` ships a public
+  one, which would let anyone sign live component props. Scripts never print it.
 - Scripts never print the tunnel host. In GitHub Actions, `start.sh` masks it in the job log as
   soon as it knows it.
 - No spec opens the admin payment method form, which shows the key. MONEI payment methods are
