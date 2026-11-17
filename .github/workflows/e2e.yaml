@@ -84,10 +84,10 @@ jobs:
       - name: Print the stack logs
         if: failure()
         run: |
-          for host in $(docker compose -f e2e/docker-compose.yml logs --no-color tunnel 2>/dev/null | grep -oE '[a-z0-9-]+\.trycloudflare\.com' | sort -u); do
+          for host in $(docker compose -f e2e/compose.yaml logs --no-color tunnel 2>/dev/null | grep -oE '[a-z0-9-]+\.trycloudflare\.com' | sort -u); do
             echo "::add-mask::$host"
           done
-          docker compose -f e2e/docker-compose.yml logs --no-color --tail 300
+          docker compose -f e2e/compose.yaml logs --no-color --tail 300
 
       - name: Stop the e2e stack
         id: stop

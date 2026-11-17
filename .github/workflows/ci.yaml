@@ -117,7 +117,7 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.actor != 'dependabot[bot]'
     needs: tests
-    uses: ./.github/workflows/e2e.yml
+    uses: ./.github/workflows/e2e.yaml
     secrets:
       MONEI_TEST_API_KEY: ${{ secrets.MONEI_TEST_API_KEY }}
 

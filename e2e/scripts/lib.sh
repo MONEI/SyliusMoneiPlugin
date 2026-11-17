@@ -4,7 +4,7 @@ E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GENERATED_DIR="$E2E_DIR/.generated"
 
 compose() {
-  docker compose -f "$E2E_DIR/docker-compose.yml" "$@"
+  docker compose -f "$E2E_DIR/compose.yaml" "$@"
 }
 
 fail() {

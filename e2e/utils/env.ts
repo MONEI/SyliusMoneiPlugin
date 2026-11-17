@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const E2E_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-export const COMPOSE_FILE = resolve(E2E_DIR, "docker-compose.yml");
+export const COMPOSE_FILE = resolve(E2E_DIR, "compose.yaml");
 const GENERATED_DIR = resolve(E2E_DIR, ".generated");
 const STORE_URL_FILE = resolve(GENERATED_DIR, "store-url");
 const FIXTURES_FILE = resolve(GENERATED_DIR, "fixtures.json");
