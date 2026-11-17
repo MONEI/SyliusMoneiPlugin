@@ -6,10 +6,8 @@ source "$(dirname "$0")/lib.sh"
 
 export PHP_VERSION="${PHP_VERSION:-8.4}"
 export SYLIUS_VERSION="${SYLIUS_VERSION:-^2.3.2}"
-[[ "$PHP_VERSION" =~ ^8\.[0-9]+$ ]] || fail "PHP_VERSION must be 8.x, got \"$PHP_VERSION\""
-[[ "$SYLIUS_VERSION" =~ ^[~^]?2\.[0-9]+(\.[0-9]+)?$ ]] || fail "SYLIUS_VERSION must be a 2.x Composer constraint, got \"$SYLIUS_VERSION\""
 
-# Refuses a live key and an account without card, Bizum and PayPal, before the long build.
+# Refuses a live key and an account without card, Bizum, PayPal and Google Pay, before the long build.
 node "$E2E_DIR/scripts/preflight.ts"
 
 compose --profile tools down -v --remove-orphans
@@ -20,13 +18,15 @@ compose build php nginx
 compose up -d mysql php nginx
 
 # The test env swaps the MONEI HTTP client for a mock, so the store must not run in it.
-app_env="$(compose exec -T php vendor/bin/console about | sed -n 's/^ *Environment *//p' | tr -d ' ')"
+app_env="$(compose exec -T php printenv APP_ENV)"
 [[ "$app_env" =~ ^(prod|dev)$ ]] || fail "the store runs with APP_ENV \"$app_env\"; it must be prod or dev"
 
 console() { compose exec -T php vendor/bin/console --no-interaction "$@"; }
 console doctrine:database:create --if-not-exists
 console doctrine:schema:create
 console sylius:payment:generate-key
+# The test application ships its JWT keypair: anyone could sign an admin API token with it.
+console lexik:jwt:generate-keypair --overwrite
 console sylius:fixtures:load e2e
 
 store_ready() { curl -fsS --max-time 10 -o /dev/null http://localhost:18080/en_US/; }
@@ -35,8 +35,7 @@ wait_for 120 nginx "the store on http://localhost:18080" store_ready
 # A fresh order ID prefix per run: MONEI's duplicate check on orderId never expires.
 E2E_RUN_ID="$(printf '%x%04x' "$(date +%s)" "$RANDOM")"
 export E2E_RUN_ID
-# The tunnel makes /admin public: a random admin password per run, kept only in a file the
-# specs read. Never printed.
+# A random admin password per run, kept only in a file the specs read. Never printed.
 (umask 077 && openssl rand -hex 24 >"$GENERATED_DIR/admin-password")
 E2E_ADMIN_PASSWORD="$(cat "$GENERATED_DIR/admin-password")"
 gha_mask "$E2E_ADMIN_PASSWORD"

@@ -89,10 +89,16 @@ jobs:
           done
           docker compose -f e2e/docker-compose.yml logs --no-color --tail 300
 
-      # Log masking does not cover uploaded files: the report and traces show the tunnel host,
-      # which is dead once the job stops the stack. The key never reaches the browser.
+      - name: Stop the e2e stack
+        id: stop
+        if: always()
+        run: pnpm --dir e2e e2e:stop
+
+      # Log masking does not cover uploaded files: the report and traces show the tunnel host.
+      # Uploaded only after the stop closed the tunnel, so no artifact holds a live host. The key
+      # never reaches the browser.
       - name: Upload the report and traces
-        if: failure()
+        if: failure() && steps.stop.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report-php-${{ matrix.php }}
@@ -101,7 +107,3 @@ jobs:
             e2e/test-results
           retention-days: 7
           if-no-files-found: ignore
-
-      - name: Stop the e2e stack
-        if: always()
-        run: pnpm --dir e2e e2e:stop

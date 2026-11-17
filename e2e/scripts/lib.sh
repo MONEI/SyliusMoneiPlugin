@@ -20,7 +20,7 @@ wait_for() {
   local deadline=$((SECONDS + timeout))
   until "$@" >/dev/null 2>&1; do
     if [ -n "$(compose ps -a -q --status exited "$service")" ]; then
-      compose logs --no-color --tail 80 "$service" >&2
+      compose logs --no-color --tail 80 "$service" | sed -E 's/[a-z0-9-]+\.trycloudflare\.com/***/g' >&2
       fail "the $service container exited while waiting for $what"
     fi
     ((SECONDS < deadline)) || fail "timed out after ${timeout}s waiting for $what"
