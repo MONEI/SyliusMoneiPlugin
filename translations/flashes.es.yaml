@@ -21,3 +21,4 @@ monei:
         try_again: 'MONEI está procesando otra operación en este pago. Inténtalo de nuevo en un momento.'
         refund_method_not_paid: 'Ningún pago de este pedido se pagó con %payment_method% a través de MONEI. Elige el método de pago con el que se pagó el pedido.'
         refund_answer_lost: 'MONEI ya ha reembolsado de este pago más de lo que Sylius tiene registrado (un reembolso hecho desde el panel de MONEI, o un reembolso anterior cuya respuesta se perdió). No lo vuelvas a reembolsar a través de MONEI. Registra el reembolso que falta con un método de reembolso offline activo en este canal.'
+        refund_not_applied: 'MONEI no ha aplicado este reembolso: hace unos segundos se envió un reembolso igual de este pago. Revisa el pago en el panel de MONEI antes de volver a intentarlo.'

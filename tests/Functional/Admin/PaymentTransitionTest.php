@@ -133,7 +133,10 @@ final class PaymentTransitionTest extends MoneiTestCase
     public function testRefundOfASucceededPaymentRefundsTheFullAmount(): void
     {
         $order = $this->completedOrder();
-        MoneiMockHandler::append(self::moneiPayment('pay_1', 'SUCCEEDED'), self::moneiPayment('pay_1', 'REFUNDED'));
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_1', 'SUCCEEDED'),
+            self::moneiPayment('pay_1', 'REFUNDED', extra: ['refundedAmount' => 10000]),
+        );
 
         $this->transition($order, 'refund');
 
@@ -147,13 +150,29 @@ final class PaymentTransitionTest extends MoneiTestCase
         $order = $this->completedOrder();
         MoneiMockHandler::append(
             self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', extra: ['refundedAmount' => 500]),
-            self::moneiPayment('pay_1', 'REFUNDED'),
+            self::moneiPayment('pay_1', 'REFUNDED', extra: ['refundedAmount' => 10000]),
         );
 
         $this->transition($order, 'refund');
 
         self::assertSame(9500, self::lastRequestBody()['amount']);
         self::assertSame('refunded', $this->paymentState($order));
+    }
+
+    /** MONEI answers a refund equal to one sent less than 3 s before with that refund's answer, and refunds nothing. */
+    public function testARefundMoneiDidNotApplyLeavesThePaymentCompleted(): void
+    {
+        $order = $this->completedOrder();
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', extra: ['refundedAmount' => 5000]),
+            self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', extra: ['refundedAmount' => 5000]),
+        );
+
+        $this->transition($order, 'refund');
+
+        self::assertSame(['GET /payments/pay_1', 'POST /payments/pay_1/refund'], $this->requestKeys());
+        self::assertSame('completed', $this->paymentState($order));
+        $this->assertOrderPageShows($order, 'MONEI did not apply this refund');
     }
 
     /** After an API key change to another account, a refund must not be recorded only in Sylius. */

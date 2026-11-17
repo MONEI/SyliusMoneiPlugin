@@ -97,9 +97,12 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
         }
 
         try {
-            $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
+            $answer = $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
         } catch (ApiException $e) {
             throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $order);
+        }
+        if (!MoneiApi::refundApplied($bound->payment, $answer, $amount)) {
+            throw new MoneiRefusedException('monei.refused.refund_not_applied', [], $order);
         }
     }
 

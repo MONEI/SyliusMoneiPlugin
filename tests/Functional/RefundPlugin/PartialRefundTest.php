@@ -68,6 +68,23 @@ final class PartialRefundTest extends MoneiTestCase
         self::assertSame([10000, 10000], $this->refundPayments());
     }
 
+    /** MONEI answers a refund equal to one sent less than 3 s before with that refund's answer, and refunds nothing. */
+    public function testARefundMoneiDidNotApplyIsNotRecorded(): void
+    {
+        MoneiMockHandler::append(
+            self::moneiPayment('pay_1', 'SUCCEEDED', 20000),
+            self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', 20000, extra: ['refundedAmount' => 10000]),
+            self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', 20000, extra: ['refundedAmount' => 10000]),
+            self::moneiPayment('pay_1', 'PARTIALLY_REFUNDED', 20000, extra: ['refundedAmount' => 10000]),
+        );
+
+        $this->refundUnit(0, $this->moneiMethod);
+        $this->refundUnit(1, $this->moneiMethod);
+
+        self::assertSame([10000], $this->refundPayments());
+        $this->assertRefundsPageShows('MONEI did not apply this refund');
+    }
+
     public function testRefundingAUnitWithAnOfflineMethodMakesNoMoneiCall(): void
     {
         $this->refundUnit(0, $this->createOfflinePaymentMethod('BANK_TRANSFER'));
