@@ -275,6 +275,8 @@ This plugin is open-source software under the [MIT license](LICENSE).
 
 ## Links
 
+- [Live demo](https://sylius-demo.monei.com) (MONEI test mode)
+- [MONEI Sylius documentation](https://docs.monei.com/e-commerce/sylius)
 - [MONEI documentation](https://docs.monei.com/)
 - [MONEI Dashboard](https://dashboard.monei.com/)
 - [MONEI PHP SDK](https://github.com/MONEI/monei-php-sdk)
