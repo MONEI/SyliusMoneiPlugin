@@ -27,3 +27,7 @@ monei:
             use_authorize_help: The payment is held and you capture it from the order page. Only card, Apple Pay / Google Pay and PayPal.
             order_id_prefix: Order ID prefix
             order_id_prefix_help: Optional. Added before the order number sent to MONEI. Set a different prefix for each store that uses the same MONEI account. At most 20 letters, digits, - and _.
+            card_layout: Card field layout
+            card_layout_help: Show the card fields on a single line, or as separate card number, expiry and CVC fields. Only card in onsite mode.
+            card_layout_split: Separate fields
+            card_layout_single: Single line

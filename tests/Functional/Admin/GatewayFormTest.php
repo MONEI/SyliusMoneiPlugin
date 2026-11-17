@@ -22,7 +22,7 @@ final class GatewayFormTest extends MoneiTestCase
         $this->client->loginUser($this->admin, 'admin');
     }
 
-    public function testCreateSavesTheFiveValues(): void
+    public function testCreateSavesTheSixValues(): void
     {
         $form = $this->createForm('MONEI_PAYPAL');
         $form[self::CONFIG.'[api_key]'] = 'pk_live_newstorekey';
@@ -30,12 +30,14 @@ final class GatewayFormTest extends MoneiTestCase
         $form[self::CONFIG.'[mode]'] = 'onsite';
         $form[self::CONFIG.'[use_authorize]']->tick();
         $form[self::CONFIG.'[order_id_prefix]'] = 'shop-1';
+        $form[self::CONFIG.'[card_layout]'] = 'single';
 
         $this->client->submit($form);
 
         self::assertTrue($this->client->getResponse()->isRedirect());
         self::assertConfig([
             'api_key' => 'pk_live_newstorekey',
+            'card_layout' => 'single',
             'mode' => 'onsite',
             'order_id_prefix' => 'shop-1',
             'payment_method' => 'paypal',
