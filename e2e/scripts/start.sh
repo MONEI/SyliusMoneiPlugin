@@ -35,7 +35,13 @@ wait_for 120 nginx "the store on http://localhost:18080" store_ready
 # A fresh order ID prefix per run: MONEI's duplicate check on orderId never expires.
 E2E_RUN_ID="$(printf '%x%04x' "$(date +%s)" "$RANDOM")"
 export E2E_RUN_ID
+# The tunnel makes /admin public: a random admin password per run, kept only in a file the
+# specs read. Never printed.
+(umask 077 && openssl rand -hex 24 >"$GENERATED_DIR/admin-password")
+E2E_ADMIN_PASSWORD="$(cat "$GENERATED_DIR/admin-password")"
+export E2E_ADMIN_PASSWORD
 compose run --rm -T seed php /app/seed.php >"$GENERATED_DIR/fixtures.json"
+unset E2E_ADMIN_PASSWORD
 
 compose up -d tunnel
 registered() { compose logs --no-color tunnel 2>/dev/null | grep -q 'Registered tunnel connection'; }

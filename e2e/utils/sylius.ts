@@ -35,3 +35,34 @@ export function statusRequestCount(moneiId: string): number {
   );
   return Number(rows[0][0]);
 }
+
+export type OrderState = {
+  orderId: string;
+  number: string;
+  paymentId: string;
+  state: string;
+  paymentState: string;
+  payment: string;
+};
+
+/** The order and the Sylius payment bound to a MONEI payment, with their states. */
+export function orderByMoneiId(moneiId: string): OrderState | null {
+  if (!/^[A-Za-z0-9]+$/.test(moneiId)) throw new Error(`not a MONEI payment id: ${moneiId}`);
+  const rows = query(
+    `SELECT o.id, o.number, p.id, o.state, o.payment_state, p.state FROM sylius_payment p ` +
+      `JOIN sylius_order o ON o.id = p.order_id ` +
+      `WHERE JSON_UNQUOTE(JSON_EXTRACT(p.details, '$.monei.id')) = '${moneiId}'`,
+  );
+  if (rows.length === 0) return null;
+  const [orderId, number, paymentId, state, paymentState, payment] = rows[0];
+  return { orderId, number, paymentId, state, paymentState, payment };
+}
+
+/** Amounts of the refund plugin's refunds of an order, by order number. */
+export function recordedRefunds(orderNumber: string): number[] {
+  if (!/^[A-Za-z0-9-]+$/.test(orderNumber)) throw new Error(`not an order number: ${orderNumber}`);
+  return query(
+    `SELECT r.amount FROM sylius_refund_refund r JOIN sylius_order o ON o.id = r.order_id ` +
+      `WHERE o.number = '${orderNumber}' ORDER BY r.id`,
+  ).map(([amount]) => Number(amount));
+}

@@ -3,6 +3,7 @@
 import { moneiApiKey } from "./env.ts";
 
 const API = "https://api.monei.com/v1";
+const GRAPHQL = "https://graphql.monei.com";
 
 /** Methods the specs pay with; MB WAY and Multibanco have no test processor on the e2e account. */
 export const REQUIRED_METHODS = ["card", "bizum", "paypal"];
@@ -13,6 +14,7 @@ export type MoneiPayment = {
   amount: number;
   currency: string;
   orderId: string;
+  refundedAmount?: number;
   traceDetails?: { userAgent?: string };
   paymentMethod?: { card?: { cardholderName?: string } };
 };
@@ -29,6 +31,37 @@ async function moneiGet<T>(path: string): Promise<T> {
 }
 
 export const getPayment = (id: string) => moneiGet<MoneiPayment>(`/payments/${id}`);
+
+/**
+ * The amount of each refund of a MONEI payment, oldest first. The REST API has no refund list;
+ * GraphQL `chargeEvents` has one event per refund, carrying that refund's amount.
+ */
+export async function refundAmounts(id: string): Promise<number[]> {
+  const response = await fetch(GRAPHQL, {
+    method: "POST",
+    headers: {
+      Authorization: moneiApiKey(),
+      "Content-Type": "application/json",
+      "User-Agent": "sylius-monei-plugin-e2e",
+    },
+    body: JSON.stringify({
+      query:
+        "query ($id: ID!) { chargeEvents(chargeId: $id, size: 100) { items { type createdAt object { lastRefundAmount } } } }",
+      variables: { id },
+    }),
+  });
+  const body = (await response.json().catch(() => ({}))) as {
+    data?: { chargeEvents: { items: { type: string; createdAt: number; object: { lastRefundAmount: number } }[] } };
+    errors?: { message: string }[];
+  };
+  if (!response.ok || !body.data) {
+    throw new Error(`MONEI chargeEvents ${id}: ${response.status} ${body.errors?.[0]?.message ?? response.statusText}`);
+  }
+  return body.data.chargeEvents.items
+    .filter((event) => event.type === "charge.refunded" || event.type === "charge.partially_refunded")
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((event) => event.object.lastRefundAmount);
+}
 
 /**
  * The key is a test mode key (by prefix, then by MONEI's answer), belongs to

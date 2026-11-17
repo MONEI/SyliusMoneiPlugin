@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 // Runs in the `seed` container after the fixtures (scripts/start.sh): adds one MONEI payment
-// method per method and mode the specs use, and fixed prices. Prints the generated values as
-// JSON. Never prints the API key; errors name the exception class and message only.
+// method per method and mode the specs use, fixed prices and the admin user. Prints the generated
+// values as JSON. Never prints the API key or the admin password; errors name the exception class
+// and message only.
 
+use Sylius\Component\Core\Model\AdminUserInterface;
 use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
@@ -28,7 +30,10 @@ const PAYMENT_METHODS = [
     'monei_bizum_onsite' => ['name' => 'MONEI Bizum onsite', 'payment_method' => 'bizum', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_paypal_onsite' => ['name' => 'MONEI PayPal onsite', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_wallet_onsite' => ['name' => 'MONEI wallet onsite', 'payment_method' => 'apple_google_pay', 'mode' => 'onsite', 'use_authorize' => false],
+    'monei_card_auth' => ['name' => 'MONEI card AUTH', 'payment_method' => 'card', 'mode' => 'hosted', 'use_authorize' => true],
 ];
+
+const ADMIN_EMAIL = 'e2e-admin@monei-e2e.test';
 
 /** Product variant code => price in cents. Bizum test payments are approved only up to 5 EUR. */
 const PRICES = [
@@ -47,6 +52,12 @@ if (1 !== preg_match('/^[a-z0-9]{1,12}$/D', $runId)) {
     throw new RuntimeException('E2E_RUN_ID must be 1 to 12 lowercase letters or digits.');
 }
 $orderIdPrefix = sprintf('e2e%s-', $runId);
+
+// Random per run (scripts/start.sh): the tunnel makes /admin public.
+$adminPassword = (string) getenv('E2E_ADMIN_PASSWORD');
+if (strlen($adminPassword) < 32) {
+    throw new RuntimeException('E2E_ADMIN_PASSWORD must hold at least 32 characters.');
+}
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
 $kernel->boot();
@@ -86,6 +97,15 @@ foreach (PRICES as $variantCode => $price) {
     $variant->getChannelPricingForChannel($channel)->setPrice($price);
 }
 
+/** @var AdminUserInterface $admin */
+$admin = $container->get('sylius.factory.admin_user')->createNew();
+$admin->setEmail(ADMIN_EMAIL);
+$admin->setUsername(ADMIN_EMAIL);
+$admin->setPlainPassword($adminPassword);
+$admin->setEnabled(true);
+$admin->setLocaleCode('en_US');
+$entityManager->persist($admin);
+
 $entityManager->flush();
 
-echo json_encode(['orderIdPrefix' => $orderIdPrefix, 'paymentMethods' => $paymentMethods], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";
+echo json_encode(['orderIdPrefix' => $orderIdPrefix, 'paymentMethods' => $paymentMethods, 'adminEmail' => ADMIN_EMAIL], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";

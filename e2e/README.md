@@ -27,10 +27,12 @@ pnpm --dir e2e e2e:stop    # remove the stack and close the tunnel
 
 `e2e:start` refuses a live key, and a key whose account does not offer card, Bizum and PayPal.
 Each run seeds its own MONEI `order_id_prefix`, because MONEI's duplicate check on the order ID
-never expires. Generated values (store URL, prefix, payment method names) go to `e2e/.generated/`.
+never expires. Generated values (store URL, prefix, payment method names, admin password) go to
+`e2e/.generated/`.
 
-The local store answers on http://localhost:18080. The store has no admin user: the tunnel makes
-every page public, and the admin payment method form shows the API key.
+The local store answers on http://localhost:18080. The admin specs use it there. The tunnel makes
+every page public, admin included, and the admin payment method form shows the API key. So the
+admin user gets a random password per run, kept only in `e2e/.generated/admin-password`.
 
 ## Secrets
 
@@ -38,4 +40,7 @@ every page public, and the admin payment method form shows the API key.
   trace or a screenshot. Scripts never print it.
 - No spec opens the admin payment method form, which shows the key. MONEI payment methods are
   created by `scripts/seed.php`.
+- The admin password reaches only the `seed` container and the specs. The specs log in with
+  Node's `fetch`, never through a Playwright call, and `specs/admin.spec.ts` records no trace,
+  screenshot or video.
 - Scripts and specs read MONEI with Node's `fetch`, never through the browser.
