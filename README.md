@@ -85,7 +85,7 @@ Keep the `^2.0` constraint. Without it, Composer can select 1.x on an older Syli
 
 ### 2. Register the bundle
 
-Symfony Flex adds this line. Add it by hand only when your project does not use Flex.
+Symfony Flex usually adds this line. Check `config/bundles.php` and add it if it is missing.
 
 ```php
 // config/bundles.php

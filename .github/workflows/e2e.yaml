@@ -19,6 +19,7 @@ permissions:
 concurrency:
   group: monei-sandbox-e2e
   cancel-in-progress: false
+  queue: max
 
 jobs:
   e2e:

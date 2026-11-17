@@ -58,7 +58,7 @@ pnpm --dir e2e e2e:stop    # remove the stack
 
 See [e2e/README.md](e2e/README.md) for the options and the secret rules. CI runs the suite every night, and on pull requests from branches of this repository. Pull requests from forks do not get the secrets, so CI skips the e2e job for them. Maintainers: the suite reads the test mode key from the `MONEI_TEST_API_KEY` repository secret.
 
-All e2e runs share one MONEI sandbox, so they run one at a time. GitHub keeps only one waiting run: when a third run starts, it cancels the waiting one. The `CI` check of that pull request then fails without a defect. Run the cancelled jobs again.
+All e2e runs share one MONEI sandbox, so they run one at a time. Waiting runs queue in order (`queue: max`).
 
 ## Reporting issues
 
