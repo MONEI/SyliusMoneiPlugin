@@ -14,6 +14,13 @@ compose --profile tools down -v --remove-orphans
 rm -rf "$GENERATED_DIR"
 mkdir -p "$GENERATED_DIR"
 
+# A random kernel secret per run, before php boots. It signs the live component props. Never
+# printed, and never unset here: compose would recreate php without it.
+(umask 077 && openssl rand -hex 32 >"$GENERATED_DIR/app-secret")
+APP_SECRET="$(cat "$GENERATED_DIR/app-secret")"
+gha_mask "$APP_SECRET"
+export APP_SECRET
+
 compose build php nginx
 compose up -d mysql php nginx
 

@@ -4,6 +4,8 @@ name: sylius-monei-e2e
 
 x-app-env: &app-env
     PHP_DATE_TIMEZONE: UTC
+    # scripts/start.sh sets a random one per run; the test application's .env has a public default.
+    APP_SECRET: ${APP_SECRET:-}
     SYLIUS_PAYMENT_ENCRYPTION_KEY_PATH: /app/var/encryption/key
     SYLIUS_MESSENGER_TRANSPORT_MAIN_DSN: sync://
     SYLIUS_MESSENGER_TRANSPORT_MAIN_FAILED_DSN: sync://
@@ -53,7 +55,7 @@ services:
         depends_on:
             - php
         ports:
-            - '18080:80'
+            - '127.0.0.1:18080:80'
 
     tunnel:
         image: cloudflare/cloudflared:2026.10.7

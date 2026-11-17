@@ -26,14 +26,14 @@ pnpm --dir e2e e2e:stop    # remove the stack and close the tunnel
 
 `e2e:start` refuses a live key, and a key whose account does not offer card, Bizum, PayPal and
 Google Pay. Each run seeds its own MONEI `order_id_prefix`, because MONEI's duplicate check on the
-order ID never expires. Generated values (store URL, payment method names, admin password) go to
-`e2e/.generated/`.
+order ID never expires. Generated values (store URL, payment method names, admin password, app
+secret) go to `e2e/.generated/`.
 
-The local store answers on http://localhost:18080. The admin specs use it there. On the tunnel
-host, nginx answers 404 for `/admin` and `/api/v2/admin`: the admin payment method form shows the
-API key. The admin user also gets a random password per run, kept only in
-`e2e/.generated/admin-password`. `e2e:start` replaces the JWT keypair that the test application
-ships, so nobody can sign an admin API token with it.
+The local store answers on http://localhost:18080, bound to 127.0.0.1 only. The admin specs use it
+there. On the tunnel host, nginx answers 404 for `/admin`, `/api/v2/admin` and the `sylius_admin:`
+live components: the admin payment method form shows the API key. The admin user also gets a
+random password per run, kept only in `e2e/.generated/admin-password`. `e2e:start` replaces the
+JWT keypair that the test application ships, so nobody can sign an admin API token with it.
 
 ## Secrets
 
@@ -41,6 +41,9 @@ ships, so nobody can sign an admin API token with it.
   one-shot `seed` container gets it and writes it, encrypted, into the gateway config in the
   database. The `php` container reads it from there. It is never in the image, a log, a trace or
   a screenshot. Scripts never print it.
+- `e2e:start` sets a random `APP_SECRET` per run, kept only in `e2e/.generated/app-secret`. The
+  test application's `.env` ships a public one, which would let anyone sign live component props.
+  Scripts never print it.
 - Scripts never print the tunnel host. In GitHub Actions, `start.sh` masks it in the job log as
   soon as it knows it.
 - No spec opens the admin payment method form, which shows the key. MONEI payment methods are
