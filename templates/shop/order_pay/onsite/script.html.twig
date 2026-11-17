@@ -154,9 +154,11 @@
         }
 
         // An iframe cannot use a web font of this page. Pass the store's same-origin @font-face as a data: URL
-        // (monei.js refuses a url(...) wrapper; a cross-origin font would need CORS). monei.js drops a data: URL
-        // longer than 256 KB, and the field keeps the fallback font. Best effort.
+        // (monei.js refuses a url(...) wrapper). monei.js drops a data: URL longer than 262,144 characters: a
+        // larger font goes as its https URL, which the iframe loads only if the store sends CORS headers for it.
+        // Otherwise the field keeps the fallback font. Best effort.
         function applyStoreWebFont(component, refStyle) {
+            var maxDataSrcLength = 262144;
             var family = refStyle.fontFamily.split(',')[0].replace(/["']/g, '').trim();
             var target = parseInt(refStyle.fontWeight, 10) || 400;
             var face = null;
@@ -184,7 +186,7 @@
                 var unicodeRange = rule.style.getPropertyValue('unicode-range');
                 var rank = (unicodeRangeCovers(unicodeRange, 0x30) && unicodeRangeCovers(unicodeRange, 0x41) ? 0 : 10000) + distance;
                 if (!face || rank < face.rank) {
-                    face = { src: url.href, weight: weight, rank: rank };
+                    face = { src: url.href, https: 'https:' === url.protocol, weight: weight, rank: rank };
                 }
             });
             if (!face) {
@@ -199,7 +201,12 @@
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
-            }).then(function (src) {
+            }).then(function (dataUrl) {
+                var src = dataUrl.length <= maxDataSrcLength ? dataUrl : (face.https ? face.src : null);
+                if (!src) {
+                    return;
+                }
+
                 return component.updateProps({ fonts: [{ family: family, src: src, weight: face.weight }] });
             }).catch(function () {
                 // The field keeps the fallback font.

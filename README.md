@@ -127,6 +127,7 @@ The plugin adds no database tables, so it needs no migration.
 
 - Hardened web server configurations often block paths that start with a dot, for example nginx `location ~ /\.`. Let `/.well-known/` through to `public/index.php`, or Apple Pay cannot read the domain association file.
 - The onsite mode loads `https://js.monei.com/v3/monei.js`. If your store sends a content security policy, allow that origin.
+- To show the theme's exact web font in the onsite card fields, serve the font files with `Access-Control-Allow-Origin: https://js.monei.com` (or `*`). Without it, the card fields use the fallback fonts of the same font stack.
 
 ## Payment method setup
 
