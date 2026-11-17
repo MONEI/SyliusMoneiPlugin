@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\RefundPlugin;
 
-use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
@@ -96,14 +95,7 @@ final readonly class MoneiRefundStep implements UnitsRefundedProcessStepInterfac
             throw new MoneiRefusedException('monei.refused.refund_answer_lost', [], $order);
         }
 
-        try {
-            $answer = $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
-        } catch (ApiException $e) {
-            throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $order);
-        }
-        if (!MoneiApi::refundApplied($bound->payment, $answer, $amount)) {
-            throw new MoneiRefusedException('monei.refused.refund_not_applied', [], $order);
-        }
+        $this->boundPayments->refundOrRefuse($bound, $amount, $order);
     }
 
     /** The order's completed payment that `$paymentMethod` paid through MONEI. */

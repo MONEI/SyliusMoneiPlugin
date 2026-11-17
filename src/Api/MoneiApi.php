@@ -77,15 +77,6 @@ final readonly class MoneiApi
         ])));
     }
 
-    /**
-     * MONEI answers a refund of the same payment and amount as one sent less than 3 s before
-     * with that refund's answer, and refunds nothing.
-     */
-    public static function refundApplied(Payment $before, Payment $answer, int $amount): bool
-    {
-        return (int) $answer->getRefundedAmount() >= (int) $before->getRefundedAmount() + $amount;
-    }
-
     /** @throws ApiException */
     public function registerApplePayDomain(string $domain): void
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Payment;
 
 use Monei\ApiException;
+use Monei\Model\Payment as MoneiPayment;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Exception\MoneiRefusedException;
 use Psr\Log\LoggerInterface;
@@ -56,6 +57,19 @@ final readonly class BoundPaymentAccess
         }
     }
 
+    /** @throws MoneiRefusedException */
+    public function refundOrRefuse(BoundPayment $bound, int $amount, OrderInterface $order): void
+    {
+        try {
+            $answer = $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
+        } catch (ApiException $e) {
+            throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $order);
+        }
+        if (!self::refundApplied($bound->payment, $answer, $amount)) {
+            throw new MoneiRefusedException('monei.refused.refund_not_applied', [], $order);
+        }
+    }
+
     /**
      * @throws UnreachableBoundPaymentException when the method is gone, its config is invalid, or MONEI answers 401, 403 or 404
      * @throws ApiException                     on any other MONEI error (5xx, timeout)
@@ -90,6 +104,15 @@ final readonly class BoundPaymentAccess
 
             throw $e;
         }
+    }
+
+    /**
+     * MONEI answers a refund of the same payment and amount as one sent less than 3 s before
+     * with that refund's answer, and refunds nothing.
+     */
+    private static function refundApplied(MoneiPayment $before, MoneiPayment $answer, int $amount): bool
+    {
+        return (int) $answer->getRefundedAmount() >= (int) $before->getRefundedAmount() + $amount;
     }
 
     /** @param array<string, mixed> $context */

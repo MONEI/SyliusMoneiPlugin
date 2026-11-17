@@ -60,8 +60,9 @@ final readonly class PaymentTransitionListener
         }
 
         // The refresh may show a switch to another gateway, or an offline settlement: no MONEI payment to act on.
-        // @phpstan-ignore booleanNot.alwaysFalse (PHPStan does not see that the lock's refresh reloads the method)
-        if (!GatewayConfiguration::isMonei($payment->getMethod()) || null === MoneiDetails::paymentId($payment)) {
+        // Read into a local: PHPStan remembers the check above and would call this one always false.
+        $method = $payment->getMethod();
+        if (!GatewayConfiguration::isMonei($method) || null === MoneiDetails::paymentId($payment)) {
             return;
         }
 
@@ -143,13 +144,6 @@ final readonly class PaymentTransitionListener
 
         $amount = (int) $bound->payment->getAmount() - (int) $bound->payment->getRefundedAmount();
 
-        try {
-            $answer = $bound->api->refundPayment((string) $bound->payment->getId(), $amount);
-        } catch (ApiException $e) {
-            throw MoneiRefusedException::fromApiException($e, 'monei.refused.refund', $order);
-        }
-        if (!MoneiApi::refundApplied($bound->payment, $answer, $amount)) {
-            throw new MoneiRefusedException('monei.refused.refund_not_applied', [], $order);
-        }
+        $this->boundPayments->refundOrRefuse($bound, $amount, $order);
     }
 }
