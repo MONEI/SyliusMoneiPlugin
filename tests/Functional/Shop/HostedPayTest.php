@@ -8,6 +8,7 @@ use Monei\Internal\Psr\Http\Message\RequestInterface;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Monolog\Level;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\Factory\PaymentRequestFactoryInterface;
@@ -49,6 +50,20 @@ final class HostedPayTest extends MoneiTestCase
     public function testPayingAgainReusesThePendingMoneiPayment(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $this->pay($order);
+
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $this->pay($order);
+
+        self::assertSame(['POST /payments', 'GET /payments/pay_1'], $this->requestKeys());
+        self::assertRedirectsTo('https://secure.monei.com/payments/pay_1', Response::HTTP_SEE_OTHER);
+    }
+
+    /** A wrong stored transaction type would cancel and replace the AUTH payment on every pay again. */
+    public function testPayingAgainWithUseAuthorizeReusesThePendingMoneiPayment(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
         $this->pay($order);
 
@@ -220,11 +235,19 @@ final class HostedPayTest extends MoneiTestCase
         self::assertSame('completed', $this->paymentState($order));
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function paidOrAuthorized(): iterable
+    {
+        yield 'paid' => ['has already been paid'];
+        yield 'authorized' => ['has already been authorized'];
+    }
+
     /** Failing the payment would make Sylius create payment after payment that MONEI refuses. */
-    public function testACreateRefusedByTheDuplicateCheckKeepsThePaymentNewAndTellsTheBuyer(): void
+    #[DataProvider('paidOrAuthorized')]
+    public function testACreateRefusedByTheDuplicateCheckKeepsThePaymentNewAndTellsTheBuyer(string $refusal): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD'));
-        MoneiMockHandler::append(self::error(400, \sprintf('The order "%s" has already been paid', (string) $order->getNumber())));
+        MoneiMockHandler::append(self::error(400, \sprintf('The order "%s" %s', (string) $order->getNumber(), $refusal)));
 
         $this->pay($order);
 
