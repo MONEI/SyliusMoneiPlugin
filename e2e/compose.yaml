@@ -63,7 +63,7 @@ services:
         depends_on:
             - nginx
 
-    # One-shot: the only service that gets the API key and the admin password (scripts/start.sh runs it).
+    # One-shot: the only service that gets the API key, the account ID and the admin password (scripts/start.sh runs it).
     seed:
         image: sylius-monei-e2e-php
         profiles: ['tools']
@@ -73,6 +73,7 @@ services:
             MONEI_TEST_API_KEY: ${MONEI_TEST_API_KEY:-}
             E2E_RUN_ID: ${E2E_RUN_ID:-}
             E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-}
+            E2E_ACCOUNT_ID: ${E2E_ACCOUNT_ID:-}
         volumes:
             - encryption:/app/var/encryption
             - ./scripts/seed.php:/app/seed.php:ro

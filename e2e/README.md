@@ -52,3 +52,7 @@ JWT keypair that the test application ships, so nobody can sign an admin API tok
   Node's `fetch`, never through a Playwright call, and `specs/admin.spec.ts` records no trace,
   screenshot or video.
 - Scripts and specs read MONEI with Node's `fetch`, never through the browser.
+- The inline payment methods need the MONEI account ID. MONEI returns it only on a payment, so
+  `e2e:start` creates one test payment and cancels it at once. The ID goes to the `seed` container
+  only, and `start.sh` masks it in the GitHub Actions job log. The checkout Complete page shows it
+  in its HTML, so `specs/inline.spec.ts` records no trace or screenshot.

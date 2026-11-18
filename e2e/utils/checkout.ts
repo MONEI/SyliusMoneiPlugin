@@ -26,8 +26,8 @@ export async function addToCart(page: Page, slug: string): Promise<void> {
   await page.waitForURL(/\/en_US\/cart/);
 }
 
-/** Guest checkout up to the summary page: Spanish address, free shipping, the given method. */
-export async function checkoutToSummary(page: Page, paymentMethod: string, email: string): Promise<void> {
+/** Guest checkout up to the Payment step: Spanish address, free shipping. */
+export async function checkoutToPayment(page: Page, email: string): Promise<void> {
   await page.goto("/en_US/checkout/address");
   const billing = (field: string) => page.locator(`#sylius_shop_checkout_address_billingAddress_${field}`);
   await page.locator("#sylius_shop_checkout_address_customer_email").fill(email);
@@ -43,6 +43,11 @@ export async function checkoutToSummary(page: Page, paymentMethod: string, email
   await page.getByRole("button", { name: "Next" }).click();
 
   await page.waitForURL(/\/checkout\/select-payment/);
+}
+
+/** Guest checkout up to the summary page: Spanish address, free shipping, the given method. */
+export async function checkoutToSummary(page: Page, paymentMethod: string, email: string): Promise<void> {
+  await checkoutToPayment(page, email);
   await page.getByLabel(paymentMethod, { exact: true }).check();
   await page.getByRole("button", { name: "Next" }).click();
   await page.waitForURL(/\/checkout\/complete/);
@@ -137,6 +142,25 @@ export async function payCardOnsite(page: Page, card: string, cardholderName: st
     await fillCardFrames((field) => cardPartFrame(page, field), card);
   }
   await form.getByRole("button", { name: "Pay" }).click();
+}
+
+/**
+ * Fills the card fields on the checkout Complete page: the cardholder name (skipped when empty),
+ * then the card part frames (split layout) or the CardInput frame (single layout).
+ */
+export async function fillInlineCard(
+  page: Page,
+  card: string,
+  cardholderName: string,
+  layout: "split" | "single" = "split",
+): Promise<void> {
+  if (cardholderName) await page.locator("#monei-cardholder-name").fill(cardholderName);
+  if ("single" === layout) {
+    const frame = page.frameLocator('#monei-card-input iframe[title="monei_card_input"]');
+    await fillCardFrames(() => frame, card);
+  } else {
+    await fillCardFrames((field) => cardPartFrame(page, field), card);
+  }
 }
 
 /** Bizum on the hosted page: phone, then pay; the test processor approves on its own. */

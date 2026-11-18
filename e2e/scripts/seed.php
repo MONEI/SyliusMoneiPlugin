@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 // Runs in the `seed` container after the fixtures (scripts/start.sh): adds one MONEI payment
 // method per method and mode the specs use, fixed prices and the admin user. Prints the generated
-// values as JSON. Never prints the API key or the admin password; errors name the exception class
-// and message only.
+// values as JSON. Never prints the API key, the account ID or the admin password; errors name the
+// exception class and message only.
 
+use Sylius\Bundle\CoreBundle\SyliusCoreBundle;
 use Sylius\Component\Core\Model\AdminUserInterface;
 use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
@@ -33,6 +34,13 @@ const PAYMENT_METHODS = [
     'monei_wallet_onsite' => ['name' => 'MONEI wallet onsite', 'payment_method' => 'apple_google_pay', 'mode' => 'onsite', 'use_authorize' => false],
     'monei_card_auth' => ['name' => 'MONEI card AUTH', 'payment_method' => 'card', 'mode' => 'hosted', 'use_authorize' => true],
     'monei_paypal_auth_onsite' => ['name' => 'MONEI PayPal AUTH onsite', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => true],
+    // Inline: onsite with the account ID, so the component shows on the Complete page.
+    'monei_card_inline' => ['name' => 'MONEI card inline', 'payment_method' => 'card', 'mode' => 'onsite', 'use_authorize' => false, 'inline' => true],
+    'monei_card_inline_single' => ['name' => 'MONEI card inline single', 'payment_method' => 'card', 'mode' => 'onsite', 'use_authorize' => false, 'card_layout' => 'single', 'inline' => true],
+    'monei_bizum_inline' => ['name' => 'MONEI Bizum inline', 'payment_method' => 'bizum', 'mode' => 'onsite', 'use_authorize' => false, 'inline' => true],
+    'monei_paypal_inline' => ['name' => 'MONEI PayPal inline', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => false, 'inline' => true],
+    'monei_paypal_auth_inline' => ['name' => 'MONEI PayPal AUTH inline', 'payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => true, 'inline' => true],
+    'monei_wallet_inline' => ['name' => 'MONEI wallet inline', 'payment_method' => 'apple_google_pay', 'mode' => 'onsite', 'use_authorize' => false, 'inline' => true],
 ];
 
 const ADMIN_EMAIL = 'e2e-admin@monei-e2e.test';
@@ -57,6 +65,11 @@ $orderIdPrefix = sprintf('e2e%s-', $runId);
 $adminPassword = (string) getenv('E2E_ADMIN_PASSWORD');
 if ('' === $adminPassword) {
     throw new RuntimeException('E2E_ADMIN_PASSWORD is missing.');
+}
+// The plugin reads a non-UUID account ID as none: the inline methods would silently be plain onsite.
+$accountId = (string) getenv('E2E_ACCOUNT_ID');
+if (1 !== preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $accountId)) {
+    throw new RuntimeException('E2E_ACCOUNT_ID is missing or is not a UUID.');
 }
 
 $kernel = new Kernel($_SERVER['APP_ENV'], (bool) $_SERVER['APP_DEBUG']);
@@ -86,7 +99,7 @@ foreach (PAYMENT_METHODS as $code => $config) {
         'mode' => $config['mode'],
         'use_authorize' => $config['use_authorize'],
         'order_id_prefix' => $orderIdPrefix,
-    ] + array_intersect_key($config, ['card_layout' => true]));
+    ] + array_intersect_key($config, ['card_layout' => true]) + (($config['inline'] ?? false) ? ['account_id' => $accountId] : []));
     $entityManager->persist($paymentMethod);
     $paymentMethods[$code] = ['name' => $config['name']];
 }
@@ -108,4 +121,4 @@ $entityManager->persist($admin);
 
 $entityManager->flush();
 
-echo json_encode(['paymentMethods' => $paymentMethods, 'adminEmail' => ADMIN_EMAIL], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";
+echo json_encode(['paymentMethods' => $paymentMethods, 'adminEmail' => ADMIN_EMAIL, 'syliusVersion' => SyliusCoreBundle::VERSION], \JSON_THROW_ON_ERROR | \JSON_PRETTY_PRINT), "\n";

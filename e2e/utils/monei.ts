@@ -28,6 +28,34 @@ async function moneiGet<T>(path: string): Promise<T> {
 
 export const getPayment = (id: string) => moneiGet<MoneiPayment>(`/payments/${id}`);
 
+async function moneiPost<T>(path: string, body: object): Promise<T> {
+  const response = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { Authorization: moneiApiKey(), "Content-Type": "application/json", "User-Agent": "sylius-monei-plugin-e2e" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as { message?: string };
+    throw new Error(`MONEI POST ${path}: ${response.status} ${error.message ?? response.statusText}`);
+  }
+  return (await response.json()) as T;
+}
+
+/**
+ * The account ID of the test key. MONEI returns it only on a payment, so this creates one and
+ * cancels it at once. The order ID must be new: MONEI's duplicate check never expires.
+ */
+export async function readAccountId(orderId: string): Promise<string> {
+  const payment = await moneiPost<{ id: string; accountId: string }>("/payments", {
+    amount: 100,
+    currency: "EUR",
+    orderId,
+    description: "e2e account ID read",
+  });
+  await moneiPost(`/payments/${payment.id}/cancel`, { cancellationReason: "requested_by_customer" });
+  return payment.accountId;
+}
+
 /**
  * The amount of each refund of a MONEI payment, oldest first. The REST API has no refund list;
  * GraphQL `chargeEvents` has one event per refund, carrying that refund's amount.

@@ -33,6 +33,9 @@
         // MONEI refuses these before it uses the token, so the buyer can still pay with the fields.
         var refusals = ['Invalid payment method', 'Expired payment method', "Cardholder's name is mandatory"];
 
+        // MONEI's refusal of the Complete page token, kept until the next Pay.
+        var refusal = '';
+
         function showError(message) {
             errorBox.textContent = message || '';
         }
@@ -74,12 +77,14 @@
                 cardholder: cardholder,
                 layout: data.cardLayout,
                 props: { paymentId: data.paymentId },
-                onError: showError
+                // The fields report a change without an error once they load: keep the refusal then.
+                onError: function (message) { showError(message || refusal); }
             });
 
             var button = form.querySelector('button[type=submit]');
             form.addEventListener('submit', function (event) {
                 event.preventDefault();
+                refusal = '';
                 var cardholderName = cardholder.value.trim();
                 if ('' === cardholderName) {
                     showError(data.cardholderNameRequired);
@@ -105,6 +110,7 @@
             document.getElementById('monei-onsite-processing').hidden = true;
             document.getElementById('monei-onsite-title').hidden = false;
             form.hidden = false;
+            refusal = message;
             init();
             showError(message);
         }

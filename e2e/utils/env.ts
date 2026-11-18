@@ -37,6 +37,8 @@ export const storeUrl = (): string => generated(STORE_URL_FILE);
 type Fixtures = {
   paymentMethods: Record<string, { name: string }>;
   adminEmail: string;
+  /** The installed Sylius version, such as 2.3.3. */
+  syliusVersion: string;
 };
 
 export const fixtures = (): Fixtures => JSON.parse(generated(FIXTURES_FILE));

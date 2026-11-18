@@ -3,9 +3,9 @@ import { storeUrl } from "./utils/env.ts";
 
 /**
  * One store and one shared MONEI test account: a single worker, never in parallel.
- * Traces and screenshots record shop pages only: specs/admin.spec.ts turns them off. No spec
- * opens the admin payment method form, which shows the API key; MONEI gateways are seeded by
- * scripts/seed.php.
+ * Traces and screenshots record shop pages only: specs/admin.spec.ts turns them off, and so does
+ * specs/inline.spec.ts (the Complete page holds the account ID). No spec opens the admin payment
+ * method form, which shows the API key; MONEI gateways are seeded by scripts/seed.php.
  */
 export default defineConfig({
   testDir: "./specs",
