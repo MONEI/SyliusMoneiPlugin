@@ -76,7 +76,7 @@ test.describe("inline card", () => {
     await expectSyliusPayment(id, "completed");
   });
 
-  // The test account challenges every test card, the "no challenge" ones too.
+  // The e2e account challenged 4444444444444414 and 4444444444444422 too (checked on this layout).
   test("card on the single line layout ends on the thank-you page", async ({ page }) => {
     const email = await toComplete(page, "monei_card_inline_single", PRODUCTS.tShirt, "inline-card-single");
 
