@@ -16,7 +16,7 @@
     <a href="https://github.com/MONEI/SyliusMoneiPlugin/actions"><img src="https://github.com/MONEI/SyliusMoneiPlugin/workflows/CI/badge.svg" alt="Build Status"></a>
     <a href="https://packagist.org/packages/monei/sylius-monei-plugin"><img src="https://poser.pugx.org/monei/sylius-monei-plugin/v/stable" alt="Latest Stable Version"></a>
     <a href="https://packagist.org/packages/monei/sylius-monei-plugin"><img src="https://poser.pugx.org/monei/sylius-monei-plugin/license" alt="License"></a>
-    <img src="https://img.shields.io/badge/Sylius-2.2.12%2B%20%7C%202.3.2%2B-blue" alt="Sylius Version">
+    <img src="https://img.shields.io/badge/Sylius-2.2.13%2B%20%7C%202.3.3%2B-blue" alt="Sylius Version">
     <img src="https://img.shields.io/badge/PHP-8.2%2B-purple" alt="PHP Version">
 </p>
 
@@ -41,7 +41,7 @@ Version 2.0.0 is a full rewrite. If you installed 1.x, read [Upgrade from 1.x](#
 ## Requirements
 
 - PHP 8.2 or later.
-- Sylius 2.2.12 or later on the 2.2 line, or Sylius 2.3.2 or later.
+- Sylius 2.2.13 or later on the 2.2 line, or Sylius 2.3.3 or later.
 - The Symfony Workflow state machine adapter (`symfony_workflow`) for the `sylius_payment` and `sylius_order` graphs. See [State machine adapter](#state-machine-adapter).
 - A public store URL that MONEI can reach from the internet. MONEI sends a callback for each payment to it. See [Callback URL](#callback-url).
 - A MONEI account with the payment methods you want to offer. Get the API key in the [MONEI Dashboard](https://dashboard.monei.com/), under Settings, API Access.
@@ -230,7 +230,7 @@ Every PHP command runs in Docker through the `Makefile`. You do not need PHP on 
 ```bash
 make install       # Composer install, payment encryption key, test database
 make test          # unit and functional tests
-make test-lowest   # the same tests on PHP 8.2 and Sylius 2.2.12
+make test-lowest   # the same tests on PHP 8.2 and Sylius 2.2.13
 make analyse       # PHPStan
 make cs            # PHP CS Fixer, dry run
 ```
@@ -245,7 +245,7 @@ pnpm --dir e2e e2e
 pnpm --dir e2e e2e:stop
 ```
 
-See [e2e/README.md](e2e/README.md). CI runs the unit and functional tests on every pull request. The end-to-end suite runs every night and on pull requests from branches of this repository, on Sylius 2.2.12 with PHP 8.2 and on Sylius 2.3 with PHP 8.4.
+See [e2e/README.md](e2e/README.md). CI runs the unit and functional tests on every pull request. The end-to-end suite runs every night and on pull requests from branches of this repository, on Sylius 2.2.13 with PHP 8.2 and on Sylius 2.3 with PHP 8.4.
 
 To test the payment flow in your store, use a `pk_test_` key and the [MONEI test cards](https://docs.monei.com/testing/).
 
@@ -253,7 +253,7 @@ To test the payment flow in your store, use a `pk_test_` key and the [MONEI test
 
 Version 1.x did not load in Sylius. It failed before any call to MONEI, so it took no payment. There is no data to migrate.
 
-1. Make sure that your store runs Sylius 2.2.12 or later, or 2.3.2 or later. Version 2.0.0 does not support Sylius 2.1.
+1. Make sure that your store runs Sylius 2.2.13 or later, or 2.3.3 or later. Version 2.0.0 does not support Sylius 2.1.
 2. Make sure that `sylius_payment` and `sylius_order` use the `symfony_workflow` state machine adapter. See [State machine adapter](#state-machine-adapter).
 3. Delete the 1.x route import, usually `config/routes/monei.yaml` (it imports `@MoneiSyliusPlugin/config/routes.xml` under `/monei`). Do this before you update: version 2.0.0 has no `routes.xml`, and `composer require` clears the cache.
 4. Update the package: `composer require monei/sylius-monei-plugin:^2.0`.

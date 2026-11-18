@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 export PHP_VERSION="${PHP_VERSION:-8.4}"
-export SYLIUS_VERSION="${SYLIUS_VERSION:-^2.3.2}"
+export SYLIUS_VERSION="${SYLIUS_VERSION:-^2.3.3}"
 
 # Refuses a live key and an account without card, Bizum, PayPal and Google Pay, before the long build.
 node "$E2E_DIR/scripts/preflight.ts"

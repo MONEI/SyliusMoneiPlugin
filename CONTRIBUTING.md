@@ -28,7 +28,7 @@ make test
 | `make test` | Unit and functional tests. |
 | `make test-unit` | Unit tests only. |
 | `make test-functional` | Functional tests only (Sylius test application with MySQL). |
-| `make test-lowest` | Unit and functional tests on PHP 8.2 and Sylius 2.2.12, in a copy of the repo under `var/lowest`. |
+| `make test-lowest` | Unit and functional tests on PHP 8.2 and Sylius 2.2.13, in a copy of the repo under `var/lowest`. |
 | `make test-container-without-refund-plugin` | Checks that the plugin boots without `sylius/refund-plugin`. |
 | `make analyse` | PHPStan, level 8. |
 | `make cs` | PHP CS Fixer, dry run. |

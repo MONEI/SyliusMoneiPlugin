@@ -35,7 +35,7 @@ services:
             target: php
             args:
                 PHP_VERSION: ${PHP_VERSION:-8.4}
-                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.2}
+                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.3}
         environment: *app-env
         volumes:
             - encryption:/app/var/encryption
@@ -51,7 +51,7 @@ services:
             target: nginx
             args:
                 PHP_VERSION: ${PHP_VERSION:-8.4}
-                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.2}
+                SYLIUS_VERSION: ${SYLIUS_VERSION:-^2.3.3}
         depends_on:
             - php
         ports:

@@ -3,7 +3,7 @@
 ARG PHP_VERSION=8.4
 
 FROM ghcr.io/sylius/sylius-php:${PHP_VERSION}-alpine AS vendor
-ARG SYLIUS_VERSION=^2.3.2
+ARG SYLIUS_VERSION=^2.3.3
 ENV PHP_DATE_TIMEZONE=UTC
 WORKDIR /app
 COPY composer.json ./

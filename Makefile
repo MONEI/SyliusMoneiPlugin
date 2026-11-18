@@ -3,10 +3,10 @@ COMPOSE = docker compose
 PHP = $(COMPOSE) run --rm php
 CONSOLE = vendor/bin/console -e test
 
-# Lowest supported versions: PHP 8.2 and Sylius 2.2.12, in a copy of the repo under var/lowest
+# Lowest supported versions: PHP 8.2 and Sylius 2.2.13, in a copy of the repo under var/lowest
 # with its own vendor, encryption key and database.
 LOWEST_DIR = var/lowest
-LOWEST_SYLIUS = 2.2.12
+LOWEST_SYLIUS = 2.2.13
 PHP_LOWEST = PHP_IMAGE_TAG=8.2-alpine $(COMPOSE) run --rm -w /app/$(LOWEST_DIR) \
 	-e DATABASE_URL='mysql://root:root@mysql:3306/sylius_monei_lowest_%kernel.environment%' php
 

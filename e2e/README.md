@@ -21,8 +21,8 @@ pnpm --dir e2e e2e         # run the specs
 pnpm --dir e2e e2e:stop    # remove the stack and close the tunnel
 ```
 
-`e2e:start` takes `SYLIUS_VERSION` (a Composer constraint, default `^2.3.2`) and `PHP_VERSION`
-(default `8.4`), for example `SYLIUS_VERSION=2.2.12 PHP_VERSION=8.2 pnpm --dir e2e e2e:start`.
+`e2e:start` takes `SYLIUS_VERSION` (a Composer constraint, default `^2.3.3`) and `PHP_VERSION`
+(default `8.4`), for example `SYLIUS_VERSION=2.2.13 PHP_VERSION=8.2 pnpm --dir e2e e2e:start`.
 
 `e2e:start` refuses a live key, and a key whose account does not offer card, Bizum, PayPal and
 Google Pay. Each run seeds its own MONEI `order_id_prefix`, because MONEI's duplicate check on the

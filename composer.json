@@ -24,7 +24,7 @@
     "require": {
         "php": "^8.2",
         "monei/monei-php-sdk": "^2.13",
-        "sylius/sylius": "~2.2.12 || ^2.3.2",
+        "sylius/sylius": "~2.2.13 || ^2.3.3",
         "symfony/intl": "^6.4 || ^7.4 || ^8.0"
     },
     "require-dev": {
