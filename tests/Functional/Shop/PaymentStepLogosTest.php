@@ -35,6 +35,17 @@ final class PaymentStepLogosTest extends MoneiTestCase
         self::assertCount(0, $this->paymentRow($page, 'MONEI_LIVE')->filterXPath($badge));
     }
 
+    /** The Payment step lists every method: one broken MONEI config must not break it. */
+    public function testAMethodWithABrokenConfigShowsNoLogo(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_CARD'));
+        $this->createMoneiPaymentMethod('MONEI_BROKEN', ['payment_method' => 'nope']);
+
+        $row = $this->paymentRow($this->selectPaymentPage(), 'MONEI_BROKEN');
+
+        self::assertCount(0, $row->filterXPath('descendant::img'));
+    }
+
     private function selectPaymentPage(): Crawler
     {
         $crawler = $this->client->request('GET', '/en_US/checkout/select-payment');

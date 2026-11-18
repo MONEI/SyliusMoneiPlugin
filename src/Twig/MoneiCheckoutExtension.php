@@ -6,6 +6,7 @@ namespace Monei\SyliusPlugin\Twig;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
+use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
@@ -77,14 +78,20 @@ final class MoneiCheckoutExtension extends AbstractExtension
         if (!$config->inline() || null === $component || null === $config->accountId) {
             return null;
         }
+        // The pay page cannot create these payments, and the buyer would approve a token for nothing.
+        $amount = (int) $payment->getAmount();
+        $currency = strtoupper((string) $payment->getCurrencyCode());
+        if ($amount <= 0 || !CreatePaymentRequestFactory::supportsCurrency($currency)) {
+            return null;
+        }
 
         return [
             'component' => $component,
             'account_id' => $config->accountId,
             'session_id' => $this->sessionId->forOrder($order),
-            // MONEI refuses a token whose amount or currency differs from the payment's.
-            'amount' => $payment->getAmount() ?? 0,
-            'currency' => (string) $payment->getCurrencyCode(),
+            // Button components only: MONEI refuses their token when the amount or currency differs from the payment's.
+            'amount' => $amount,
+            'currency' => $currency,
             'language' => substr((string) $order->getLocaleCode(), 0, 2),
             'card_layout' => $config->cardLayout,
             'transaction_type' => $config->transactionType(),

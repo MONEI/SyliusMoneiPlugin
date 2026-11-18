@@ -10,8 +10,6 @@ use Symfony\Component\DomCrawler\Crawler;
 /** The monei.js component on the checkout Complete page as rendered; its script runs only in the e2e suite. */
 final class CompletePageTest extends MoneiTestCase
 {
-    private const ACCOUNT_ID = '0b1e7c2a-3d4f-4a5b-8c6d-7e8f9a0b1c2d';
-
     public function testAnInlineCardMethodRendersTheCardFieldsInsideTheCheckoutForm(): void
     {
         $this->attachCart($this->createMoneiPaymentMethod('MONEI_INLINE', ['mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
@@ -40,8 +38,44 @@ final class CompletePageTest extends MoneiTestCase
         $page = $this->completePage();
 
         self::assertCount(0, $page->filterXPath('//*[@id="monei-inline"]'));
-        self::assertCount(0, $page->filterXPath('//script[contains(@src, "monei")]'));
+        self::assertStringNotContainsString('js.monei.com', (string) $this->client->getResponse()->getContent());
         self::assertStringNotContainsString(self::API_KEY, (string) $this->client->getResponse()->getContent());
+    }
+
+    /** MONEI refuses a button token whose amount, currency or transaction type differs from the payment's. */
+    public function testAnInlinePayPalMethodRendersTheButtonWithThePaymentAmount(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_PAYPAL', ['payment_method' => 'paypal', 'mode' => 'onsite', 'use_authorize' => true, 'account_id' => self::ACCOUNT_ID]), 2);
+
+        $component = $this->completePage()->filterXPath('//form//div[@id="monei-inline"]');
+
+        self::assertSame(
+            ['paypal', '20000', 'EUR', 'AUTH'],
+            [$component->attr('data-component'), $component->attr('data-amount'), $component->attr('data-currency'), $component->attr('data-transaction-type')],
+        );
+        self::assertCount(1, $component->filterXPath('descendant::div[@id="monei-component"]'));
+        self::assertCount(0, $component->filterXPath('descendant::input[@id="monei-cardholder-name"]'));
+    }
+
+    /** The pay page refuses to create a JPY payment: the buyer must not approve a PayPal token first. */
+    public function testACurrencyWithoutTwoDecimalsRendersNoComponent(): void
+    {
+        $cart = $this->attachCart($this->createMoneiPaymentMethod('MONEI_PAYPAL', ['payment_method' => 'paypal', 'mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+        $payment = $cart->getLastPayment();
+        \assert(null !== $payment);
+        $this->secondConnection()->executeStatement("UPDATE sylius_order SET currency_code = 'JPY' WHERE id = ?", [$cart->getId()]);
+        $this->secondConnection()->executeStatement("UPDATE sylius_payment SET currency_code = 'JPY' WHERE id = ?", [$payment->getId()]);
+        $this->entityManager()->clear();
+
+        self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
+    }
+
+    /** The hook runs on every checkout: a broken MONEI config must not break the page. */
+    public function testAMethodWithABrokenConfigRendersTheCompletePageWithoutTheComponent(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_BROKEN', ['payment_method' => 'nope', 'mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+
+        self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
     }
 
     /** Hosted mode (and with it MB WAY and Multibanco) keeps the redirect after Place order. */

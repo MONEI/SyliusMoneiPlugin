@@ -48,6 +48,36 @@ async function toComplete(page: Page, code: string, product: string, tag: string
   return email;
 }
 
+/** Before any script of the pay page: merge `changes` into the entry the Complete page stored. */
+async function editPayPageEntry(page: Page, changes: Record<string, unknown>): Promise<void> {
+  await page.addInitScript((merge) => {
+    if (window.location.pathname.includes("/checkout/")) return;
+    for (const key of Object.keys(window.sessionStorage)) {
+      if (!key.startsWith("monei.inline.")) continue;
+      const entry = JSON.parse(window.sessionStorage.getItem(key)!);
+      window.sessionStorage.setItem(key, JSON.stringify({ ...entry, ...merge }));
+    }
+  }, changes);
+}
+
+/** Counts monei.js confirm calls: only a confirm can pay with the entry's token. */
+function countConfirms(page: Page): () => number {
+  let confirms = 0;
+  page.on("request", (request) => {
+    if (/\/client-confirm/.test(request.url())) confirms++;
+  });
+  return () => confirms;
+}
+
+/** The pay page shows its card fields as in 2.1, without the inline confirm. */
+async function expectPayPageFields(page: Page): Promise<void> {
+  await expect(page.locator("#monei-onsite")).toBeVisible({ timeout: MOUNT_TIMEOUT });
+  await expect(processing(page)).toBeHidden();
+  await expect(cardPartFrame(page, "number").getByTestId("card-number-input")).toBeEditable({
+    timeout: MOUNT_TIMEOUT,
+  });
+}
+
 /** The MONEI payment of the guest's order; the inline flow never shows its id in the page. */
 function moneiId(email: string): string {
   const id = moneiIdByEmail(email);
@@ -187,12 +217,108 @@ test.describe("inline card", () => {
   test("with monei.js blocked, Place order still places the order and the pay page shows", async ({ page }) => {
     await page.route(/js\.monei\.com/, (route) => route.abort());
     await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-blocked");
-    // The inline component rendered; only its script is missing.
+    // The inline component rendered; only its script is missing, so its fields hide.
     await expect(page.locator(CARD_PART_CONTAINERS.number)).toBeAttached();
+    await expect(page.locator("#monei-cardholder-name")).toBeHidden();
 
     await placeOrder(page).click();
     await expect(page.locator("#monei-onsite")).toBeAttached({ timeout: MOUNT_TIMEOUT });
     await expect(page).not.toHaveURL(/\/checkout\/complete/);
+  });
+
+  test("with js.monei.com hanging, Place order shows and places the order", async ({ page }) => {
+    // Never answered on the Complete page; the pay page gets the script.
+    let placed = false;
+    await page.route(/js\.monei\.com/, (route) => (placed ? route.continue() : undefined));
+    page.on("request", (request) => {
+      if ("POST" === request.method() && /\/checkout\/complete/.test(request.url())) placed = true;
+    });
+    await addToCart(page, PRODUCTS.sticker);
+    await checkoutToPayment(page, uniqueEmail("inline-hanging"));
+    await page.getByLabel(methodName("monei_card_inline"), { exact: true }).check();
+    await page.getByRole("button", { name: "Next" }).click();
+    // The pending script holds back the load event, not the page.
+    await page.waitForURL(/\/checkout\/complete/, { waitUntil: "domcontentloaded" });
+
+    await placeOrder(page).click();
+    await expect(page.locator("#monei-onsite")).toBeAttached({ timeout: MOUNT_TIMEOUT });
+    await expect(page).not.toHaveURL(/\/checkout\/complete/);
+  });
+
+  test("a failed token request places the order without a token and the pay page shows its fields", async ({
+    page,
+  }) => {
+    const confirms = countConfirms(page);
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-token-failed");
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    // Only now: with request interception from the page load on, typed card fields were sometimes lost.
+    await page.route(/\/v1\/tokens/, (route) => route.abort());
+    await placeOrder(page).click();
+
+    await expectPayPageFields(page);
+    expect(confirms()).toBe(0);
+  });
+
+  for (const [name, changes] of [
+    ["another payment method", { methodCode: "monei_card_onsite" }],
+    ["an expired token", { expiresAt: 0 }],
+  ] as const) {
+    test(`the pay page does not confirm with the entry of ${name}`, async ({ page }) => {
+      await editPayPageEntry(page, changes);
+      const confirms = countConfirms(page);
+      await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-entry-refused");
+
+      await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+      await placeOrder(page).click();
+
+      await expectPayPageFields(page);
+      await expect(page.locator("#monei-onsite-error")).toBeEmpty();
+      expect(confirms()).toBe(0);
+    });
+  }
+
+  test("with monei.js blocked on the pay page only, the pay page shows its fields", async ({ page }) => {
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-pay-blocked");
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    // After the fill, as for the token request above; from the Place order post on, monei.js is blocked.
+    let placed = false;
+    page.on("request", (request) => {
+      if ("POST" === request.method() && /\/checkout\/complete/.test(request.url())) placed = true;
+    });
+    await page.route(/js\.monei\.com/, (route) => (placed ? route.abort() : route.continue()));
+    await placeOrder(page).click();
+
+    await expect(page.locator("#monei-onsite")).toBeVisible({ timeout: MOUNT_TIMEOUT });
+    await expect(processing(page)).toBeHidden();
+  });
+
+  test("a confirm that fails for another reason goes to the after-pay URL", async ({ page }) => {
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-confirm-failed");
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    // After the fill, as for the token request above.
+    await page.route(/\/client-confirm/, (route) => route.abort());
+    const afterPay = page.waitForRequest(/\/order\/after-pay\//, { timeout: MOUNT_TIMEOUT });
+    await placeOrder(page).click();
+
+    await afterPay;
+  });
+
+  test("a card number as the cardholder name shows the pay page fields with monei.js's error", async ({ page }) => {
+    await editPayPageEntry(page, { cardholderName: "4444 4444 4444 4406" });
+    const confirms = countConfirms(page);
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-pan-name");
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    await placeOrder(page).click();
+
+    await expect(page.locator("#monei-onsite-error")).toHaveText(/^Card numbers are not allowed in /, {
+      timeout: MOUNT_TIMEOUT,
+    });
+    await expectPayPageFields(page);
+    expect(confirms()).toBe(0);
   });
 
   // The card parts are cross-origin iframes: they get the theme look of the cardholder input, as

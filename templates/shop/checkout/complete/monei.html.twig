@@ -8,14 +8,12 @@
         data-component="{{ monei.component }}"
         data-account-id="{{ monei.account_id }}"
         data-session-id="{{ monei.session_id }}"
-        data-amount="{{ monei.amount }}"
-        data-currency="{{ monei.currency }}"
         data-language="{{ monei.language }}"
         data-transaction-type="{{ monei.transaction_type }}"
         data-method-code="{{ monei.method_code }}"
         data-cardholder-name-required="{{ 'monei.ui.onsite.cardholder_name_required'|trans }}"
         data-processing="{{ 'monei.ui.inline.processing'|trans }}"
-        {% if monei.component == 'card' %}data-card-layout="{{ monei.card_layout }}"{% endif %}
+        {% if monei.component == 'card' %}data-card-layout="{{ monei.card_layout }}"{% else %}data-amount="{{ monei.amount }}" data-currency="{{ monei.currency }}"{% endif %}
     >
         {% if monei.component == 'card' %}
             {% include '@MoneiSyliusPlugin/shop/shared/monei_card_fields.html.twig' with { card_layout: monei.card_layout, cardholder_input_name: null } only %}
@@ -25,8 +23,9 @@
         {% endif %}
         <div class="invalid-feedback d-block" id="monei-inline-error" aria-live="polite"></div>
     </div>
-    <script src="https://js.monei.com/v3/monei.js"></script>
-    {% include '@MoneiSyliusPlugin/shop/shared/monei_card_script.html.twig' %}
+    {% if monei.component == 'card' %}
+        {% include '@MoneiSyliusPlugin/shop/shared/monei_card_script.html.twig' %}
+    {% endif %}
     <script>
         (function () {
             var tokenLifetime = 15 * 60 * 1000;
@@ -34,10 +33,21 @@
             var data = root.dataset;
             var form = root.closest('form');
             var errorBox = document.getElementById('monei-inline-error');
+            var entryKey = 'monei.inline.' + data.sessionId;
             var placeOrder;
             var ready = false;
             var failed = false;
             var submitting = false;
+
+            // A token from an earlier Place order of this order must not pay without the buyer.
+            function removeEntry() {
+                try {
+                    window.sessionStorage.removeItem(entryKey);
+                } catch (e) {
+                    // No storage, no entry.
+                }
+            }
+            removeEntry();
 
             function showError(message) {
                 errorBox.textContent = message || '';
@@ -67,7 +77,7 @@
                 }
                 submitting = true;
                 try {
-                    window.sessionStorage.setItem('monei.inline.' + data.sessionId, JSON.stringify({
+                    window.sessionStorage.setItem(entryKey, JSON.stringify({
                         token: token,
                         cardholderName: cardholderName,
                         methodCode: data.methodCode,
@@ -83,8 +93,12 @@
             // From here Place order submits without a token, and the pay page shows its own fields.
             function fallBack() {
                 failed = true;
-                setBusy(false);
-                placeOrder.hidden = false;
+                removeEntry();
+                root.hidden = true;
+                if (placeOrder) {
+                    setBusy(false);
+                    placeOrder.hidden = false;
+                }
             }
 
             function initCard() {
@@ -151,20 +165,32 @@
 
             function init() {
                 placeOrder = form.querySelector('button[type=submit]');
-                // Without monei.js, Place order submits without a token.
-                if (!placeOrder || !window.monei) {
+                if (!placeOrder) {
                     return;
                 }
                 // Back from the next page: the button must work again.
-                window.addEventListener('pageshow', function () {
+                window.addEventListener('pageshow', function (event) {
+                    if (!event.persisted) {
+                        return;
+                    }
+                    removeEntry();
                     submitting = false;
                     setBusy(false);
                 });
                 'card' === data.component ? initCard() : initButton();
             }
 
-            // Place order renders after this hook.
-            'loading' === document.readyState ? document.addEventListener('DOMContentLoaded', init) : init();
+            function whenDomReady(callback) {
+                'loading' === document.readyState ? document.addEventListener('DOMContentLoaded', callback) : callback();
+            }
+
+            // Injected, not a parser-blocking tag: a hanging js.monei.com must not hold back Place order,
+            // which renders after this hook. Without monei.js, Place order submits without a token.
+            var script = document.createElement('script');
+            script.src = 'https://js.monei.com/v3/monei.js';
+            script.onload = function () { whenDomReady(init); };
+            script.onerror = function () { whenDomReady(fallBack); };
+            document.head.appendChild(script);
         })();
     </script>
 {% endif %}

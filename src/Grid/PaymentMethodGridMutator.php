@@ -22,11 +22,7 @@ final class PaymentMethodGridMutator implements GridMutatorInterface
     /** @param array<array-key, mixed> $gridsDefinitions `%sylius.grids_definitions%` */
     public function __construct(array $gridsDefinitions)
     {
-        $grid = $gridsDefinitions[self::GRID] ?? null;
-        $fields = \is_array($grid) ? ($grid['fields'] ?? null) : null;
-        $name = \is_array($fields) ? ($fields['name'] ?? null) : null;
-        $options = \is_array($name) ? ($name['options'] ?? null) : null;
-        $template = \is_array($options) ? ($options['template'] ?? null) : null;
+        $template = $gridsDefinitions[self::GRID]['fields']['name']['options']['template'] ?? null;
         $this->nameTemplate = \is_string($template) ? $template : null;
     }
 

@@ -31,7 +31,7 @@ Version 2.0.0 is a full rewrite. If you installed 1.x, read [Upgrade from 1.x](#
   - **Hosted**: the buyer pays on the MONEI payment page.
   - **Onsite**: the buyer pays in your store, with monei.js. Card, Bizum, PayPal and Apple Pay / Google Pay only.
 - **Inline payment** (onsite with an Account ID): the card fields or the method button show on the checkout Complete step. See [Inline payment](#inline-payment).
-- Method logos next to each MONEI method on the checkout Payment step, and a "Test mode" badge for a `pk_test_` key. On Sylius 2.3, the admin payment method list shows the MONEI logo and the method logos.
+- Method logos next to each MONEI method on the checkout Payment step, and a "Test mode" badge for a `pk_test_` key. On Sylius 2.3, the admin payment method list shows the MONEI logo and the method logos, unless your store sets its own template for the name field of the `sylius_admin_payment_method` grid.
 - Authorize now, capture later from the Sylius admin (card, Apple Pay / Google Pay, PayPal).
 - Refunds with the core Refund button, or full and partial refunds with [`sylius/refund-plugin`](https://github.com/Sylius/RefundPlugin).
 - The payment status always comes from the MONEI API.
@@ -150,7 +150,7 @@ Create one Sylius payment method for each MONEI method that you offer.
    | Authorize only, capture later | The payment is held, and you capture it from the order page. Card, Apple Pay / Google Pay and PayPal only. |
    | Card field layout | **Separate fields** (default: card number, expiry date and CVC in separate boxes) or **Single line**. Card in onsite mode only. The card fields take the size, colours, font and focus style of your theme's inputs. |
    | Order ID prefix | Optional. Added before the order number that MONEI receives. At most 20 letters, digits, `-` and `_`. |
-   | Account ID | Optional. Your MONEI account ID (a UUID), from the MONEI Dashboard. In onsite mode, the payment form then shows on the checkout Complete step. See [Inline payment](#inline-payment). Leave empty to keep the separate pay page. |
+   | Account ID | Optional. Your MONEI account ID (a UUID), from the [MONEI Dashboard](https://dashboard.monei.com/), under Settings, API Access. It must be the account ID of the same MONEI account and mode (test or live) as the API key. Otherwise inline payment does not work. In onsite mode, the payment form then shows on the checkout Complete step. See [Inline payment](#inline-payment). Leave empty to keep the separate pay page. |
 
 4. Enable the payment method in your channels.
 

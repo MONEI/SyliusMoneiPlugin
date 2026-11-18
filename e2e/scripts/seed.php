@@ -7,6 +7,7 @@ declare(strict_types=1);
 // values as JSON. Never prints the API key, the account ID or the admin password; errors name the
 // exception class and message only.
 
+use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Sylius\Bundle\CoreBundle\SyliusCoreBundle;
 use Sylius\Component\Core\Model\AdminUserInterface;
 use Sylius\Component\Core\Model\ChannelInterface;
@@ -68,7 +69,7 @@ if ('' === $adminPassword) {
 }
 // The plugin reads a non-UUID account ID as none: the inline methods would silently be plain onsite.
 $accountId = (string) getenv('E2E_ACCOUNT_ID');
-if (1 !== preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $accountId)) {
+if (1 !== preg_match(GatewayConfiguration::ACCOUNT_ID_PATTERN, $accountId)) {
     throw new RuntimeException('E2E_ACCOUNT_ID is missing or is not a UUID.');
 }
 

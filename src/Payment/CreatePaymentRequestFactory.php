@@ -35,6 +35,15 @@ final readonly class CreatePaymentRequestFactory
     }
 
     /**
+     * Sylius stores every amount with 2 decimals. For a currency with 0 or 3 decimals
+     * MONEI would read the same integer as 100 times or a tenth of the price.
+     */
+    public static function supportsCurrency(string $currency): bool
+    {
+        return Currencies::exists($currency) && 2 === Currencies::getFractionDigits($currency);
+    }
+
+    /**
      * @param string $returnUrl   where MONEI sends the buyer back (complete, fail and cancel)
      * @param string $callbackUrl where MONEI posts the signed payment
      *
@@ -52,9 +61,7 @@ final readonly class CreatePaymentRequestFactory
         }
 
         $currency = strtoupper((string) $payment->getCurrencyCode());
-        // Sylius stores every amount with 2 decimals. For a currency with 0 or 3 decimals
-        // MONEI would read the same integer as 100 times or a tenth of the price.
-        if (!Currencies::exists($currency) || 2 !== Currencies::getFractionDigits($currency)) {
+        if (!self::supportsCurrency($currency)) {
             throw new \InvalidArgumentException(\sprintf('MONEI payments in Sylius support only currencies with 2 decimals, got "%s".', $currency));
         }
 

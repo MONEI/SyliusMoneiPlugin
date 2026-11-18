@@ -113,7 +113,8 @@ final readonly class GatewayConfiguration
 
         // Lenient for the same reason; a non-UUID value (such as a pasted API key) never reaches a page.
         $accountId = $config[self::ACCOUNT_ID] ?? null;
-        $accountId = \is_string($accountId) && 1 === preg_match(self::ACCOUNT_ID_PATTERN, trim($accountId)) ? trim($accountId) : null;
+        $accountId = \is_string($accountId) ? trim($accountId) : '';
+        $accountId = 1 === preg_match(self::ACCOUNT_ID_PATTERN, $accountId) ? $accountId : null;
 
         return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout, $accountId);
     }

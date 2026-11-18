@@ -19,7 +19,14 @@
             form.moneiInlineEntry = entry;
             document.getElementById('monei-onsite-title').hidden = true;
             form.hidden = true;
-            document.getElementById('monei-onsite-processing').hidden = false;
+            var processing = document.getElementById('monei-onsite-processing');
+            processing.hidden = false;
+            // Back from the next page out of the back-forward cache: load the page again, as without that cache.
+            window.addEventListener('pageshow', function (event) {
+                if (event.persisted && !processing.hidden) {
+                    window.location.reload();
+                }
+            });
         })();
     </script>
 {% endif %}
@@ -44,6 +51,14 @@
             window.location.assign(data.afterPayUrl);
         }
 
+        function cardParams(token, cardholderName) {
+            return { paymentToken: token, paymentMethod: { card: { cardholderName: cardholderName } } };
+        }
+
+        function errorMessage(error) {
+            return error && error.message ? String(error.message) : String(error);
+        }
+
         // Sylius reads the outcome from MONEI on the after-pay URL, whatever the confirm returns or throws.
         function confirm(params) {
             params.paymentId = data.paymentId;
@@ -51,7 +66,7 @@
         }
 
         function onError(error) {
-            showError(error && error.message ? error.message : String(error));
+            showError(errorMessage(error));
         }
 
         function init() {
@@ -78,7 +93,12 @@
                 layout: data.cardLayout,
                 props: { paymentId: data.paymentId },
                 // The fields report a change without an error once they load: keep the refusal then.
-                onError: function (message) { showError(message || refusal); }
+                onError: function (message) {
+                    if (message) {
+                        refusal = '';
+                    }
+                    showError(message || refusal);
+                }
             });
 
             var button = form.querySelector('button[type=submit]');
@@ -97,7 +117,7 @@
                         showError(result.error);
                         return;
                     }
-                    confirm({ paymentToken: result.token, paymentMethod: { card: { cardholderName: cardholderName } } });
+                    confirm(cardParams(result.token, cardholderName));
                 }, function (error) {
                     button.disabled = false;
                     onError(error);
@@ -127,12 +147,10 @@
             return;
         }
 
-        var params = { paymentId: data.paymentId, paymentToken: entry.token };
-        if ('card' === data.component) {
-            params.paymentMethod = { card: { cardholderName: entry.cardholderName } };
-        }
+        var params = 'card' === data.component ? cardParams(entry.token, entry.cardholderName) : { paymentToken: entry.token };
+        params.paymentId = data.paymentId;
         monei.confirmPayment(params).then(leave, function (error) {
-            var message = error && error.message ? String(error.message) : '';
+            var message = errorMessage(error);
             // monei.js checks the cardholder name before it sends the confirm.
             if (-1 === refusals.indexOf(message) && 0 !== message.indexOf('Card numbers are not allowed in')) {
                 leave();

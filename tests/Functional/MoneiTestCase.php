@@ -47,6 +47,7 @@ use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 abstract class MoneiTestCase extends WebTestCase
 {
     public const API_KEY = 'pk_test_0123456789abcdef0123456789abcdef';
+    public const ACCOUNT_ID = '0b1e7c2a-3d4f-4a5b-8c6d-7e8f9a0b1c2d';
     public const CHANNEL_CODE = 'WEB';
     public const PRODUCT_PRICE = 10000;
 

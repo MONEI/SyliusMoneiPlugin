@@ -160,6 +160,10 @@ export async function fillInlineCard(
     await fillCardFrames(() => frame, card);
   } else {
     await fillCardFrames((field) => cardPartFrame(page, field), card);
+    // The parts report their state to the page after the last keystroke; a submit before that sees an empty part.
+    for (const container of Object.values(CARD_PART_CONTAINERS)) {
+      await expect(page.locator(container)).toHaveClass(/\bmonei-component--complete\b/);
+    }
   }
 }
 
