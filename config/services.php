@@ -22,6 +22,7 @@ use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
 use Monei\SyliusPlugin\Payment\PaymentLock;
+use Monei\SyliusPlugin\Payment\SessionId;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
@@ -169,7 +170,11 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_update']);
 
+    $services->set(SessionId::class)
+        ->args(['%kernel.secret%']);
+
     $services->set(MoneiCheckoutExtension::class)
+        ->args([service(SessionId::class)])
         ->tag('twig.extension');
 
     // Grid mutators exist from sylius/grid-bundle 1.16.

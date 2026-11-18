@@ -19,6 +19,8 @@ monei:
             card_expiry: Fecha de caducidad
             card_cvc: CVC
             pay: Pagar
+        inline:
+            processing: Procesando…
     form:
         gateway_configuration:
             api_key: Clave API

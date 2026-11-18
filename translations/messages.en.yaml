@@ -12,13 +12,15 @@ monei:
         test_mode: Test mode
         onsite:
             title: Pay your order
-            cardholder_name: Cardholder name
+            cardholder_name: Name on card
             cardholder_name_required: Enter the cardholder name.
             card_details: Card details
             card_number: Card number
             card_expiry: Expiry date
             card_cvc: CVC
             pay: Pay
+        inline:
+            processing: Processing…
     form:
         gateway_configuration:
             api_key: API key

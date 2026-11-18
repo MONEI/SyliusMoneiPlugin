@@ -12,3 +12,8 @@ sylius_twig_hooks:
             logos:
                 template: '@MoneiSyliusPlugin/shop/checkout/select_payment/logos.html.twig'
                 priority: -100
+
+        'sylius_shop.checkout.complete.content.form':
+            monei:
+                template: '@MoneiSyliusPlugin/shop/checkout/complete/monei.html.twig'
+                priority: 50

@@ -6,6 +6,9 @@ namespace Monei\SyliusPlugin\Twig;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
+use Monei\SyliusPlugin\Payment\SessionId;
+use Sylius\Component\Core\Model\OrderInterface;
+use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -13,10 +16,15 @@ use Twig\TwigFunction;
 /** Scalars only: the gateway configuration holds the API key. */
 final class MoneiCheckoutExtension extends AbstractExtension
 {
+    public function __construct(private readonly SessionId $sessionId)
+    {
+    }
+
     public function getFunctions(): array
     {
         return [
             new TwigFunction('monei_method_logos', $this->methodLogos(...)),
+            new TwigFunction('monei_inline_checkout', $this->inlineCheckout(...)),
         ];
     }
 
@@ -42,6 +50,45 @@ final class MoneiCheckoutExtension extends AbstractExtension
             'method' => $config->method->value,
             'logos' => $config->method->logos(),
             'test_mode' => str_starts_with($config->apiKey, 'pk_test_'),
+        ];
+    }
+
+    /**
+     * The monei.js component props for the checkout Complete page; null unless the cart pays
+     * with an inline MONEI method. The page renders for every checkout, so a broken config
+     * gives null, as for the logos.
+     *
+     * @return array{component: string, account_id: string, session_id: string, amount: int, currency: string, language: string, card_layout: string, transaction_type: string, method_code: string}|null
+     */
+    public function inlineCheckout(OrderInterface $order): ?array
+    {
+        $payment = $order->getLastPayment(PaymentInterface::STATE_CART);
+        $paymentMethod = $payment?->getMethod();
+        if (null === $payment || null === $paymentMethod || null === $order->getId() || !GatewayConfiguration::isMonei($paymentMethod)) {
+            return null;
+        }
+
+        try {
+            $config = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+        } catch (InvalidGatewayConfigurationException) {
+            return null;
+        }
+        $component = $config->method->onsiteComponent();
+        if (!$config->inline() || null === $component || null === $config->accountId) {
+            return null;
+        }
+
+        return [
+            'component' => $component,
+            'account_id' => $config->accountId,
+            'session_id' => $this->sessionId->forOrder($order),
+            // MONEI refuses a token whose amount or currency differs from the payment's.
+            'amount' => $payment->getAmount() ?? 0,
+            'currency' => (string) $payment->getCurrencyCode(),
+            'language' => substr((string) $order->getLocaleCode(), 0, 2),
+            'card_layout' => $config->cardLayout,
+            'transaction_type' => $config->transactionType(),
+            'method_code' => (string) $paymentMethod->getCode(),
         ];
     }
 }
