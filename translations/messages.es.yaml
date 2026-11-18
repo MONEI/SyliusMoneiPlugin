@@ -35,3 +35,5 @@ monei:
             card_layout_help: Muestra los campos de la tarjeta en una sola línea, o como campos separados de número de tarjeta, caducidad y CVC. Solo tarjeta en modo en tienda.
             card_layout_split: Campos separados
             card_layout_single: Una sola línea
+            account_id: ID de cuenta
+            account_id_help: Opcional. Tu ID de cuenta de MONEI, del panel de MONEI. En modo en tienda, el formulario de pago se muestra entonces en la página de checkout. Déjalo vacío para mantener la página de pago separada.

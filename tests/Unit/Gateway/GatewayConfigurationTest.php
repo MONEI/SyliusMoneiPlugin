@@ -61,6 +61,15 @@ final class GatewayConfigurationTest extends TestCase
         self::assertSame('split', GatewayConfiguration::fromArray(['card_layout' => 'grid'] + self::VALID)->cardLayout);
     }
 
+    /** A pasted API key must never reach the checkout page as an account ID; a refusal would block capture and refund. */
+    public function testOnsiteIsInlineOnlyWithAUuidAccountId(): void
+    {
+        $onsite = ['mode' => 'onsite'] + self::VALID;
+
+        self::assertFalse(GatewayConfiguration::fromArray(['account_id' => 'pk_test_0123456789abcdef'] + $onsite)->inline());
+        self::assertTrue(GatewayConfiguration::fromArray(['account_id' => '00000000-0000-4000-8000-000000000000'] + $onsite)->inline());
+    }
+
     /** @param array<string, mixed> $config */
     private static function assertRefusedOn(string $field, array $config): void
     {

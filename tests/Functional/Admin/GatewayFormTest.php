@@ -22,7 +22,7 @@ final class GatewayFormTest extends MoneiTestCase
         $this->client->loginUser($this->admin, 'admin');
     }
 
-    public function testCreateSavesTheSixValues(): void
+    public function testCreateSavesTheSevenValues(): void
     {
         $form = $this->createForm('MONEI_PAYPAL');
         $form[self::CONFIG.'[api_key]'] = 'pk_live_newstorekey';
@@ -31,11 +31,13 @@ final class GatewayFormTest extends MoneiTestCase
         $form[self::CONFIG.'[use_authorize]']->tick();
         $form[self::CONFIG.'[order_id_prefix]'] = 'shop-1';
         $form[self::CONFIG.'[card_layout]'] = 'single';
+        $form[self::CONFIG.'[account_id]'] = '00000000-0000-4000-8000-000000000000';
 
         $this->client->submit($form);
 
         self::assertTrue($this->client->getResponse()->isRedirect());
         self::assertConfig([
+            'account_id' => '00000000-0000-4000-8000-000000000000',
             'api_key' => 'pk_live_newstorekey',
             'card_layout' => 'single',
             'mode' => 'onsite',
@@ -58,6 +60,24 @@ final class GatewayFormTest extends MoneiTestCase
         self::assertStringContainsString(
             'This payment method cannot authorize. It always charges at once.',
             $this->fieldRow($crawler, 'use_authorize')->text(),
+        );
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
+    }
+
+    public function testApiKeyAsAccountIdShowsTheErrorOnAccountIdAndSavesNothing(): void
+    {
+        $form = $this->createForm('MONEI_CARD');
+        $form[self::CONFIG.'[api_key]'] = self::API_KEY;
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+        $form[self::CONFIG.'[mode]'] = 'onsite';
+        $form[self::CONFIG.'[account_id]'] = 'pk_test_0123456789abcdef';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString(
+            'The account ID must be a MONEI account ID (a UUID), not an API key.',
+            $this->fieldRow($crawler, 'account_id')->text(),
         );
         self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
     }
