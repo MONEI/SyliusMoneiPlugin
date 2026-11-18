@@ -62,7 +62,14 @@ test.describe("inline card", () => {
     const email = await toComplete(page, "monei_card_inline", PRODUCTS.tShirt, "inline-card");
 
     await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    const placed = page.waitForRequest(
+      (request) => "POST" === request.method() && /\/checkout\/complete/.test(request.url()),
+    );
     await placeOrder(page).click();
+    // The token and the cardholder name stay in the browser: Place order posts the stock form only.
+    const fields = [...new URLSearchParams((await placed).postData() ?? "").keys()];
+    expect(fields).toContain("sylius_checkout_complete[notes]");
+    expect(fields.filter((field) => "_method" !== field && !field.startsWith("sylius_checkout_complete["))).toEqual([]);
     await expect(processing(page)).toBeVisible({ timeout: MOUNT_TIMEOUT });
     await expect(page.locator("#monei-onsite")).toBeHidden();
     await answerOnsiteThreeDs(page, "complete");

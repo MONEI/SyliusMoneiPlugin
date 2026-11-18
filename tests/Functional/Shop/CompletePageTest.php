@@ -44,6 +44,14 @@ final class CompletePageTest extends MoneiTestCase
         self::assertStringNotContainsString(self::API_KEY, (string) $this->client->getResponse()->getContent());
     }
 
+    /** Hosted mode (and with it MB WAY and Multibanco) keeps the redirect after Place order. */
+    public function testAHostedMethodWithAnAccountIdRendersNoComponent(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_CARD', ['account_id' => self::ACCOUNT_ID]));
+
+        self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
+    }
+
     /** The hook runs on every checkout: a non-MONEI method must not break the page. */
     public function testAnOfflineMethodRendersTheCompletePageWithoutTheComponent(): void
     {
