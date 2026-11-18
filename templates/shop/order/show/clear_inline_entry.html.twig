@@ -1,0 +1,15 @@
+{# Every pay again starts here. A token the Complete page left, when the buyer did not reach the pay page, must not pay without the buyer. #}
+<script>
+    (function () {
+        var prefix = {{ monei_inline_entry_prefix()|json_encode|raw }};
+        try {
+            Object.keys(window.sessionStorage).forEach(function (key) {
+                if (0 === key.indexOf(prefix)) {
+                    window.sessionStorage.removeItem(key);
+                }
+            });
+        } catch (e) {
+            // No storage, no entry.
+        }
+    })();
+</script>

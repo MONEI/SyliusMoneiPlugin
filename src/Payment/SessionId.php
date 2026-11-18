@@ -13,6 +13,8 @@ use Sylius\Component\Core\Model\PaymentInterface;
  */
 final readonly class SessionId
 {
+    public const ENTRY_KEY_PREFIX = 'monei.inline.';
+
     public function __construct(private string $secret)
     {
     }
@@ -41,6 +43,6 @@ final readonly class SessionId
             throw new \LogicException('The payment has no ID or no order yet.');
         }
 
-        return 'monei.inline.'.$this->forOrder($order).'.'.$id;
+        return self::ENTRY_KEY_PREFIX.$this->forOrder($order).'.'.$id;
     }
 }

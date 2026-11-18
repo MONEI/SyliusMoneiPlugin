@@ -30,6 +30,7 @@ final class MoneiExtension extends AbstractExtension
             new TwigFunction('monei_method_logos', $this->methodLogos(...)),
             new TwigFunction('monei_inline_checkout', $this->inlineCheckout(...)),
             new TwigFunction('monei_js_url', static fn (): string => self::MONEI_JS_URL),
+            new TwigFunction('monei_inline_entry_prefix', static fn (): string => SessionId::ENTRY_KEY_PREFIX),
         ];
     }
 

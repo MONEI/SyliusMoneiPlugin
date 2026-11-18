@@ -173,6 +173,40 @@ test.describe("inline card", () => {
     });
   });
 
+  test("a Place order that never reaches the pay page leaves no token for a pay again from the order page", async ({
+    page,
+  }) => {
+    const confirms = countConfirms(page);
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-abandoned");
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    // After the fill, as for the token request below. The order is placed; the browser never
+    // follows the redirect to the pay page (Playwright does not route redirected requests).
+    let orderToken = "";
+    const complete = /\/checkout\/complete/;
+    await page.route(complete, async (route) => {
+      if ("POST" !== route.request().method()) return route.continue();
+      const response = await route.fetch({ maxRedirects: 0 });
+      orderToken = /\/order\/([^/?#]+)\/pay/.exec(response.headers()["location"] ?? "")?.[1] ?? "";
+      await route.abort();
+    });
+    // Without a token there is no entry, and the test would pass without the order page's clear.
+    const token = page.waitForResponse((response) => /\/v1\/tokens/.test(response.url()) && response.ok());
+    const aborted = page.waitForEvent("requestfailed", (request) => complete.test(request.url()));
+    await placeOrder(page).click();
+    await token;
+    await aborted;
+    await page.unroute(complete);
+    expect(orderToken).not.toBe("");
+
+    await page.goto(`/en_US/order/${orderToken}`);
+    await page.getByLabel(methodName("monei_card_inline"), { exact: true }).check();
+    await page.getByRole("button", { name: "Pay", exact: true }).click();
+
+    await expectPayPageFields(page);
+    expect(confirms()).toBe(0);
+  });
+
   test("a token MONEI refuses shows the pay page fields with the error, and the buyer pays there", async ({
     page,
   }) => {
