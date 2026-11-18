@@ -17,6 +17,7 @@ use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
+use Monei\SyliusPlugin\Grid\PaymentMethodGridMutator;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
@@ -24,6 +25,8 @@ use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
+use Monei\SyliusPlugin\Twig\MoneiCheckoutExtension;
+use Sylius\Component\Grid\Mutator\GridMutatorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
@@ -165,6 +168,16 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_update']);
+
+    $services->set(MoneiCheckoutExtension::class)
+        ->tag('twig.extension');
+
+    // Grid mutators exist from sylius/grid-bundle 1.16.
+    if (interface_exists(GridMutatorInterface::class)) {
+        $services->set(PaymentMethodGridMutator::class)
+            ->args(['%sylius.grids_definitions%'])
+            ->tag('sylius.grid_mutator', ['grid' => PaymentMethodGridMutator::GRID]);
+    }
 
     /** @var array<string, class-string> $bundles */
     $bundles = $builder->getParameter('kernel.bundles');

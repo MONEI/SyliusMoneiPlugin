@@ -1,0 +1,53 @@
+{% if data.gatewayConfig.factoryName|default(null) != 'monei' %}
+    {% include '@SyliusAdmin/payment_method/grid/field/name.html.twig' %}
+{% else %}
+    {# The stock 2.3 layout, with the MONEI logo and the marks of the method. #}
+    {% import '@SyliusAdmin/shared/helper/field/boolean.html.twig' as boolean %}
+    {% set monei = monei_method_logos(data) %}
+
+    <div class="payment-method-list__item-inner d-flex align-items-start gap-3">
+        <div class="payment-method-list__logo d-flex align-items-center justify-content-center overflow-hidden p-2 flex-shrink-0">
+            <img src="{{ asset('bundles/moneisyliusplugin/images/monei.svg') }}" alt="MONEI">
+        </div>
+
+        <div class="payment-method-list__content d-flex flex-column gap-2">
+            <div class="payment-method-list__heading">
+                {% if data.name is not null %}
+                    <h3 class="payment-method-list__name m-0 fw-semibold">{{ data.name }}</h3>
+                {% else %}
+                    <span class="text-danger" {{ sylius_test_html_attribute('missing-translation-paragraph') }}>
+                        {{ ux_icon('tabler:exclamation-circle') }} <i>{{ 'sylius.ui.missing_translation'|trans }}</i>
+                    </span>
+                {% endif %}
+                {% if data.description is not empty %}
+                    <p class="payment-method-list__description mt-1 mb-0">{{ data.description }}</p>
+                {% endif %}
+            </div>
+
+            {% if monei is not null %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for logo in monei.logos %}
+                        <span class="payment-method-list__method d-inline-flex align-items-center justify-content-center">
+                            <img src="{{ asset('bundles/moneisyliusplugin/images/' ~ logo ~ '.svg') }}" alt="" style="height: 24px; width: auto;">
+                        </span>
+                    {% endfor %}
+                    <span class="visually-hidden">{{ ('monei.method.' ~ monei.method)|trans }}</span>
+                </div>
+            {% endif %}
+
+            <div class="payment-method-list__meta d-flex flex-wrap align-items-center gap-4 fw-medium">
+                {% if data.code is not null %}
+                    <span class="d-inline-flex align-items-center gap-2">
+                        {{ 'sylius.ui.code'|trans }}: <code class="payment-method-list__code px-2 py-1">{{ data.code }}</code>
+                    </span>
+                {% endif %}
+                <span class="d-inline-flex align-items-center gap-2">
+                    {{ 'sylius.ui.gateway'|trans }}: <span>{{ 'monei.gateway_factory.monei'|trans }}</span>
+                </span>
+                <span class="d-inline-flex align-items-center gap-2">
+                    {{ 'sylius.ui.enabled'|trans }}: {{ boolean.default(data.enabled) }}
+                </span>
+            </div>
+        </div>
+    </div>
+{% endif %}

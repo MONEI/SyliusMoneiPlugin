@@ -9,6 +9,7 @@ monei:
         mbway: MB WAY
         multibanco: Multibanco
     ui:
+        test_mode: Test mode
         onsite:
             title: Pay your order
             cardholder_name: Cardholder name

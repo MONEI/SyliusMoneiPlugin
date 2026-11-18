@@ -27,6 +27,19 @@ enum MoneiMethod: string
         };
     }
 
+    /** @return list<string> file names (no extension) in public/images */
+    public function logos(): array
+    {
+        return match ($this) {
+            self::Card => ['visa', 'master_card', 'amex'],
+            self::Bizum => ['bizum'],
+            self::PayPal => ['paypal'],
+            self::AppleGooglePay => ['apple_pay', 'google_pay'],
+            self::MbWay => ['mbway'],
+            self::Multibanco => ['multibanco'],
+        };
+    }
+
     public function supportsOnsite(): bool
     {
         return null !== $this->onsiteComponent();
