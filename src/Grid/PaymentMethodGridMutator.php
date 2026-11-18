@@ -15,7 +15,7 @@ use Sylius\Component\Grid\Mutator\GridMutatorInterface;
 final class PaymentMethodGridMutator implements GridMutatorInterface
 {
     public const GRID = 'sylius_admin_payment_method';
-    public const STOCK_TEMPLATE = '@SyliusAdmin/payment_method/grid/field/name.html.twig';
+    private const STOCK_TEMPLATE = '@SyliusAdmin/payment_method/grid/field/name.html.twig';
 
     private ?string $nameTemplate;
 

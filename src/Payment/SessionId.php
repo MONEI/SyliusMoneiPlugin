@@ -26,4 +26,10 @@ final readonly class SessionId
 
         return substr(hash_hmac('sha256', 'monei-session|'.$id, $this->secret), 0, 40);
     }
+
+    /** The sessionStorage key under which the Complete page leaves its token for the pay page. */
+    public function entryKey(OrderInterface $order): string
+    {
+        return 'monei.inline.'.$this->forOrder($order);
+    }
 }

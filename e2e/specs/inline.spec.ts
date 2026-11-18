@@ -1,7 +1,6 @@
 // Inline payment: the monei.js component on the checkout Complete page makes a token, Place order
 // places the order, and the pay page confirms with the token behind "Processing payment…".
-import { expect, test as base, type Page } from "@playwright/test";
-import { adminPage } from "../utils/admin.ts";
+import { expect, test, type Page } from "@playwright/test";
 import {
   CARD_PART_CONTAINERS,
   MOUNT_TIMEOUT,
@@ -19,18 +18,10 @@ import {
   payCardOnsite,
   uniqueEmail,
 } from "../utils/checkout.ts";
-import { fixtures, methodName } from "../utils/env.ts";
+import { methodName } from "../utils/env.ts";
 import { getPayment } from "../utils/monei.ts";
 import { PAYPAL_TEST_TIMEOUT, approveInPayPal, openPayPalFromButton } from "../utils/paypal.ts";
 import { expectSyliusPayment, moneiIdByEmail, paymentByMoneiId, placedOrderCount } from "../utils/sylius.ts";
-
-const test = base.extend<{ admin: Page }>({
-  admin: async ({ browser }, use) => {
-    const admin = await adminPage(browser);
-    await use(admin);
-    await admin.context().close();
-  },
-});
 
 // The Complete page HTML holds the account ID, and the failure artifacts of the public repo's CI
 // are public. Locators target the children of #monei-inline, never the element itself: a failed
@@ -48,16 +39,21 @@ async function toComplete(page: Page, code: string, product: string, tag: string
   return email;
 }
 
-/** Before any script of the pay page: merge `changes` into the entry the Complete page stored. */
-async function editPayPageEntry(page: Page, changes: Record<string, unknown>): Promise<void> {
-  await page.addInitScript((merge) => {
+type Entry = Record<string, unknown>;
+
+/**
+ * Before any script of the pay page: replace the entry the Complete page stored with
+ * `transform(entry)`. The transform runs in the page as source text, so it may use only its argument.
+ */
+async function editPayPageEntry(page: Page, transform: (entry: Entry) => Entry): Promise<void> {
+  const edit = (change: (entry: Entry) => Entry) => {
     if (window.location.pathname.includes("/checkout/")) return;
     for (const key of Object.keys(window.sessionStorage)) {
       if (!key.startsWith("monei.inline.")) continue;
-      const entry = JSON.parse(window.sessionStorage.getItem(key)!);
-      window.sessionStorage.setItem(key, JSON.stringify({ ...entry, ...merge }));
+      window.sessionStorage.setItem(key, JSON.stringify(change(JSON.parse(window.sessionStorage.getItem(key)!))));
     }
-  }, changes);
+  };
+  await page.addInitScript(`(${edit})(${transform})`);
 }
 
 /** Counts monei.js confirm calls: only a confirm can pay with the entry's token. */
@@ -133,7 +129,7 @@ test.describe("inline card", () => {
     await fillInlineCard(page, VISA_CHALLENGE, "");
     await placeOrder(page).click();
 
-    await expect(inlineError(page)).toHaveText("Enter the cardholder name.");
+    await expect(inlineError(page)).toHaveText("Enter the name on card.");
     await expect(page).toHaveURL(/\/checkout\/complete/);
     expect(placedOrderCount(email)).toBe(0);
   });
@@ -180,16 +176,11 @@ test.describe("inline card", () => {
   test("a token MONEI refuses shows the pay page fields with the error, and the buyer pays there", async ({
     page,
   }) => {
-    // Before any script of the pay page: swap the token of the entry for a well-formed unknown one.
-    await page.addInitScript(() => {
-      if (window.location.pathname.includes("/checkout/")) return;
-      for (const key of Object.keys(window.sessionStorage)) {
-        if (!key.startsWith("monei.inline.")) continue;
-        const entry = JSON.parse(window.sessionStorage.getItem(key)!);
-        entry.token = [...entry.token].map((char: string) => (/\d/.test(char) ? "0" : "a")).join("");
-        window.sessionStorage.setItem(key, JSON.stringify(entry));
-      }
-    });
+    // A well-formed unknown token.
+    await editPayPageEntry(page, (entry) => ({
+      ...entry,
+      token: [...String(entry.token)].map((char) => (/\d/.test(char) ? "0" : "a")).join(""),
+    }));
     const email = await toComplete(page, "monei_card_inline", PRODUCTS.tShirt, "inline-refused");
 
     await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
@@ -272,12 +263,12 @@ test.describe("inline card", () => {
     expect(confirms()).toBe(0);
   });
 
-  for (const [name, changes] of [
-    ["another payment method", { methodCode: "monei_card_onsite" }],
-    ["an expired token", { expiresAt: 0 }],
+  for (const [name, transform] of [
+    ["another payment method", (entry: Entry) => ({ ...entry, methodCode: "monei_card_onsite" })],
+    ["an expired token", (entry: Entry) => ({ ...entry, expiresAt: 0 })],
   ] as const) {
     test(`the pay page does not confirm with the entry of ${name}`, async ({ page }) => {
-      await editPayPageEntry(page, changes);
+      await editPayPageEntry(page, transform);
       const confirms = countConfirms(page);
       await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-entry-refused");
 
@@ -319,7 +310,7 @@ test.describe("inline card", () => {
   });
 
   test("a card number as the cardholder name shows the pay page fields with monei.js's error", async ({ page }) => {
-    await editPayPageEntry(page, { cardholderName: "4444 4444 4444 4406" });
+    await editPayPageEntry(page, (entry) => ({ ...entry, cardholderName: "4444 4444 4444 4406" }));
     const confirms = countConfirms(page);
     await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-pan-name");
 
@@ -440,32 +431,5 @@ test.describe("inline PayPal", () => {
     const id = moneiId(email);
     expect((await getPayment(id)).status).toBe("AUTHORIZED");
     await expectSyliusPayment(id, "authorized");
-  });
-});
-
-test.describe("logos", () => {
-  test("the Payment step logo loads and the radio keeps the method name as its label", async ({ page }) => {
-    const logo = page.waitForResponse(/\/bundles\/moneisyliusplugin\/images\/bizum\.svg/);
-    await addToCart(page, PRODUCTS.sticker);
-    await checkoutToPayment(page, uniqueEmail("inline-logos"));
-
-    expect((await logo).status()).toBe(200);
-    const radio = page.getByLabel(methodName("monei_bizum_inline"), { exact: true });
-    await expect(radio).toBeVisible();
-    const img = page.locator("label", { has: radio }).locator('img[src*="bizum.svg"]').first();
-    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
-  });
-
-  test("the admin payment method list shows the MONEI logo on Sylius 2.3", async ({ admin }) => {
-    const [major, minor] = fixtures().syliusVersion.split(".").map(Number);
-    await admin.goto("/admin/payment-methods/?limit=50");
-    const monei = admin.locator('img[src*="/bundles/moneisyliusplugin/images/monei.svg"]');
-    if (major === 2 && minor < 3) {
-      // Sylius 2.2 has no logo column; the plugin leaves its list alone.
-      await expect(monei).toHaveCount(0);
-      return;
-    }
-    await expect(monei.first()).toBeVisible();
-    await expect.poll(() => monei.first().evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
   });
 });

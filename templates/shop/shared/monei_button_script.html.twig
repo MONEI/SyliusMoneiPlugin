@@ -1,0 +1,10 @@
+{# The Bizum, PayPal and wallet buttons of the pay page and the checkout Complete page. Needs monei.js. #}
+<script>
+    /* Renders the monei.js button component into #monei-component. */
+    window.moneiSyliusButton = function (component, transactionType, props) {
+        if ('paypal' === component) {
+            props.transactionType = transactionType;
+        }
+        ({ bizum: monei.Bizum, paypal: monei.PayPal, payment_request: monei.PaymentRequest })[component](props).render('#monei-component');
+    };
+</script>

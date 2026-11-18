@@ -11,7 +11,7 @@ import {
   placeHostedOrder,
   uniqueEmail,
 } from "../utils/checkout.ts";
-import { methodName } from "../utils/env.ts";
+import { fixtures, methodName } from "../utils/env.ts";
 import { getPayment, refundAmounts } from "../utils/monei.ts";
 import { expectSyliusPayment, orderByMoneiId, recordedRefunds } from "../utils/sylius.ts";
 
@@ -108,5 +108,18 @@ test.describe("admin", () => {
 
     // MONEI's own refund list: exactly the two refunds, which sum to the order total.
     await expect.poll(() => refundAmounts(moneiId), { timeout: 60_000 }).toEqual([1800, 1800]);
+  });
+
+  test("the admin payment method list shows the MONEI logo on Sylius 2.3", async ({ admin }) => {
+    const [major, minor] = fixtures().syliusVersion.split(".").map(Number);
+    await admin.goto("/admin/payment-methods/?limit=50");
+    const monei = admin.locator('img[src*="/bundles/moneisyliusplugin/images/monei.svg"]');
+    if (major === 2 && minor < 3) {
+      // Sylius 2.2 has no logo column; the plugin leaves its list alone.
+      await expect(monei).toHaveCount(0);
+      return;
+    }
+    await expect(monei.first()).toBeVisible();
+    await expect.poll(() => monei.first().evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
   });
 });

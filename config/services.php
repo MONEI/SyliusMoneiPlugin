@@ -26,7 +26,7 @@ use Monei\SyliusPlugin\Payment\SessionId;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
-use Monei\SyliusPlugin\Twig\MoneiCheckoutExtension;
+use Monei\SyliusPlugin\Twig\MoneiExtension;
 use Sylius\Component\Grid\Mutator\GridMutatorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -175,7 +175,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
     $services->set(SessionId::class)
         ->args(['%kernel.secret%']);
 
-    $services->set(MoneiCheckoutExtension::class)
+    $services->set(MoneiExtension::class)
         ->args([service(SessionId::class)])
         ->tag('twig.extension');
 

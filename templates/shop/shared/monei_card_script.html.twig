@@ -83,6 +83,7 @@
 
         return card;
 
+        // monei.js may never call the card's onError; kept so a failure it does report still falls back.
         function withFailure(props) {
             if (options.onFailure) {
                 props.onError = options.onFailure;

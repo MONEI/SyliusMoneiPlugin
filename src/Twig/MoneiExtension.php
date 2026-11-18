@@ -13,19 +13,30 @@ use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
+use Twig\TwigTest;
 
 /** Scalars only: the gateway configuration holds the API key. */
-final class MoneiCheckoutExtension extends AbstractExtension
+final class MoneiExtension extends AbstractExtension
 {
     public function __construct(private readonly SessionId $sessionId)
     {
     }
+
+    private const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
 
     public function getFunctions(): array
     {
         return [
             new TwigFunction('monei_method_logos', $this->methodLogos(...)),
             new TwigFunction('monei_inline_checkout', $this->inlineCheckout(...)),
+            new TwigFunction('monei_js_url', static fn (): string => self::MONEI_JS_URL),
+        ];
+    }
+
+    public function getTests(): array
+    {
+        return [
+            new TwigTest('monei_payment_method', GatewayConfiguration::isMonei(...)),
         ];
     }
 
@@ -50,7 +61,7 @@ final class MoneiCheckoutExtension extends AbstractExtension
         return [
             'method' => $config->method->value,
             'logos' => $config->method->logos(),
-            'test_mode' => str_starts_with($config->apiKey, 'pk_test_'),
+            'test_mode' => $config->testMode(),
         ];
     }
 
@@ -59,7 +70,7 @@ final class MoneiCheckoutExtension extends AbstractExtension
      * with an inline MONEI method. The page renders for every checkout, so a broken config
      * gives null, as for the logos.
      *
-     * @return array{component: string, account_id: string, session_id: string, amount: int, currency: string, language: string, card_layout: string, transaction_type: string, method_code: string}|null
+     * @return array{component: string, account_id: string, session_id: string, entry_key: string, amount: int, currency: string, language: ?string, card_layout: string, transaction_type: string, method_code: string}|null
      */
     public function inlineCheckout(OrderInterface $order): ?array
     {
@@ -79,9 +90,7 @@ final class MoneiCheckoutExtension extends AbstractExtension
             return null;
         }
         // The pay page cannot create these payments, and the buyer would approve a token for nothing.
-        $amount = (int) $payment->getAmount();
-        $currency = strtoupper((string) $payment->getCurrencyCode());
-        if ($amount <= 0 || !CreatePaymentRequestFactory::supportsCurrency($currency)) {
+        if (!CreatePaymentRequestFactory::supportsPayment($payment)) {
             return null;
         }
 
@@ -89,10 +98,11 @@ final class MoneiCheckoutExtension extends AbstractExtension
             'component' => $component,
             'account_id' => $config->accountId,
             'session_id' => $this->sessionId->forOrder($order),
+            'entry_key' => $this->sessionId->entryKey($order),
             // Button components only: MONEI refuses their token when the amount or currency differs from the payment's.
-            'amount' => $amount,
-            'currency' => $currency,
-            'language' => substr((string) $order->getLocaleCode(), 0, 2),
+            'amount' => (int) $payment->getAmount(),
+            'currency' => strtoupper((string) $payment->getCurrencyCode()),
+            'language' => CreatePaymentRequestFactory::language($order),
             'card_layout' => $config->cardLayout,
             'transaction_type' => $config->transactionType(),
             'method_code' => (string) $paymentMethod->getCode(),

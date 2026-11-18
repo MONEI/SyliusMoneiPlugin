@@ -14,14 +14,17 @@ final class OnsitePayTest extends MoneiTestCase
 {
     /**
      * MONEI refuses the Complete page token unless the payment has the session ID the page gave
-     * the component; the pay page finds the token in the browser under the same session ID.
+     * the component; the pay page finds the token in the browser under the key the Complete page used.
      */
     public function testAnInlinePaymentCarriesTheSessionIdOfTheCompletePage(): void
     {
         $this->attachCart($this->createMoneiPaymentMethod('MONEI_INLINE', ['mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
         $complete = $this->client->request('GET', '/en_US/checkout/complete');
-        $sessionId = (string) $complete->filterXPath('//div[@id="monei-inline"]')->attr('data-session-id');
+        $inline = $complete->filterXPath('//div[@id="monei-inline"]');
+        $sessionId = (string) $inline->attr('data-session-id');
+        $entryKey = (string) $inline->attr('data-entry-key');
         self::assertNotSame('', $sessionId);
+        self::assertNotSame('', $entryKey);
 
         MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
         $this->client->followRedirects();
@@ -31,7 +34,7 @@ final class OnsitePayTest extends MoneiTestCase
         self::assertSame(['POST /payments'], $this->requestKeys());
         self::assertSame($sessionId, self::lastRequestBody()['sessionId'] ?? null);
         $form = $page->filterXPath('//form[@id="monei-onsite"]');
-        self::assertSame([$sessionId, 'MONEI_INLINE'], [$form->attr('data-session-id'), $form->attr('data-method-code')]);
+        self::assertSame([$entryKey, 'MONEI_INLINE'], [$form->attr('data-entry-key'), $form->attr('data-method-code')]);
     }
 
     /** Without an account ID the Complete page makes no token, so nothing may look for one. */
@@ -40,7 +43,7 @@ final class OnsitePayTest extends MoneiTestCase
         $page = $this->payOnsite(['payment_method' => 'card']);
 
         self::assertArrayNotHasKey('sessionId', self::lastRequestBody());
-        self::assertNull($page->filterXPath('//form[@id="monei-onsite"]')->attr('data-session-id'));
+        self::assertNull($page->filterXPath('//form[@id="monei-onsite"]')->attr('data-entry-key'));
     }
 
     public function testTheCardPageHasACardholderNameInputAndLoadsMoneiJs(): void

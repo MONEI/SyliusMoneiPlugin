@@ -13,7 +13,7 @@ monei:
         onsite:
             title: Pay your order
             cardholder_name: Name on card
-            cardholder_name_required: Enter the cardholder name.
+            cardholder_name_required: Enter the name on card.
             card_details: Card details
             card_number: Card number
             card_expiry: Expiry date

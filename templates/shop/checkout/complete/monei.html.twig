@@ -8,6 +8,8 @@
         data-component="{{ monei.component }}"
         data-account-id="{{ monei.account_id }}"
         data-session-id="{{ monei.session_id }}"
+        data-entry-key="{{ monei.entry_key }}"
+        data-monei-js-url="{{ monei_js_url() }}"
         data-language="{{ monei.language }}"
         data-transaction-type="{{ monei.transaction_type }}"
         data-method-code="{{ monei.method_code }}"
@@ -25,15 +27,18 @@
     </div>
     {% if monei.component == 'card' %}
         {% include '@MoneiSyliusPlugin/shop/shared/monei_card_script.html.twig' %}
+    {% else %}
+        {% include '@MoneiSyliusPlugin/shop/shared/monei_button_script.html.twig' %}
     {% endif %}
     <script>
         (function () {
+            // Outlives a slow redirect to the pay page; a stale entry must not pay on a much later pay again.
             var tokenLifetime = 15 * 60 * 1000;
             var root = document.getElementById('monei-inline');
             var data = root.dataset;
             var form = root.closest('form');
             var errorBox = document.getElementById('monei-inline-error');
-            var entryKey = 'monei.inline.' + data.sessionId;
+            var entryKey = data.entryKey;
             var placeOrder;
             var ready = false;
             var failed = false;
@@ -139,13 +144,15 @@
             }
 
             function initButton() {
+                // Place order measures 0 when the theme hides it; 48px is within the 45-50px other MONEI plugins use.
+                var fallbackHeight = 48;
                 var props = {
                     accountId: data.accountId,
                     sessionId: data.sessionId,
                     amount: Number(data.amount),
                     currency: data.currency,
                     language: data.language,
-                    style: { height: Math.round(placeOrder.getBoundingClientRect().height) || 48 },
+                    style: { height: Math.round(placeOrder.getBoundingClientRect().height) || fallbackHeight },
                     // false: no wallet in this browser, or the method is not available. Place order stays.
                     onLoad: function (supported) {
                         if (supported && !failed) {
@@ -157,10 +164,7 @@
                     },
                     onError: fallBack
                 };
-                if ('paypal' === data.component) {
-                    props.transactionType = data.transactionType;
-                }
-                ({ bizum: monei.Bizum, paypal: monei.PayPal, payment_request: monei.PaymentRequest })[data.component](props).render('#monei-component');
+                window.moneiSyliusButton(data.component, data.transactionType, props);
             }
 
             function init() {
@@ -187,7 +191,7 @@
             // Injected, not a parser-blocking tag: a hanging js.monei.com must not hold back Place order,
             // which renders after this hook. Without monei.js, Place order submits without a token.
             var script = document.createElement('script');
-            script.src = 'https://js.monei.com/v3/monei.js';
+            script.src = data.moneiJsUrl;
             // A proxy may answer with a body that defines no monei.
             script.onload = function () { whenDomReady(window.monei ? init : fallBack); };
             script.onerror = function () { whenDomReady(fallBack); };

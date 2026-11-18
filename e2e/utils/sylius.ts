@@ -62,8 +62,8 @@ export function orderByMoneiId(moneiId: string): OrderState | null {
   return { orderId, number, paymentId, state, paymentState, payment };
 }
 
-/** The guest email of a checkout, checked before it goes into SQL. */
-function emailCondition(email: string): string {
+/** The placed orders of a guest email, checked before it goes into SQL. */
+function placedByEmailCondition(email: string): string {
   if (!/^[A-Za-z0-9.@-]+$/.test(email)) throw new Error(`not a test email: ${email}`);
   return `c.email = '${email}' AND o.state <> 'cart'`;
 }
@@ -76,7 +76,7 @@ export function moneiIdByEmail(email: string): string | null {
   const rows = query(
     `SELECT JSON_UNQUOTE(JSON_EXTRACT(p.details, '$.monei.id')) FROM sylius_payment p ` +
       `JOIN sylius_order o ON o.id = p.order_id JOIN sylius_customer c ON c.id = o.customer_id ` +
-      `WHERE ${emailCondition(email)} AND JSON_EXTRACT(p.details, '$.monei.id') IS NOT NULL ORDER BY p.id DESC LIMIT 1`,
+      `WHERE ${placedByEmailCondition(email)} AND JSON_EXTRACT(p.details, '$.monei.id') IS NOT NULL ORDER BY p.id DESC LIMIT 1`,
   );
   return rows[0]?.[0] ?? null;
 }
@@ -84,7 +84,7 @@ export function moneiIdByEmail(email: string): string | null {
 /** The number of orders a guest placed. */
 export function placedOrderCount(email: string): number {
   const rows = query(
-    `SELECT COUNT(*) FROM sylius_order o JOIN sylius_customer c ON c.id = o.customer_id WHERE ${emailCondition(email)}`,
+    `SELECT COUNT(*) FROM sylius_order o JOIN sylius_customer c ON c.id = o.customer_id WHERE ${placedByEmailCondition(email)}`,
   );
   return Number(rows[0][0]);
 }

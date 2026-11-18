@@ -35,12 +35,22 @@ final readonly class CreatePaymentRequestFactory
     }
 
     /**
-     * Sylius stores every amount with 2 decimals. For a currency with 0 or 3 decimals
-     * MONEI would read the same integer as 100 times or a tenth of the price.
+     * An amount above 0 in a currency with 2 decimals. Sylius stores every amount with 2 decimals:
+     * for a currency with 0 or 3 decimals MONEI would read the same integer as 100 times or a tenth of the price.
      */
-    public static function supportsCurrency(string $currency): bool
+    public static function supportsPayment(PaymentInterface $payment): bool
     {
-        return Currencies::exists($currency) && 2 === Currencies::getFractionDigits($currency);
+        $currency = strtoupper((string) $payment->getCurrencyCode());
+
+        return (int) $payment->getAmount() > 0 && Currencies::exists($currency) && 2 === Currencies::getFractionDigits($currency);
+    }
+
+    /** The language part of the order locale, such as "es" for es_ES. */
+    public static function language(OrderInterface $order): ?string
+    {
+        $locale = $order->getLocaleCode();
+
+        return null !== $locale && '' !== $locale ? substr($locale, 0, 2) : null;
     }
 
     /**
@@ -60,14 +70,10 @@ final readonly class CreatePaymentRequestFactory
             throw new \InvalidArgumentException('The payment has no order.');
         }
 
-        $currency = strtoupper((string) $payment->getCurrencyCode());
-        if (!self::supportsCurrency($currency)) {
-            throw new \InvalidArgumentException(\sprintf('MONEI payments in Sylius support only currencies with 2 decimals, got "%s".', $currency));
-        }
-
         $amount = (int) $payment->getAmount();
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException(\sprintf('The payment amount must be greater than 0, got %d.', $amount));
+        $currency = strtoupper((string) $payment->getCurrencyCode());
+        if (!self::supportsPayment($payment)) {
+            throw new \InvalidArgumentException(\sprintf('MONEI payments in Sylius need an amount greater than 0 and a currency with 2 decimals, got %d "%s".', $amount, $currency));
         }
 
         $request = new CreatePaymentRequest([
@@ -111,7 +117,7 @@ final readonly class CreatePaymentRequestFactory
             $request->setSessionDetails(new PaymentSessionDetails(array_filter([
                 'ip' => $httpRequest->getClientIp(),
                 'user_agent' => $httpRequest->headers->get('User-Agent'),
-                'lang' => $order->getLocaleCode() ? substr((string) $order->getLocaleCode(), 0, 2) : null,
+                'lang' => self::language($order),
             ])));
         }
 

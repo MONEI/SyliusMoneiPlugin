@@ -47,6 +47,11 @@ final readonly class GatewayConfiguration
         return $this->onsite && null !== $this->accountId;
     }
 
+    public function testMode(): bool
+    {
+        return str_starts_with($this->apiKey, 'pk_test_');
+    }
+
     public function transactionType(): string
     {
         return $this->authorize ? PaymentTransactionType::AUTH : PaymentTransactionType::SALE;

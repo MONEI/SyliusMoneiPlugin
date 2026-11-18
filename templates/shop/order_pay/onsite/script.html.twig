@@ -1,9 +1,10 @@
-{% if hookable_metadata.context.monei.session_id is not null %}
+{% set monei = hookable_metadata.context.monei %}
+{% if monei.entry_key is not null %}
     {# Before monei.js loads, so the fields never show while the token from the Complete page confirms. #}
     <script>
         (function () {
             var form = document.getElementById('monei-onsite');
-            var key = 'monei.inline.' + form.dataset.sessionId;
+            var key = form.dataset.entryKey;
             var entry = null;
             try {
                 var stored = window.sessionStorage.getItem(key);
@@ -16,7 +17,7 @@
             if (!entry || 'string' !== typeof entry.token || '' === entry.token || entry.methodCode !== form.dataset.methodCode || !(entry.expiresAt > Date.now())) {
                 return;
             }
-            form.moneiInlineEntry = entry;
+            window.moneiSyliusInlineEntry = entry;
             document.getElementById('monei-onsite-title').hidden = true;
             form.hidden = true;
             var processing = document.getElementById('monei-onsite-processing');
@@ -30,8 +31,11 @@
         })();
     </script>
 {% endif %}
-<script src="https://js.monei.com/v3/monei.js"></script>
+<script src="{{ monei_js_url() }}"></script>
 {% include '@MoneiSyliusPlugin/shop/shared/monei_card_script.html.twig' %}
+{% if monei.component != 'card' %}
+    {% include '@MoneiSyliusPlugin/shop/shared/monei_button_script.html.twig' %}
+{% endif %}
 <script>
     (function () {
         var form = document.getElementById('monei-onsite');
@@ -59,10 +63,11 @@
             return error && error.message ? String(error.message) : String(error);
         }
 
-        // Sylius reads the outcome from MONEI on the after-pay URL, whatever the confirm returns or throws.
-        function confirm(params) {
+        // Sylius reads the outcome from MONEI on the after-pay URL, whatever the confirm returns or
+        // throws, unless onReject handles the rejection.
+        function confirm(params, onReject) {
             params.paymentId = data.paymentId;
-            monei.confirmPayment(params).then(leave, leave);
+            monei.confirmPayment(params).then(leave, onReject || leave);
         }
 
         function onError(error) {
@@ -71,17 +76,13 @@
 
         function init() {
             if ('card' !== data.component) {
-                var props = {
+                window.moneiSyliusButton(data.component, data.transactionType, {
                     paymentId: data.paymentId,
                     onSubmit: function (result) {
                         result.token ? confirm({ paymentToken: result.token }) : showError(result.error);
                     },
                     onError: onError
-                };
-                if ('paypal' === data.component) {
-                    props.transactionType = data.transactionType;
-                }
-                ({ bizum: monei.Bizum, paypal: monei.PayPal, payment_request: monei.PaymentRequest })[data.component](props).render('#monei-component');
+                });
 
                 return;
             }
@@ -135,7 +136,7 @@
             showError(message);
         }
 
-        var entry = form.moneiInlineEntry;
+        var entry = window.moneiSyliusInlineEntry;
         if (!entry) {
             init();
 
@@ -147,9 +148,7 @@
             return;
         }
 
-        var params = 'card' === data.component ? cardParams(entry.token, entry.cardholderName) : { paymentToken: entry.token };
-        params.paymentId = data.paymentId;
-        monei.confirmPayment(params).then(leave, function (error) {
+        confirm('card' === data.component ? cardParams(entry.token, entry.cardholderName) : { paymentToken: entry.token }, function (error) {
             var message = errorMessage(error);
             // monei.js checks the cardholder name before it sends the confirm.
             if (-1 === refusals.indexOf(message) && 0 !== message.indexOf('Card numbers are not allowed in')) {

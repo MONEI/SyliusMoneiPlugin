@@ -1,4 +1,4 @@
-{% if data.gatewayConfig.factoryName|default(null) != 'monei' %}
+{% if data is not monei_payment_method %}
     {% include '@SyliusAdmin/payment_method/grid/field/name.html.twig' %}
 {% else %}
     {# The stock 2.3 layout, with the MONEI logo and the marks of the method. #}
@@ -28,7 +28,7 @@
                 <div class="d-flex flex-wrap gap-2">
                     {% for logo in monei.logos %}
                         <span class="payment-method-list__method d-inline-flex align-items-center justify-content-center">
-                            <img src="{{ asset('bundles/moneisyliusplugin/images/' ~ logo ~ '.svg') }}" alt="" style="height: 24px; width: auto;">
+                            {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo } only %}
                         </span>
                     {% endfor %}
                     <span class="visually-hidden">{{ ('monei.method.' ~ monei.method)|trans }}</span>

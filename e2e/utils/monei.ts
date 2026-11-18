@@ -1,4 +1,4 @@
-// MONEI API reads with Node's fetch, never Playwright's `request`: a trace would record the
+// MONEI API calls with Node's fetch, never Playwright's `request`: a trace would record the
 // Authorization header. Errors carry the status and MONEI's message, never the key.
 import { moneiApiKey } from "./env.ts";
 
@@ -15,44 +15,37 @@ type MoneiPayment = {
   paymentMethod?: { card?: { cardholderName?: string } };
 };
 
-async function moneiGet<T>(path: string): Promise<T> {
+async function moneiRequest<T>(method: "GET" | "POST", path: string, body?: object): Promise<T> {
   const response = await fetch(`${API}${path}`, {
-    headers: { Authorization: moneiApiKey(), "User-Agent": "sylius-monei-plugin-e2e" },
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { message?: string };
-    throw new Error(`MONEI GET ${path}: ${response.status} ${body.message ?? response.statusText}`);
-  }
-  return (await response.json()) as T;
-}
-
-export const getPayment = (id: string) => moneiGet<MoneiPayment>(`/payments/${id}`);
-
-async function moneiPost<T>(path: string, body: object): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
-    method: "POST",
-    headers: { Authorization: moneiApiKey(), "Content-Type": "application/json", "User-Agent": "sylius-monei-plugin-e2e" },
-    body: JSON.stringify(body),
+    method,
+    headers: {
+      Authorization: moneiApiKey(),
+      "User-Agent": "sylius-monei-plugin-e2e",
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as { message?: string };
-    throw new Error(`MONEI POST ${path}: ${response.status} ${error.message ?? response.statusText}`);
+    throw new Error(`MONEI ${method} ${path}: ${response.status} ${error.message ?? response.statusText}`);
   }
   return (await response.json()) as T;
 }
+
+export const getPayment = (id: string) => moneiRequest<MoneiPayment>("GET", `/payments/${id}`);
 
 /**
  * The account ID of the test key. MONEI returns it only on a payment, so this creates one and
  * cancels it at once. The order ID must be new: MONEI's duplicate check never expires.
  */
 export async function readAccountId(orderId: string): Promise<string> {
-  const payment = await moneiPost<{ id: string; accountId: string }>("/payments", {
+  const payment = await moneiRequest<{ id: string; accountId: string }>("POST", "/payments", {
     amount: 100,
     currency: "EUR",
     orderId,
     description: "e2e account ID read",
   });
-  await moneiPost(`/payments/${payment.id}/cancel`, { cancellationReason: "requested_by_customer" });
+  await moneiRequest("POST", `/payments/${payment.id}/cancel`, { cancellationReason: "requested_by_customer" });
   return payment.accountId;
 }
 
@@ -98,7 +91,7 @@ export async function checkTestAccount(): Promise<void> {
   }
   if (!key.startsWith("pk_test_")) throw new Error("MONEI_TEST_API_KEY is not a pk_test_ key.");
 
-  const allowed = await moneiGet<{ livemode: boolean; paymentMethods: string[] }>("/allowed-payment-methods");
+  const allowed = await moneiRequest<{ livemode: boolean; paymentMethods: string[] }>("GET", "/allowed-payment-methods");
   if (allowed.livemode) throw new Error("MONEI says MONEI_TEST_API_KEY is a live mode key.");
 
   const missing = REQUIRED_METHODS.filter((method) => !allowed.paymentMethods.includes(method));
