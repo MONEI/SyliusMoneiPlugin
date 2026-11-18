@@ -32,6 +32,7 @@ use Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface;
 use Sylius\Component\Order\Modifier\OrderModifierInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
@@ -184,10 +185,14 @@ abstract class MoneiTestCase extends WebTestCase
         $this->entityManager()->persist($cart);
         $this->entityManager()->flush();
 
-        $session = $this->client->getSession();
-        \assert(null !== $session);
+        // KernelBrowser::getSession() exists only from Symfony 7.4.
+        $sessionFactory = $this->service('session.factory');
+        \assert($sessionFactory instanceof SessionFactoryInterface);
+        $session = $sessionFactory->createSession();
+        $session->start();
         $session->set('_sylius.cart.'.self::CHANNEL_CODE, $cart->getId());
         $session->save();
+        $this->client->getCookieJar()->set(new Cookie($session->getName(), $session->getId()));
 
         return $cart;
     }
