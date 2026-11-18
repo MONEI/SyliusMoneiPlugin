@@ -161,43 +161,34 @@ abstract class MoneiTestCase extends WebTestCase
      */
     protected function placeOrder(PaymentMethodInterface $paymentMethod, int $quantity = 1): OrderInterface
     {
-        /** @var OrderInterface $order */
-        $order = $this->service('sylius.factory.order')->createNew();
-        $order->setChannel($this->managed($this->channel));
-        $order->setLocaleCode('en_US');
-        $order->setCurrencyCode('EUR');
-        $order->setCustomer($this->managed($this->customer));
-
-        /** @var OrderItemInterface $item */
-        $item = $this->service('sylius.factory.order_item')->createNew();
-        $item->setVariant($this->managed($this->variant));
-        $quantityModifier = $this->service('sylius.modifier.order_item_quantity');
-        \assert($quantityModifier instanceof OrderItemQuantityModifierInterface);
-        $quantityModifier->modify($item, $quantity);
-        $orderModifier = $this->service('sylius.modifier.order');
-        \assert($orderModifier instanceof OrderModifierInterface);
-        $orderModifier->addToOrder($order, $item);
-
-        $order->setBillingAddress($this->createAddress());
-        $order->setShippingAddress($this->createAddress());
-
+        $order = $this->buildCart($paymentMethod, $quantity);
         $stateMachine = $this->service('sylius_abstraction.state_machine');
         \assert($stateMachine instanceof StateMachineInterface);
-        $graph = OrderCheckoutTransitions::GRAPH;
-        $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_ADDRESS);
-        if ($stateMachine->can($order, $graph, OrderCheckoutTransitions::TRANSITION_SKIP_SHIPPING)) {
-            $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_SKIP_SHIPPING);
-        }
-        $payment = $order->getLastPayment();
-        \assert($payment instanceof PaymentInterface);
-        $payment->setMethod($this->managed($paymentMethod));
-        $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_SELECT_PAYMENT);
-        $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_COMPLETE);
+        $stateMachine->apply($order, OrderCheckoutTransitions::GRAPH, OrderCheckoutTransitions::TRANSITION_COMPLETE);
 
         $this->entityManager()->persist($order);
         $this->entityManager()->flush();
 
         return $order;
+    }
+
+    /**
+     * Stores a cart in checkout state `payment_selected` with `$paymentMethod` as the test
+     * browser's cart, so the client can open the Payment step or the Complete page. Sylius
+     * has no plain HTTP add-to-cart route, so the cart is built on the server.
+     */
+    protected function attachCart(PaymentMethodInterface $paymentMethod, int $quantity = 1): OrderInterface
+    {
+        $cart = $this->buildCart($paymentMethod, $quantity);
+        $this->entityManager()->persist($cart);
+        $this->entityManager()->flush();
+
+        $session = $this->client->getSession();
+        \assert(null !== $session);
+        $session->set('_sylius.cart.'.self::CHANNEL_CODE, $cart->getId());
+        $session->save();
+
+        return $cart;
     }
 
     /** An order whose last payment is bound to MONEI's pay_1, authorized with a card. */
@@ -578,6 +569,44 @@ abstract class MoneiTestCase extends WebTestCase
         $this->variant = $variant;
 
         $entityManager->flush();
+    }
+
+    /** A cart in checkout state `payment_selected`, not persisted. */
+    private function buildCart(PaymentMethodInterface $paymentMethod, int $quantity): OrderInterface
+    {
+        /** @var OrderInterface $order */
+        $order = $this->service('sylius.factory.order')->createNew();
+        $order->setChannel($this->managed($this->channel));
+        $order->setLocaleCode('en_US');
+        $order->setCurrencyCode('EUR');
+        $order->setCustomer($this->managed($this->customer));
+
+        /** @var OrderItemInterface $item */
+        $item = $this->service('sylius.factory.order_item')->createNew();
+        $item->setVariant($this->managed($this->variant));
+        $quantityModifier = $this->service('sylius.modifier.order_item_quantity');
+        \assert($quantityModifier instanceof OrderItemQuantityModifierInterface);
+        $quantityModifier->modify($item, $quantity);
+        $orderModifier = $this->service('sylius.modifier.order');
+        \assert($orderModifier instanceof OrderModifierInterface);
+        $orderModifier->addToOrder($order, $item);
+
+        $order->setBillingAddress($this->createAddress());
+        $order->setShippingAddress($this->createAddress());
+
+        $stateMachine = $this->service('sylius_abstraction.state_machine');
+        \assert($stateMachine instanceof StateMachineInterface);
+        $graph = OrderCheckoutTransitions::GRAPH;
+        $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_ADDRESS);
+        if ($stateMachine->can($order, $graph, OrderCheckoutTransitions::TRANSITION_SKIP_SHIPPING)) {
+            $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_SKIP_SHIPPING);
+        }
+        $payment = $order->getLastPayment();
+        \assert($payment instanceof PaymentInterface);
+        $payment->setMethod($this->managed($paymentMethod));
+        $stateMachine->apply($order, $graph, OrderCheckoutTransitions::TRANSITION_SELECT_PAYMENT);
+
+        return $order;
     }
 
     private function createAddress(): AddressInterface
