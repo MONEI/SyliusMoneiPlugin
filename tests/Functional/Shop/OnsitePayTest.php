@@ -12,6 +12,38 @@ use Symfony\Component\HttpFoundation\Response;
 /** The onsite order-pay page as rendered; its monei.js script runs only in the e2e suite. */
 final class OnsitePayTest extends MoneiTestCase
 {
+    private const ACCOUNT_ID = '0b1e7c2a-3d4f-4a5b-8c6d-7e8f9a0b1c2d';
+
+    /**
+     * MONEI refuses the Complete page token unless the payment has the session ID the page gave
+     * the component; the pay page finds the token in the browser under the same session ID.
+     */
+    public function testAnInlinePaymentCarriesTheSessionIdOfTheCompletePage(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_INLINE', ['mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+        $complete = $this->client->request('GET', '/en_US/checkout/complete');
+        $sessionId = (string) $complete->filterXPath('//div[@id="monei-inline"]')->attr('data-session-id');
+        self::assertNotSame('', $sessionId);
+
+        $this->client->submit($complete->filterXPath('//div[@id="monei-inline"]/ancestor::form')->form());
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $page = $this->followRedirectsToThePayPage();
+
+        self::assertSame(['POST /payments'], $this->requestKeys());
+        self::assertSame($sessionId, self::lastRequestBody()['sessionId'] ?? null);
+        $form = $page->filterXPath('//form[@id="monei-onsite"]');
+        self::assertSame([$sessionId, 'MONEI_INLINE'], [$form->attr('data-session-id'), $form->attr('data-method-code')]);
+    }
+
+    /** Without an account ID the Complete page makes no token, so nothing may look for one. */
+    public function testAnOnsitePaymentWithoutAccountIdHasNoSessionId(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'card']);
+
+        self::assertArrayNotHasKey('sessionId', self::lastRequestBody());
+        self::assertNull($page->filterXPath('//form[@id="monei-onsite"]')->attr('data-session-id'));
+    }
+
     public function testTheCardPageHasACardholderNameInputAndLoadsMoneiJs(): void
     {
         $page = $this->payOnsite(['payment_method' => 'card']);
@@ -82,6 +114,18 @@ final class OnsitePayTest extends MoneiTestCase
         $this->pay($order);
 
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_1/challenge', Response::HTTP_SEE_OTHER);
+    }
+
+    private function followRedirectsToThePayPage(): Crawler
+    {
+        $crawler = null;
+        for ($hops = 0; $this->client->getResponse()->isRedirect() && $hops < 5; ++$hops) {
+            $crawler = $this->client->followRedirect();
+        }
+        self::assertResponseIsSuccessful();
+        self::assertNotNull($crawler);
+
+        return $crawler;
     }
 
     /** @return array<string, string> the label of each card field container, by container id */

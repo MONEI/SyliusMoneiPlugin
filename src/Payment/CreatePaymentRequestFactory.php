@@ -30,6 +30,7 @@ final readonly class CreatePaymentRequestFactory
         private RequestStack $requestStack,
         private ClockInterface $clock,
         private string $orderExpirationPeriod,
+        private SessionId $sessionId,
     ) {
     }
 
@@ -75,6 +76,10 @@ final readonly class CreatePaymentRequestFactory
             'transaction_type' => $configuration->transactionType(),
             'expire_at' => $this->expireAt($order),
         ]);
+        // MONEI refuses a token from the checkout Complete page unless the payment has its session ID.
+        if ($configuration->inline()) {
+            $request->setSessionId($this->sessionId->forOrder($order));
+        }
 
         $customer = $order->getCustomer();
         $email = $customer?->getEmail();

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\OrderPay;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Payment\SessionId;
 use Sylius\Bundle\CoreBundle\OrderPay\Provider\UrlProviderInterface;
 use Sylius\Bundle\PaymentBundle\Provider\HttpResponseProviderInterface;
 use Sylius\Bundle\ResourceBundle\Controller\RequestConfiguration;
+use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentRequestInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -26,6 +28,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
     public function __construct(
         private Environment $twig,
         private UrlProviderInterface $afterPayUrlProvider,
+        private SessionId $sessionId,
     ) {
     }
 
@@ -48,11 +51,16 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
         if (!$payment instanceof PaymentInterface) {
             throw new \LogicException('A Sylius core payment is expected.');
         }
+        $order = $payment->getOrder();
+        if (!$order instanceof OrderInterface) {
+            throw new \LogicException('The payment has no order.');
+        }
         $configuration = GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod());
+        $inline = $configuration->inline();
 
         // Scalars only: the gateway configuration holds the API key.
         return new Response($this->twig->render('@MoneiSyliusPlugin/shop/order_pay/onsite.html.twig', [
-            'order' => $payment->getOrder(),
+            'order' => $order,
             'monei' => [
                 'payment_id' => $moneiPaymentId,
                 'component' => $configuration->method->onsiteComponent()
@@ -61,6 +69,9 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
                 'transaction_type' => $configuration->transactionType(),
                 'after_pay_url' => $this->afterPayUrlProvider->getUrl($paymentRequest),
                 'card_layout' => $configuration->cardLayout,
+                // The key of the browser entry the Complete page left with its token.
+                'session_id' => $inline ? $this->sessionId->forOrder($order) : null,
+                'method_code' => $inline ? (string) $paymentRequest->getMethod()->getCode() : null,
             ],
         ]));
     }

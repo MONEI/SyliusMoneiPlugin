@@ -73,6 +73,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('request_stack'),
             service('clock'),
             '%sylius_order.order_expiration_period%',
+            service(SessionId::class),
         ]);
 
     $services->set(MoneiCommandProvider::class)
@@ -82,6 +83,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ->args([
             service('twig'),
             service('sylius_shop.provider.order_pay.after_pay_url'),
+            service(SessionId::class),
         ])
         ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
 

@@ -21,6 +21,8 @@ monei:
             pay: Pagar
         inline:
             processing: Procesando…
+            processing_payment: Procesando el pago…
+            do_not_close: No cierres esta ventana.
     form:
         gateway_configuration:
             api_key: Clave API

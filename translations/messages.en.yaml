@@ -21,6 +21,8 @@ monei:
             pay: Pay
         inline:
             processing: Processing…
+            processing_payment: Processing payment…
+            do_not_close: Please do not close this window.
     form:
         gateway_configuration:
             api_key: API key

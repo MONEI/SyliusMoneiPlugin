@@ -1,6 +1,6 @@
 {% set monei = hookable_metadata.context.monei %}
 
-<h1 class="h2 mb-4">{{ 'monei.ui.onsite.title'|trans }}</h1>
+<h1 class="h2 mb-4" id="monei-onsite-title">{{ 'monei.ui.onsite.title'|trans }}</h1>
 
 <form
     id="monei-onsite"
@@ -10,6 +10,7 @@
     data-after-pay-url="{{ monei.after_pay_url }}"
     data-cardholder-name-required="{{ 'monei.ui.onsite.cardholder_name_required'|trans }}"
     {% if monei.component == 'card' %}data-card-layout="{{ monei.card_layout }}"{% endif %}
+    {% if monei.session_id is not null %}data-session-id="{{ monei.session_id }}" data-method-code="{{ monei.method_code }}"{% endif %}
     novalidate
 >
     {% if monei.component == 'card' %}
@@ -21,3 +22,13 @@
     {% endif %}
     <div class="invalid-feedback d-block mt-3" id="monei-onsite-error" aria-live="polite"></div>
 </form>
+{% if monei.session_id is not null %}
+    {# Shown instead of the title and the form while the token from the Complete page confirms the payment. #}
+    <div class="text-center py-5" id="monei-onsite-processing" hidden>
+        <div class="spinner-border mb-3" role="status">
+            <span class="visually-hidden">{{ 'monei.ui.inline.processing_payment'|trans }}</span>
+        </div>
+        <p class="h4" aria-hidden="true">{{ 'monei.ui.inline.processing_payment'|trans }}</p>
+        <p class="text-body-secondary">{{ 'monei.ui.inline.do_not_close'|trans }}</p>
+    </div>
+{% endif %}
