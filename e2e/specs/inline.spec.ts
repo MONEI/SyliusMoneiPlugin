@@ -226,6 +226,18 @@ test.describe("inline card", () => {
     await expect(page).not.toHaveURL(/\/checkout\/complete/);
   });
 
+  test("with a monei.js that defines no monei, the fields hide and Place order places the order", async ({ page }) => {
+    await page.route(/js\.monei\.com\/v3\/monei\.js/, (route) =>
+      route.fulfill({ contentType: "text/javascript", body: "" }),
+    );
+    await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-empty-script");
+    await expect(page.locator("#monei-cardholder-name")).toBeHidden();
+
+    await placeOrder(page).click();
+    await expect(page.locator("#monei-onsite")).toBeAttached({ timeout: MOUNT_TIMEOUT });
+    await expect(page).not.toHaveURL(/\/checkout\/complete/);
+  });
+
   test("with js.monei.com hanging, Place order shows and places the order", async ({ page }) => {
     // Never answered on the Complete page; the pay page gets the script.
     let placed = false;

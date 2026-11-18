@@ -188,7 +188,8 @@
             // which renders after this hook. Without monei.js, Place order submits without a token.
             var script = document.createElement('script');
             script.src = 'https://js.monei.com/v3/monei.js';
-            script.onload = function () { whenDomReady(init); };
+            // A proxy may answer with a body that defines no monei.
+            script.onload = function () { whenDomReady(window.monei ? init : fallBack); };
             script.onerror = function () { whenDomReady(fallBack); };
             document.head.appendChild(script);
         })();

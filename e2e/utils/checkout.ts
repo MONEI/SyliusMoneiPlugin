@@ -160,7 +160,7 @@ export async function fillInlineCard(
     await fillCardFrames(() => frame, card);
   } else {
     await fillCardFrames((field) => cardPartFrame(page, field), card);
-    // The parts report their state to the page after the last keystroke; a submit before that sees an empty part.
+    // A click right after the last keystroke sometimes made no token (seen only in specs that route requests).
     for (const container of Object.values(CARD_PART_CONTAINERS)) {
       await expect(page.locator(container)).toHaveClass(/\bmonei-component--complete\b/);
     }
