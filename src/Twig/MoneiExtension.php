@@ -76,7 +76,7 @@ final class MoneiExtension extends AbstractExtension
     {
         $payment = $order->getLastPayment(PaymentInterface::STATE_CART);
         $paymentMethod = $payment?->getMethod();
-        if (null === $payment || null === $paymentMethod || null === $order->getId() || !GatewayConfiguration::isMonei($paymentMethod)) {
+        if (null === $payment || null === $paymentMethod || null === $order->getId() || null === $payment->getId() || !GatewayConfiguration::isMonei($paymentMethod)) {
             return null;
         }
 
@@ -98,7 +98,7 @@ final class MoneiExtension extends AbstractExtension
             'component' => $component,
             'account_id' => $config->accountId,
             'session_id' => $this->sessionId->forOrder($order),
-            'entry_key' => $this->sessionId->entryKey($order),
+            'entry_key' => $this->sessionId->entryKey($payment),
             // Button components only: MONEI refuses their token when the amount or currency differs from the payment's.
             'amount' => (int) $payment->getAmount(),
             'currency' => strtoupper((string) $payment->getCurrencyCode()),

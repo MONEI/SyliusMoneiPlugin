@@ -69,7 +69,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
                 'transaction_type' => $configuration->transactionType(),
                 'after_pay_url' => $this->afterPayUrlProvider->getUrl($paymentRequest),
                 'card_layout' => $configuration->cardLayout,
-                'entry_key' => $inline ? $this->sessionId->entryKey($order) : null,
+                'entry_key' => $inline ? $this->sessionId->entryKey($payment) : null,
                 'method_code' => $inline ? (string) $paymentRequest->getMethod()->getCode() : null,
             ],
         ]));
