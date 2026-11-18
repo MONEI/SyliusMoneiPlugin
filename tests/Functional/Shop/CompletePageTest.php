@@ -44,6 +44,14 @@ final class CompletePageTest extends MoneiTestCase
         self::assertStringNotContainsString(self::API_KEY, (string) $this->client->getResponse()->getContent());
     }
 
+    /** The hook runs on every checkout: a non-MONEI method must not break the page. */
+    public function testAnOfflineMethodRendersTheCompletePageWithoutTheComponent(): void
+    {
+        $this->attachCart($this->createOfflinePaymentMethod('OFFLINE'));
+
+        self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
+    }
+
     private function completePage(): Crawler
     {
         $crawler = $this->client->request('GET', '/en_US/checkout/complete');
