@@ -85,6 +85,12 @@ composer require monei/sylius-monei-plugin:^2.0
 
 Keep the `^2.0` constraint. Without it, Composer can select 1.x on an older Sylius. Version 1.x does not work.
 
+Version 2.2.0 needs Sylius 2.2.13 or 2.3.3 or later. If Composer says that `sylius/sylius` is locked to an older version, update Sylius first:
+
+```bash
+composer update sylius/sylius --with-all-dependencies
+```
+
 ### 2. Register the bundle
 
 Symfony Flex usually adds this line. Check `config/bundles.php` and add it if it is missing.
