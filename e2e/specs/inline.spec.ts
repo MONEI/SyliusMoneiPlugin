@@ -390,8 +390,27 @@ test.describe("inline card", () => {
   });
 });
 
+/**
+ * Adds `country` to the monei.js payment methods request of the Complete page (the account ID
+ * request; the pay page asks by payment ID). `answered` resolves on the first response. Without a
+ * country, MONEI locates the buyer by IP, and Bizum is only for buyers in Spain.
+ */
+async function locateBuyer(page: Page, country: string): Promise<{ answered: Promise<void> }> {
+  let answer!: () => void;
+  const answered = new Promise<void>((resolve) => (answer = resolve));
+  await page.route(/\/client-payment-methods\?/, async (route) => {
+    const url = new URL(route.request().url());
+    if (!url.searchParams.has("accountId")) return route.continue();
+    url.searchParams.set("countryCode", country);
+    await route.fulfill({ response: await route.fetch({ url: url.toString() }) });
+    answer();
+  });
+  return { answered };
+}
+
 test.describe("inline Bizum", () => {
   test("the Bizum button takes the place and the height of Place order", async ({ page }) => {
+    await locateBuyer(page, "ES");
     await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum-look");
     const frame = page.locator('#monei-component iframe[title="monei_bizum_button"]');
     await expect(frame).toBeVisible({ timeout: MOUNT_TIMEOUT });
@@ -409,8 +428,33 @@ test.describe("inline Bizum", () => {
   });
 
   test("Bizum with the test phone ends on the thank-you page", async ({ page }) => {
+    await locateBuyer(page, "ES");
     const email = await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum");
 
+    await payBizumOnsite(page);
+    await expectThankYou(page);
+
+    const id = moneiId(email);
+    expect((await getPayment(id)).status).toBe("SUCCEEDED");
+    await expectSyliusPayment(id, "completed");
+  });
+
+  test("a buyer outside Spain keeps Place order and pays Bizum on the pay page", async ({ page }) => {
+    const { answered } = await locateBuyer(page, "US");
+    const email = await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum-outside");
+
+    await answered;
+    // The button reports onLoad(false) after the response.
+    await page.waitForTimeout(1_000);
+    await expect(
+      page.frameLocator('#monei-component iframe[title="monei_bizum_button"]').getByTestId("bizum-button"),
+    ).toBeHidden();
+    await expect(placeOrder(page)).toBeVisible();
+    await expect(placeOrder(page)).toBeEnabled();
+
+    await placeOrder(page).click();
+    await expect(page.locator("#monei-onsite")).toBeVisible({ timeout: MOUNT_TIMEOUT });
+    await expect(page).not.toHaveURL(/\/checkout\/complete/);
     await payBizumOnsite(page);
     await expectThankYou(page);
 
