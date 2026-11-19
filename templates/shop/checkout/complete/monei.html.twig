@@ -92,7 +92,12 @@
                     // Without the entry the pay page shows its own fields.
                 }
                 // A validated submit, so the store's own submit listeners run; the card handler lets it through.
-                form.requestSubmit(placeOrder);
+                submitForm();
+            }
+
+            // Safari before 16 has no requestSubmit(); a plain submit still places the order.
+            function submitForm() {
+                form.requestSubmit ? form.requestSubmit(placeOrder) : form.submit();
             }
 
             // The store's own checks run before the buyer approves the payment.
@@ -143,7 +148,7 @@
                         submitWithToken(result.token, cardholderName);
                     }, function () {
                         fallBack();
-                        form.requestSubmit(placeOrder);
+                        submitForm();
                     });
                 });
             }
