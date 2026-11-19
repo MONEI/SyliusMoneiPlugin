@@ -1,0 +1,13 @@
+{% set monei = monei_method_logos(hookable_metadata.context.method) %}
+
+{# Inside the radio's <label>: aria-hidden keeps the method name as the radio's accessible name. #}
+{% if monei is not null %}
+    <div class="monei-method-logos d-flex flex-wrap align-items-center gap-2 ps-4 mt-1" aria-hidden="true">
+        {% for logo in monei.logos %}
+            {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo } only %}
+        {% endfor %}
+        {% if monei.test_mode %}
+            <span class="badge text-bg-warning monei-test-mode-badge">{{ 'monei.ui.test_mode'|trans }}</span>
+        {% endif %}
+    </div>
+{% endif %}

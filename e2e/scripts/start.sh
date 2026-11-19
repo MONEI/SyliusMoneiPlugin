@@ -5,7 +5,7 @@ set -euo pipefail
 source "$(dirname "$0")/lib.sh"
 
 export PHP_VERSION="${PHP_VERSION:-8.4}"
-export SYLIUS_VERSION="${SYLIUS_VERSION:-^2.3.2}"
+export SYLIUS_VERSION="${SYLIUS_VERSION:-^2.3.3}"
 
 # Refuses a live key and an account without card, Bizum, PayPal and Google Pay, before the long build.
 node "$E2E_DIR/scripts/preflight.ts"
@@ -42,13 +42,17 @@ wait_for 120 nginx "the store on $LOCAL_STORE_URL" store_ready
 # A fresh order ID prefix per run: MONEI's duplicate check on orderId never expires.
 E2E_RUN_ID="$(printf '%x%04x' "$(date +%s)" "$RANDOM")"
 export E2E_RUN_ID
+# The account ID of the inline payment methods: it is in the page HTML of the Complete step.
+E2E_ACCOUNT_ID="$(node "$E2E_DIR/scripts/account-id.ts")"
+gha_mask "$E2E_ACCOUNT_ID"
+export E2E_ACCOUNT_ID
 # A random admin password per run, kept only in a file the specs read. Never printed.
 (umask 077 && openssl rand -hex 24 >"$GENERATED_DIR/admin-password")
 E2E_ADMIN_PASSWORD="$(cat "$GENERATED_DIR/admin-password")"
 gha_mask "$E2E_ADMIN_PASSWORD"
 export E2E_ADMIN_PASSWORD
 compose run --rm -T seed php /app/seed.php >"$GENERATED_DIR/fixtures.json"
-unset E2E_ADMIN_PASSWORD
+unset E2E_ADMIN_PASSWORD E2E_ACCOUNT_ID
 
 compose up -d tunnel
 registered() { compose logs --no-color tunnel 2>/dev/null | grep -q 'Registered tunnel connection'; }

@@ -7,3 +7,18 @@ sylius_twig_hooks:
             script:
                 template: '@MoneiSyliusPlugin/shop/order_pay/onsite/script.html.twig'
                 priority: 0
+
+        'sylius_shop.shared.form.select_payment.payment.choice.monei.details':
+            logos:
+                template: '@MoneiSyliusPlugin/shop/checkout/select_payment/logos.html.twig'
+                priority: -100
+
+        'sylius_shop.checkout.complete.content.form':
+            monei:
+                template: '@MoneiSyliusPlugin/shop/checkout/complete/monei.html.twig'
+                priority: 50
+
+        'sylius_shop.order.show.content':
+            monei_clear_inline_entry:
+                template: '@MoneiSyliusPlugin/shop/order/show/clear_inline_entry.html.twig'
+                priority: -100

@@ -1,6 +1,6 @@
 {% set monei = hookable_metadata.context.monei %}
 
-<h1 class="h2 mb-4">{{ 'monei.ui.onsite.title'|trans }}</h1>
+<h1 class="h2 mb-4" id="monei-onsite-title">{{ 'monei.ui.onsite.title'|trans }}</h1>
 
 <form
     id="monei-onsite"
@@ -10,43 +10,25 @@
     data-after-pay-url="{{ monei.after_pay_url }}"
     data-cardholder-name-required="{{ 'monei.ui.onsite.cardholder_name_required'|trans }}"
     {% if monei.component == 'card' %}data-card-layout="{{ monei.card_layout }}"{% endif %}
+    {% if monei.entry_key is not null %}data-entry-key="{{ monei.entry_key }}" data-method-code="{{ monei.method_code }}"{% endif %}
     novalidate
 >
     {% if monei.component == 'card' %}
-        {# monei.js mounts each card field in an iframe; the container is the visible box, sized and styled by the script. #}
-        <style>
-            .form-control.monei-card-part { padding: 0; }
-            .monei-card-part > *, .monei-card-part iframe { height: 100% !important; }
-        </style>
-        <div class="mb-3">
-            <label class="form-label" for="monei-cardholder-name">{{ 'monei.ui.onsite.cardholder_name'|trans }}</label>
-            <input class="form-control" id="monei-cardholder-name" name="cardholder_name" autocomplete="cc-name" required>
-        </div>
-        {% if monei.card_layout == 'single' %}
-            <div class="mb-3">
-                <label class="form-label">{{ 'monei.ui.onsite.card_details'|trans }}</label>
-                <div class="form-control monei-card-part" id="monei-card-input"></div>
-            </div>
-        {% else %}
-            <div class="mb-3">
-                <label class="form-label">{{ 'monei.ui.onsite.card_number'|trans }}</label>
-                <div class="form-control monei-card-part" id="monei-card-number"></div>
-            </div>
-            <div class="row g-3 mb-3">
-                <div class="col">
-                    <label class="form-label">{{ 'monei.ui.onsite.card_expiry'|trans }}</label>
-                    <div class="form-control monei-card-part" id="monei-card-expiry"></div>
-                </div>
-                <div class="col">
-                    <label class="form-label">{{ 'monei.ui.onsite.card_cvc'|trans }}</label>
-                    <div class="form-control monei-card-part" id="monei-card-cvc"></div>
-                </div>
-            </div>
-        {% endif %}
+        {% include '@MoneiSyliusPlugin/shop/shared/monei_card_fields.html.twig' with { card_layout: monei.card_layout, cardholder_input_name: 'cardholder_name' } only %}
         <button class="btn btn-primary" type="submit">{{ 'monei.ui.onsite.pay'|trans }}</button>
     {% else %}
         {# Not id="monei-paypal": element ids are window properties, and the PayPal SDK reads window["monei-paypal"]. #}
         <div id="monei-component"></div>
     {% endif %}
-    <div class="text-danger mt-3" id="monei-onsite-error" role="alert"></div>
+    <div class="invalid-feedback d-block mt-3" id="monei-onsite-error" aria-live="polite"></div>
 </form>
+{% if monei.entry_key is not null %}
+    {# Shown instead of the title and the form while the token from the Complete page confirms the payment. #}
+    <div class="text-center py-5" id="monei-onsite-processing" hidden>
+        <div class="spinner-border mb-3" role="status">
+            <span class="visually-hidden">{{ 'monei.ui.inline.processing_payment'|trans }}</span>
+        </div>
+        <p class="h4" aria-hidden="true">{{ 'monei.ui.inline.processing_payment'|trans }}</p>
+        <p class="text-body-secondary">{{ 'monei.ui.inline.do_not_close'|trans }}</p>
+    </div>
+{% endif %}

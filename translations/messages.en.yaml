@@ -9,15 +9,20 @@ monei:
         mbway: MB WAY
         multibanco: Multibanco
     ui:
+        test_mode: Test mode
         onsite:
             title: Pay your order
-            cardholder_name: Cardholder name
-            cardholder_name_required: Enter the cardholder name.
+            cardholder_name: Name on card
+            cardholder_name_required: Enter the name on card.
             card_details: Card details
             card_number: Card number
             card_expiry: Expiry date
             card_cvc: CVC
             pay: Pay
+        inline:
+            processing: Processing…
+            processing_payment: Processing payment…
+            do_not_close: Please do not close this window.
     form:
         gateway_configuration:
             api_key: API key
@@ -35,3 +40,5 @@ monei:
             card_layout_help: Show the card fields on a single line, or as separate card number, expiry and CVC fields. Only card in onsite mode.
             card_layout_split: Separate fields
             card_layout_single: Single line
+            account_id: Account ID
+            account_id_help: Optional. Your MONEI account ID, from the MONEI dashboard. In onsite mode, the payment form then shows on the checkout page. Leave empty to keep the separate payment page.

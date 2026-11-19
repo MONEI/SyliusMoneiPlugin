@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-19
+
+### Added
+
+- Optional **Account ID** gateway setting (a UUID). An onsite payment method with an Account ID uses inline payment: the card fields, or the Bizum, PayPal or Apple Pay / Google Pay button, show on the checkout Complete step. The token goes from the browser to MONEI, not to the store's server.
+- After an inline Place order, the pay page shows "Processing payment…" and confirms the payment with monei.js. When there is no usable token, the pay page works as in 2.1.
+- Before the inline Bizum, PayPal or wallet window opens, the store's own checks on the Complete form run (for example a required terms box).
+- MONEI shows the inline Bizum button only to buyers it locates in Spain by IP. Other buyers keep Place order; on the pay page MONEI uses the billing address country.
+- Method logos next to each MONEI method on the checkout Payment step, and a "Test mode" badge for a `pk_test_` key.
+- On Sylius 2.3, the admin payment method list shows the MONEI logo and the method logos, unless your store sets its own template for the name field of the `sylius_admin_payment_method` grid.
+
+### Changed
+
+- Requires Sylius 2.2.13 or later on the 2.2 line, or Sylius 2.3.3 or later (`~2.2.13 || ^2.3.3`). These versions fix the Sylius security advisories of 2026-11-18: PKSA-4j8y-7y7g-12nz, PKSA-4bv5-whyg-w8m1 and PKSA-9hkr-rfsw-bmqz.
+- The onsite pay page templates changed: the card fields and their script are shared partials in `templates/shop/shared/`, and the page confirms the inline token. If you override them, copy the changes again.
+- The cardholder label is "Name on card" (Spanish: "Nombre en la tarjeta"). The card field labels show the required asterisk.
+- The logo files ship in `public/images/`. Run `bin/console assets:install` after the update (Sylius-Standard runs it in its Composer `auto-scripts`).
+
 ## [2.1.0] - 2026-11-17
 
 ### Added

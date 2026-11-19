@@ -22,7 +22,7 @@ final class GatewayFormTest extends MoneiTestCase
         $this->client->loginUser($this->admin, 'admin');
     }
 
-    public function testCreateSavesTheSixValues(): void
+    public function testCreateSavesTheSevenValues(): void
     {
         $form = $this->createForm('MONEI_PAYPAL');
         $form[self::CONFIG.'[api_key]'] = 'pk_live_newstorekey';
@@ -31,11 +31,13 @@ final class GatewayFormTest extends MoneiTestCase
         $form[self::CONFIG.'[use_authorize]']->tick();
         $form[self::CONFIG.'[order_id_prefix]'] = 'shop-1';
         $form[self::CONFIG.'[card_layout]'] = 'single';
+        $form[self::CONFIG.'[account_id]'] = '00000000-0000-4000-8000-000000000000';
 
         $this->client->submit($form);
 
         self::assertTrue($this->client->getResponse()->isRedirect());
         self::assertConfig([
+            'account_id' => '00000000-0000-4000-8000-000000000000',
             'api_key' => 'pk_live_newstorekey',
             'card_layout' => 'single',
             'mode' => 'onsite',
@@ -62,9 +64,28 @@ final class GatewayFormTest extends MoneiTestCase
         self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
     }
 
+    public function testApiKeyAsAccountIdShowsTheErrorOnAccountIdAndSavesNothing(): void
+    {
+        $form = $this->createForm('MONEI_CARD');
+        $form[self::CONFIG.'[api_key]'] = self::API_KEY;
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+        $form[self::CONFIG.'[mode]'] = 'onsite';
+        $form[self::CONFIG.'[account_id]'] = 'pk_test_0123456789abcdef';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString(
+            'The account ID must be a MONEI account ID (a UUID), not an API key.',
+            $this->fieldRow($crawler, 'account_id')->text(),
+        );
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
+    }
+
+    /** A lost account ID would silently turn inline payment off on a key rotation. */
     public function testUpdateShowsTheSavedValuesAndSavesANewApiKey(): void
     {
-        $method = $this->createMoneiPaymentMethod('MONEI_BIZUM', ['payment_method' => 'bizum', 'mode' => 'onsite']);
+        $method = $this->createMoneiPaymentMethod('MONEI_BIZUM', ['payment_method' => 'bizum', 'mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]);
 
         $crawler = $this->client->request('GET', \sprintf('/admin/payment-methods/%d/edit', $method->getId()));
         $form = $crawler->filterXPath('//form[@name="'.self::FORM.'"]')->form();
@@ -75,7 +96,8 @@ final class GatewayFormTest extends MoneiTestCase
         $this->client->submit($form);
 
         self::assertTrue($this->client->getResponse()->isRedirect());
-        self::assertSame('pk_test_rotatedkey', $this->savedConfig('MONEI_BIZUM')['api_key'] ?? null);
+        $saved = $this->savedConfig('MONEI_BIZUM');
+        self::assertSame(['pk_test_rotatedkey', self::ACCOUNT_ID], [$saved['api_key'] ?? null, $saved['account_id'] ?? null]);
     }
 
     public function testGatewayConfigPersistedWithUsePayumIsStoredWithout(): void

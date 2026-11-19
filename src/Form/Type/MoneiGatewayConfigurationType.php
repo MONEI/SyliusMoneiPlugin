@@ -15,6 +15,7 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\Regex;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 final class MoneiGatewayConfigurationType extends AbstractType
@@ -67,6 +68,18 @@ final class MoneiGatewayConfigurationType extends AbstractType
                     'monei.form.gateway_configuration.card_layout_single' => GatewayConfiguration::CARD_LAYOUT_SINGLE,
                 ],
                 'empty_data' => GatewayConfiguration::CARD_LAYOUT_SPLIT,
+            ])
+            ->add(GatewayConfiguration::ACCOUNT_ID, TextType::class, [
+                'label' => 'monei.form.gateway_configuration.account_id',
+                'help' => 'monei.form.gateway_configuration.account_id_help',
+                'required' => false,
+                'empty_data' => '',
+                'attr' => ['autocomplete' => 'off'],
+                'constraints' => [new Regex(
+                    pattern: GatewayConfiguration::ACCOUNT_ID_PATTERN,
+                    message: 'monei.gateway_configuration.account_id.invalid',
+                    groups: self::GROUPS,
+                )],
             ])
         ;
     }

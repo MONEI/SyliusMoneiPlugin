@@ -35,6 +35,17 @@ final class HostedPayTest extends MoneiTestCase
         self::assertRedirectsTo('https://secure.monei.com/payments/pay_1', Response::HTTP_SEE_OTHER);
     }
 
+    /** The account ID is for the Complete page component, which hosted mode never shows. */
+    public function testAHostedMethodWithAnAccountIdSendsNoSessionId(): void
+    {
+        $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['account_id' => '0b1e7c2a-3d4f-4a5b-8c6d-7e8f9a0b1c2d']));
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+
+        $this->pay($order);
+
+        self::assertArrayNotHasKey('sessionId', $this->onlyRequest('POST /payments'));
+    }
+
     public function testAMethodWithUseAuthorizePaysThroughAnAuthorizeRequestAndSendsAuth(): void
     {
         $order = $this->placeOrder($this->createMoneiPaymentMethod('MONEI_CARD', ['use_authorize' => true]));

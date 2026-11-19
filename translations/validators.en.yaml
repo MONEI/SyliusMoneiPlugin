@@ -12,3 +12,5 @@ monei:
             not_supported: This payment method cannot authorize. It always charges at once.
         order_id_prefix:
             invalid: The prefix allows at most 20 letters, digits, - and _.
+        account_id:
+            invalid: The account ID must be a MONEI account ID (a UUID), not an API key.

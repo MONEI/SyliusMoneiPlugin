@@ -19,6 +19,9 @@ final readonly class GatewayConfiguration
     public const USE_AUTHORIZE = 'use_authorize';
     public const ORDER_ID_PREFIX = 'order_id_prefix';
     public const CARD_LAYOUT = 'card_layout';
+    public const ACCOUNT_ID = 'account_id';
+
+    public const ACCOUNT_ID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD';
 
     public const MODE_HOSTED = 'hosted';
     public const MODE_ONSITE = 'onsite';
@@ -34,7 +37,19 @@ final readonly class GatewayConfiguration
         public string $orderIdPrefix,
         /** Used by the card method in onsite mode only. */
         public string $cardLayout,
+        public ?string $accountId,
     ) {
+    }
+
+    /** Onsite with an account ID: the payment form shows on the checkout Complete step. */
+    public function inline(): bool
+    {
+        return $this->onsite && null !== $this->accountId;
+    }
+
+    public function testMode(): bool
+    {
+        return str_starts_with($this->apiKey, 'pk_test_');
     }
 
     public function transactionType(): string
@@ -101,6 +116,11 @@ final readonly class GatewayConfiguration
         // Read leniently: a refused config makes bound payments unreachable, and a cosmetic key must not block capture or refund.
         $cardLayout = self::CARD_LAYOUT_SINGLE === ($config[self::CARD_LAYOUT] ?? null) ? self::CARD_LAYOUT_SINGLE : self::CARD_LAYOUT_SPLIT;
 
-        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout);
+        // Lenient for the same reason; a non-UUID value (such as a pasted API key) never reaches a page.
+        $accountId = $config[self::ACCOUNT_ID] ?? null;
+        $accountId = \is_string($accountId) ? trim($accountId) : '';
+        $accountId = 1 === preg_match(self::ACCOUNT_ID_PATTERN, $accountId) ? $accountId : null;
+
+        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout, $accountId);
     }
 }

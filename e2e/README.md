@@ -21,8 +21,8 @@ pnpm --dir e2e e2e         # run the specs
 pnpm --dir e2e e2e:stop    # remove the stack and close the tunnel
 ```
 
-`e2e:start` takes `SYLIUS_VERSION` (a Composer constraint, default `^2.3.2`) and `PHP_VERSION`
-(default `8.4`), for example `SYLIUS_VERSION=2.2.12 PHP_VERSION=8.2 pnpm --dir e2e e2e:start`.
+`e2e:start` takes `SYLIUS_VERSION` (a Composer constraint, default `^2.3.3`) and `PHP_VERSION`
+(default `8.4`), for example `SYLIUS_VERSION=2.2.13 PHP_VERSION=8.2 pnpm --dir e2e e2e:start`.
 
 `e2e:start` refuses a live key, and a key whose account does not offer card, Bizum, PayPal and
 Google Pay. Each run seeds its own MONEI `order_id_prefix`, because MONEI's duplicate check on the
@@ -52,3 +52,7 @@ JWT keypair that the test application ships, so nobody can sign an admin API tok
   Node's `fetch`, never through a Playwright call, and `specs/admin.spec.ts` records no trace,
   screenshot or video.
 - Scripts and specs read MONEI with Node's `fetch`, never through the browser.
+- The inline payment methods need the MONEI account ID. MONEI returns it only on a payment, so
+  `e2e:start` creates one test payment and cancels it at once. The ID goes to the `seed` container
+  only, and `start.sh` masks it in the GitHub Actions job log. The checkout Complete page shows it
+  in its HTML, so `specs/inline.spec.ts` records no trace or screenshot.

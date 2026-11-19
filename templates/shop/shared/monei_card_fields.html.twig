@@ -1,0 +1,31 @@
+{# card_layout: split or single; cardholder_input_name: the cardholder input's name, or null so it never posts. #}
+{# monei.js mounts each card field in an iframe; the container is the visible box, sized and styled by the script. #}
+<style>
+    .form-control.monei-card-part { padding: 0; }
+    .monei-card-part > *, .monei-card-part iframe { height: 100% !important; }
+</style>
+<div class="mb-3">
+    <label class="form-label required" for="monei-cardholder-name">{{ 'monei.ui.onsite.cardholder_name'|trans }}</label>
+    <input class="form-control" id="monei-cardholder-name"{% if cardholder_input_name is not null %} name="{{ cardholder_input_name }}"{% endif %} autocomplete="cc-name" required>
+</div>
+{% if card_layout == 'single' %}
+    <div class="mb-3">
+        <label class="form-label required">{{ 'monei.ui.onsite.card_details'|trans }}</label>
+        <div class="form-control monei-card-part" id="monei-card-input"></div>
+    </div>
+{% else %}
+    <div class="mb-3">
+        <label class="form-label required">{{ 'monei.ui.onsite.card_number'|trans }}</label>
+        <div class="form-control monei-card-part" id="monei-card-number"></div>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col">
+            <label class="form-label required">{{ 'monei.ui.onsite.card_expiry'|trans }}</label>
+            <div class="form-control monei-card-part" id="monei-card-expiry"></div>
+        </div>
+        <div class="col">
+            <label class="form-label required">{{ 'monei.ui.onsite.card_cvc'|trans }}</label>
+            <div class="form-control monei-card-part" id="monei-card-cvc"></div>
+        </div>
+    </div>
+{% endif %}

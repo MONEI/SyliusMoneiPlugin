@@ -7,6 +7,7 @@ namespace Monei\SyliusPlugin\Tests\Unit\Payment;
 use Monei\Model\CreatePaymentRequest;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
+use Monei\SyliusPlugin\Payment\SessionId;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Sylius\Component\Core\Model\Order;
@@ -89,7 +90,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
         $payment->setCurrencyCode('EUR');
         $order->addPayment($payment);
 
-        $request = (new CreatePaymentRequestFactory(new RequestStack(), new MockClock('@1767225600'), '30 days'))->create(
+        $request = (new CreatePaymentRequestFactory(new RequestStack(), new MockClock('@1767225600'), '30 days', new SessionId('secret')))->create(
             $payment,
             GatewayConfiguration::fromArray(['api_key' => 'pk_test_0123456789abcdef', 'payment_method' => 'card']),
             'https://shop.test/after-pay',
@@ -122,7 +123,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
             'mode' => 'hosted',
         ]);
 
-        return (new CreatePaymentRequestFactory(new RequestStack(), new MockClock(), '5 days'))
+        return (new CreatePaymentRequestFactory(new RequestStack(), new MockClock(), '5 days', new SessionId('secret')))
             ->create($payment, $configuration, 'https://shop.test/after-pay', 'https://shop.test/callback');
     }
 }

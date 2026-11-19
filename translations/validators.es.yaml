@@ -12,3 +12,5 @@ monei:
             not_supported: Este método de pago no puede autorizar. Siempre cobra al momento.
         order_id_prefix:
             invalid: El prefijo admite como máximo 20 letras, dígitos, - y _.
+        account_id:
+            invalid: El ID de cuenta debe ser un ID de cuenta de MONEI (un UUID), no una clave API.

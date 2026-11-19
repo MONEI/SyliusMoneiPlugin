@@ -12,6 +12,67 @@ use Symfony\Component\HttpFoundation\Response;
 /** The onsite order-pay page as rendered; its monei.js script runs only in the e2e suite. */
 final class OnsitePayTest extends MoneiTestCase
 {
+    /**
+     * MONEI refuses the Complete page token unless the payment has the session ID the page gave
+     * the component; the pay page finds the token in the browser under the key the Complete page used.
+     */
+    public function testAnInlinePaymentCarriesTheSessionIdOfTheCompletePage(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_INLINE', ['mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+        $complete = $this->client->request('GET', '/en_US/checkout/complete');
+        $inline = $complete->filterXPath('//div[@id="monei-inline"]');
+        $sessionId = (string) $inline->attr('data-session-id');
+        $entryKey = (string) $inline->attr('data-entry-key');
+        self::assertNotSame('', $sessionId);
+        self::assertNotSame('', $entryKey);
+
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $this->client->followRedirects();
+        $page = $this->client->submit($complete->filterXPath('//div[@id="monei-inline"]/ancestor::form')->form());
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['POST /payments'], $this->requestKeys());
+        self::assertSame($sessionId, self::lastRequestBody()['sessionId'] ?? null);
+        $form = $page->filterXPath('//form[@id="monei-onsite"]');
+        self::assertSame([$entryKey, 'MONEI_INLINE'], [$form->attr('data-entry-key'), $form->attr('data-method-code')]);
+    }
+
+    /**
+     * A failed MONEI create leaves the Complete page token in the browser. A pay again from the
+     * order page must show the fields, not confirm with that token.
+     */
+    public function testAPayAgainAfterAFailedCreateDoesNotFindTheCompletePageToken(): void
+    {
+        $order = $this->attachCart($this->createMoneiPaymentMethod('MONEI_INLINE', ['mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+        $complete = $this->client->request('GET', '/en_US/checkout/complete');
+        $entryKey = (string) $complete->filterXPath('//div[@id="monei-inline"]')->attr('data-entry-key');
+
+        MoneiMockHandler::append(self::error(500, 'Internal server error'));
+        $this->client->followRedirects();
+        $this->client->submit($complete->filterXPath('//div[@id="monei-inline"]/ancestor::form')->form());
+        $this->client->followRedirects(false);
+        // Placed in the request's entity manager: the cart entity here has no order token.
+        $order = $this->entityManager()->find($order::class, $order->getId());
+        \assert(null !== $order);
+
+        MoneiMockHandler::append(self::moneiPayment('pay_1', 'PENDING'));
+        $page = $this->client->request('GET', $this->startPay($order));
+        self::assertResponseIsSuccessful();
+
+        self::assertSame(['POST /payments', 'POST /payments'], $this->requestKeys());
+        self::assertStringStartsWith('monei.inline.', (string) $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-entry-key'));
+        self::assertNotSame($entryKey, $page->filterXPath('//form[@id="monei-onsite"]')->attr('data-entry-key'));
+    }
+
+    /** Without an account ID the Complete page makes no token, so nothing may look for one. */
+    public function testAnOnsitePaymentWithoutAccountIdHasNoSessionId(): void
+    {
+        $page = $this->payOnsite(['payment_method' => 'card']);
+
+        self::assertArrayNotHasKey('sessionId', self::lastRequestBody());
+        self::assertNull($page->filterXPath('//form[@id="monei-onsite"]')->attr('data-entry-key'));
+    }
+
     public function testTheCardPageHasACardholderNameInputAndLoadsMoneiJs(): void
     {
         $page = $this->payOnsite(['payment_method' => 'card']);
