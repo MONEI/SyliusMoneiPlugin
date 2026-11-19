@@ -302,6 +302,23 @@ test.describe("inline card", () => {
     expect(confirms()).toBe(0);
   });
 
+  test("a store submit listener that stops Place order keeps Place order usable", async ({ page }) => {
+    const email = await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-store-stops");
+    // A store script that stops the Complete form submit (for example its own checks).
+    await page.evaluate(() => {
+      const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
+      form.addEventListener("submit", (event) => event.preventDefault());
+    });
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    await placeOrder(page).click();
+
+    await expect(placeOrder(page)).toBeEnabled({ timeout: MOUNT_TIMEOUT });
+    await expect(page).toHaveURL(/\/checkout\/complete/);
+    expect(placedOrderCount(email)).toBe(0);
+    expect(await page.evaluate(() => Object.keys(sessionStorage).filter((key) => key.startsWith("monei.inline.")).length)).toBe(0);
+  });
+
   test("a form made invalid while the token is made keeps Place order usable", async ({ page }) => {
     const email = await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-invalid-late");
     // A store that validates the Complete form, here with a required terms box.
