@@ -80,6 +80,11 @@
                 if (submitting) {
                     return;
                 }
+                // The buyer can change the form while monei.js makes the token; an invalid form must not leave Place order busy.
+                if (!formIsValid()) {
+                    setBusy(false);
+                    return;
+                }
                 submitting = true;
                 try {
                     window.sessionStorage.setItem(entryKey, JSON.stringify({

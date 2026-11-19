@@ -302,6 +302,37 @@ test.describe("inline card", () => {
     expect(confirms()).toBe(0);
   });
 
+  test("a form made invalid while the token is made keeps Place order usable", async ({ page }) => {
+    const email = await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-invalid-late");
+    // A store that validates the Complete form, here with a required terms box.
+    await page.evaluate(() => {
+      const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
+      form.noValidate = false;
+      const terms = document.createElement("input");
+      terms.type = "checkbox";
+      terms.id = "terms";
+      terms.required = true;
+      terms.checked = true;
+      form.prepend(terms);
+    });
+
+    await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(/\/v1\/tokens/, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await placeOrder(page).click();
+    await expect(placeOrder(page)).toBeDisabled();
+    await page.locator("#terms").uncheck();
+    release();
+
+    await expect(placeOrder(page)).toBeEnabled({ timeout: MOUNT_TIMEOUT });
+    await expect(page).toHaveURL(/\/checkout\/complete/);
+    expect(placedOrderCount(email)).toBe(0);
+  });
+
   for (const [name, transform] of [
     ["another payment method", (entry: Entry) => ({ ...entry, methodCode: "monei_card_onsite" })],
     ["an expired token", (entry: Entry) => ({ ...entry, expiresAt: 0 })],
