@@ -137,9 +137,14 @@ test.describe("inline card", () => {
   test("empty card fields show the monei.js error and Place order stays enabled", async ({ page }) => {
     const email = await toComplete(page, "monei_card_inline", PRODUCTS.tShirt, "inline-no-card");
 
-    await expect(cardPartFrame(page, "number").getByTestId("card-number-input")).toBeEditable({
-      timeout: MOUNT_TIMEOUT,
-    });
+    // Before all three parts load, Place order submits without a token by design.
+    for (const [field, testId] of [
+      ["number", "card-number-input"],
+      ["expiry", "expiry-date-input"],
+      ["cvc", "cvc-input"],
+    ] as const) {
+      await expect(cardPartFrame(page, field).getByTestId(testId)).toBeEditable({ timeout: MOUNT_TIMEOUT });
+    }
     await page.locator("#monei-cardholder-name").fill("Ana Inline");
     await placeOrder(page).click();
 
