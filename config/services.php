@@ -26,6 +26,7 @@ use Monei\SyliusPlugin\Payment\SessionId;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
+use Monei\SyliusPlugin\Twig\CardBrandLogos;
 use Monei\SyliusPlugin\Twig\MoneiExtension;
 use Sylius\Component\Grid\Mutator\GridMutatorInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -39,8 +40,12 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
     $services->set('monei.http_client', Client::class)
         ->args([['timeout' => 30, 'connect_timeout' => 10]]);
 
+    // For calls made while a page renders.
+    $services->set('monei.render_http_client', Client::class)
+        ->args([['timeout' => 2, 'connect_timeout' => 2]]);
+
     $services->set(MoneiApiFactory::class)
-        ->args([service('monei.http_client'), UserAgent::current()]);
+        ->args([service('monei.http_client'), UserAgent::current(), service('monei.render_http_client')]);
 
     $services->set(MoneiGatewayConfigurationType::class)
         ->tag('sylius.gateway_configuration_type', ['type' => 'monei', 'label' => 'monei.gateway_factory.monei'])
@@ -175,8 +180,15 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
     $services->set(SessionId::class)
         ->args(['%kernel.secret%']);
 
+    $services->set(CardBrandLogos::class)
+        ->args([
+            service(MoneiApiFactory::class),
+            service('cache.app'),
+            service('monolog.logger.monei'),
+        ]);
+
     $services->set(MoneiExtension::class)
-        ->args([service(SessionId::class)])
+        ->args([service(SessionId::class), service(CardBrandLogos::class)])
         ->tag('twig.extension');
 
     // Grid mutators exist from sylius/grid-bundle 1.16.

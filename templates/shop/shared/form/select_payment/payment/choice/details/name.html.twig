@@ -15,7 +15,7 @@
         {% endif %}
         <div class="monei-method-logos d-flex flex-wrap align-items-center gap-2 ms-auto" aria-hidden="true">
             {% for logo in monei.logos %}
-                {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo } only %}
+                {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo, wordmark: monei.wordmarks } only %}
             {% endfor %}
         </div>
     </div>

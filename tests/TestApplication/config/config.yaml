@@ -14,3 +14,8 @@ when@test:
     # Functional tests render shop and admin pages without built assets.
     webpack_encore:
         strict_mode: false
+
+    # Per kernel: the card brands of one test must not reach the next.
+    framework:
+        cache:
+            app: cache.adapter.array

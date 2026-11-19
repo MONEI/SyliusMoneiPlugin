@@ -27,11 +27,15 @@ enum MoneiMethod: string
         };
     }
 
-    /** @return list<string> file names (no extension) in public/images */
+    /**
+     * For Card, the brands nearly every MONEI account accepts: CardBrandLogos shows the account's own brands.
+     *
+     * @return list<string> file names (no extension) in public/images
+     */
     public function logos(): array
     {
         return match ($this) {
-            self::Card => ['visa', 'master_card', 'amex'],
+            self::Card => ['visa', 'master_card'],
             self::Bizum => ['bizum'],
             self::PayPal => ['paypal'],
             self::AppleGooglePay => ['apple_pay', 'google_pay'],

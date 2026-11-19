@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Tests\Functional\Admin;
 
+use Monei\Internal\GuzzleHttp\Psr7\Response;
+use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Twig\Environment;
@@ -16,6 +18,9 @@ final class PaymentMethodListTest extends MoneiTestCase
         $this->createMoneiPaymentMethod('A_MONEI');
         $this->createOfflinePaymentMethod('B_OFFLINE');
         $this->loginAdmin();
+        if ($this->hasStockLogoTemplate()) {
+            MoneiMockHandler::appendFor('GET /allowed-payment-methods', new Response(200, ['Content-Type' => 'application/json'], '{"paymentMethods":["card"],"metadata":{"card":{"brands":["visa","mastercard","maestro"]}}}'));
+        }
 
         $page = $this->client->request('GET', '/admin/payment-methods/?sorting[name]=desc');
         self::assertResponseIsSuccessful();
@@ -31,7 +36,8 @@ final class PaymentMethodListTest extends MoneiTestCase
 
         $logo = 'descendant::div['.self::cssClass('payment-method-list__logo').']';
         self::assertSame('/bundles/moneisyliusplugin/images/monei.svg', $moneiRow->filterXPath($logo.'/img')->attr('src'));
-        self::assertSame(['visa', 'master_card', 'amex'], $moneiRow->filterXPath('descendant::span['.self::cssClass('payment-method-list__method').']/img')->each(
+        // The card brands of the MONEI account.
+        self::assertSame(['visa', 'master_card', 'maestro'], $moneiRow->filterXPath('descendant::span['.self::cssClass('payment-method-list__method').']/img')->each(
             static fn (Crawler $img): string => basename((string) $img->attr('src'), '.svg'),
         ));
         $offlineRow = $this->row($page, 'B_OFFLINE');

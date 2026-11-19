@@ -1,2 +1,2 @@
-{# A decorative mark of a MONEI method, on the shop Payment step and in the admin list. #}
-<img src="{{ asset('bundles/moneisyliusplugin/images/' ~ logo ~ '.svg') }}" alt="" style="height: 24px; width: auto;">
+{# A decorative mark of a MONEI method, on the shop Payment step and in the admin list: card brand boxes 24px high, wordmarks 28px. #}
+<img src="{{ asset('bundles/moneisyliusplugin/images/' ~ logo ~ '.svg') }}" alt=""{% if wordmark %} class="monei-wordmark"{% endif %} style="height: {{ wordmark ? 28 : 24 }}px; width: auto;">

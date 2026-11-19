@@ -25,7 +25,8 @@ final class MoneiApiFactoryTest extends TestCase
             new Response(200, ['Content-Type' => 'application/json'], '{"id":"pay_b"}'),
         ]));
         $stack->push(Middleware::history($history));
-        $factory = new MoneiApiFactory(new Client(['handler' => $stack]), 'MONEI/Sylius/2.0.1 (Sylius v2.3.2; PHP v8.3.36)');
+        $client = new Client(['handler' => $stack]);
+        $factory = new MoneiApiFactory($client, 'MONEI/Sylius/2.0.1 (Sylius v2.3.2; PHP v8.3.36)', $client);
 
         $apiA = $factory->forApiKey('pk_test_aaaa');
         $apiB = $factory->forApiKey('pk_test_bbbb');

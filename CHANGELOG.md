@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - On the checkout Payment step, the MONEI method logos show on the right of the method name row, and the Test mode badge right after the name.
+- The card logos show only the card brands that your MONEI account accepts. Before, they always showed Visa, Mastercard and American Express.
+- PayPal, Apple Pay and Google Pay use MONEI's logos, at the same size as the Bizum, MB WAY and Multibanco logos.
 
 ## [2.2.0] - 2026-11-19
 

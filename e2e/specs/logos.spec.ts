@@ -26,3 +26,23 @@ test("the Payment step logo loads on the right of the method name row, and the r
   expect(imgBox.x).toBeGreaterThan(nameBox.x + nameBox.width);
   expect(cardBox.x + cardBox.width - (imgBox.x + imgBox.width)).toBeLessThan(40);
 });
+
+test("the card method shows the card brands of the MONEI account, and PayPal its wordmark at the wordmark height", async ({
+  page,
+}) => {
+  await addToCart(page, PRODUCTS.sticker);
+  await checkoutToPayment(page, uniqueEmail("logos"));
+
+  const row = (code: string) => page.locator("label", { has: page.getByLabel(methodName(code), { exact: true }) });
+  const logos = (code: string) =>
+    row(code)
+      .locator("img")
+      .evaluateAll((imgs) => imgs.map((img) => (img as HTMLImageElement).src.replace(/^.*\/(\w+)\.svg(\?.*)?$/, "$1")));
+  // The shared test account accepts Visa and Mastercard only.
+  expect(await logos("monei_card_hosted")).toEqual(["visa", "master_card"]);
+
+  const paypal = row("monei_paypal_hosted").locator('img[src*="paypal.svg"]');
+  await expect.poll(() => paypal.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+  expect((await paypal.boundingBox())?.height).toBe(28);
+  expect((await row("monei_card_hosted").locator("img").first().boundingBox())?.height).toBe(24);
+});

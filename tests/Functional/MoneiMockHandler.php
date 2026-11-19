@@ -6,6 +6,7 @@ namespace Monei\SyliusPlugin\Tests\Functional;
 
 use Monei\Internal\GuzzleHttp\Promise\Create;
 use Monei\Internal\GuzzleHttp\Promise\PromiseInterface;
+use Monei\Internal\GuzzleHttp\Psr7\Response;
 use Monei\Internal\Psr\Http\Message\RequestInterface;
 use Monei\Internal\Psr\Http\Message\ResponseInterface;
 
@@ -18,6 +19,12 @@ use Monei\Internal\Psr\Http\Message\ResponseInterface;
 final class MoneiMockHandler
 {
     private const API_PATH_PREFIX = '/v1';
+
+    /**
+     * Each page with a MONEI card method asks for the account's card brands. Without a queued
+     * answer, this call gets Visa and Mastercard and stays out of the history.
+     */
+    private const CARD_BRANDS = 'GET /allowed-payment-methods';
 
     /** @var list<ResponseInterface|\Throwable> */
     private static array $queue = [];
@@ -93,8 +100,11 @@ final class MoneiMockHandler
     /** @param array<string, mixed> $options */
     public function __invoke(RequestInterface $request, array $options): PromiseInterface
     {
-        self::$history[] = $request;
         $key = self::key($request);
+        if (self::CARD_BRANDS === $key && [] === (self::$queueByPath[$key] ?? [])) {
+            return Create::promiseFor(new Response(200, ['Content-Type' => 'application/json'], '{"paymentMethods":["card"],"metadata":{"card":{"brands":["visa","mastercard"]}}}'));
+        }
+        self::$history[] = $request;
 
         if ([] !== (self::$queueByPath[$key] ?? [])) {
             $response = array_shift(self::$queueByPath[$key]);

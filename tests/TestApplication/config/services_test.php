@@ -28,6 +28,8 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set('monei.http_client', Client::class)
         ->args([['handler' => service('monei.test.handler_stack')]]);
+    $services->set('monei.render_http_client', Client::class)
+        ->args([['handler' => service('monei.test.handler_stack')]]);
 
     $services->set('monei.test.log_handler', MoneiLogHandler::class);
 

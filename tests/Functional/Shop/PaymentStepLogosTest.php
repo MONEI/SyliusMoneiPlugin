@@ -24,6 +24,18 @@ final class PaymentStepLogosTest extends MoneiTestCase
         self::assertSame('MONEI_BIZUM', self::accessibleText($row));
     }
 
+    /** PayPal's wordmark is wide and short: at the card box height it looked smaller than the Bizum wordmark. */
+    public function testAPayPalMethodShowsThePayPalWordmarkAtTheWordmarkSize(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_PAYPAL', ['payment_method' => 'paypal']));
+
+        $img = $this->paymentRow($this->selectPaymentPage(), 'MONEI_PAYPAL')->filterXPath('descendant::img');
+
+        self::assertSame(['/bundles/moneisyliusplugin/images/paypal.svg'], $img->each(static fn (Crawler $img): string => (string) $img->attr('src')));
+        self::assertSame('monei-wordmark', $img->attr('class'));
+        self::assertStringContainsString('height: 28px', (string) $img->attr('style'));
+    }
+
     public function testATestKeyMethodShowsTheTestModeBadgeAndALiveKeyMethodDoesNot(): void
     {
         $test = $this->createMoneiPaymentMethod('MONEI_TEST');
