@@ -402,7 +402,13 @@ async function locateBuyer(page: Page, country: string): Promise<{ answered: Pro
     const url = new URL(route.request().url());
     if (!url.searchParams.has("accountId")) return route.continue();
     url.searchParams.set("countryCode", country);
-    await route.fulfill({ response: await route.fetch({ url: url.toString() }) });
+    // A Playwright error prints the URL, and the URL holds the account ID.
+    let response = null;
+    try {
+      await route.continue({ url: url.toString() });
+      response = await route.request().response();
+    } catch {}
+    if (!response) throw new Error("the payment methods request failed");
     answer();
   });
   return { answered };
