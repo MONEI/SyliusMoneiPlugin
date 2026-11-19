@@ -445,6 +445,34 @@ test.describe("inline Bizum", () => {
     await expectSyliusPayment(id, "completed");
   });
 
+  test("the store's form checks run before the Bizum window opens", async ({ page }) => {
+    await locateBuyer(page, "ES");
+    await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum-checks");
+    // A store that validates the Complete form, here with a required terms box.
+    await page.evaluate(() => {
+      const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
+      form.noValidate = false;
+      const terms = document.createElement("input");
+      terms.type = "checkbox";
+      terms.id = "terms";
+      terms.required = true;
+      form.prepend(terms);
+    });
+
+    const button = page.frameLocator('#monei-component iframe[title="monei_bizum_button"]').getByTestId("bizum-button");
+    await expect(button).toBeVisible({ timeout: MOUNT_TIMEOUT });
+    await button.click();
+    await page.waitForTimeout(1_000);
+    await expect(page.locator('iframe[title="monei_bizum"]')).toHaveCount(0);
+    expect(await page.locator("#terms").evaluate((box: HTMLInputElement) => box.validity.valueMissing)).toBe(true);
+
+    await page.locator("#terms").check();
+    await button.click();
+    await expect(page.frameLocator('iframe[title="monei_bizum"]').getByTestId("bizum-phone-input")).toBeVisible({
+      timeout: MOUNT_TIMEOUT,
+    });
+  });
+
   test("a buyer outside Spain keeps Place order and pays Bizum on the pay page", async ({ page }) => {
     const { answered } = await locateBuyer(page, "US");
     const email = await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum-outside");

@@ -91,8 +91,13 @@
                 } catch (e) {
                     // Without the entry the pay page shows its own fields.
                 }
-                // form.submit() fires no submit event, so the card handler does not run again.
-                form.submit();
+                // A validated submit, so the store's own submit listeners run; the card handler lets it through.
+                form.requestSubmit(placeOrder);
+            }
+
+            // The store's own checks run before the buyer approves the payment.
+            function formIsValid() {
+                return form.noValidate || form.reportValidity();
             }
 
             // From here Place order submits without a token, and the pay page shows its own fields.
@@ -118,7 +123,7 @@
                     onFailure: fallBack
                 });
                 form.addEventListener('submit', function (event) {
-                    if (!ready || failed) {
+                    if (!ready || failed || submitting) {
                         return;
                     }
                     event.preventDefault();
@@ -138,7 +143,7 @@
                         submitWithToken(result.token, cardholderName);
                     }, function () {
                         fallBack();
-                        form.submit();
+                        form.requestSubmit(placeOrder);
                     });
                 });
             }
@@ -159,6 +164,7 @@
                             placeOrder.hidden = true;
                         }
                     },
+                    onBeforeOpen: formIsValid,
                     onSubmit: function (result) {
                         result.token ? submitWithToken(result.token, null) : showError(result.error);
                     },
