@@ -177,7 +177,7 @@ The token and the cardholder name go from the browser to MONEI. They do not go t
 The plugin uses the separate pay page, as without an Account ID, in these cases:
 
 - JavaScript is off, monei.js does not load, or the component is not ready. Place order stays and places the order without a token.
-- The buyer is not in Spain and selects Bizum. MONEI shows the inline Bizum button only to buyers it locates in Spain (by IP). Other buyers keep Place order and pay with Bizum on the separate pay page.
+- The buyer is not in Spain and selects Bizum. MONEI shows the inline Bizum button only to buyers it locates in Spain (by IP). Other buyers keep Place order. On the separate pay page MONEI uses the billing address country, so a buyer with a billing address in Spain can pay with Bizum there.
 - The buyer pays again from the order page (`/order/{token}`).
 - The order comes from the shop API.
 - MONEI refuses the token (for example, an expired token). The pay page shows its fields and the error, and the buyer pays there.
