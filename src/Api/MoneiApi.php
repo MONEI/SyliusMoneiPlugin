@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Api;
 
 use Monei\Api\ApplePayDomainApi;
+use Monei\Api\PaymentMethodsApi;
 use Monei\Api\PaymentsApi;
 use Monei\ApiException;
 use Monei\Model\CancelPaymentRequest;
@@ -12,6 +13,8 @@ use Monei\Model\CapturePaymentRequest;
 use Monei\Model\CreatePaymentRequest;
 use Monei\Model\Payment;
 use Monei\Model\PaymentCancellationReason;
+use Monei\Model\PaymentMethods;
+use Monei\Model\PaymentMethodsMetadata;
 use Monei\Model\PaymentRefundReason;
 use Monei\Model\PaymentStatus;
 use Monei\Model\RefundPaymentRequest;
@@ -31,6 +34,7 @@ final readonly class MoneiApi
     public function __construct(
         private PaymentsApi $payments,
         private ApplePayDomainApi $applePayDomain,
+        private PaymentMethodsApi $paymentMethods,
     ) {
     }
 
@@ -81,6 +85,32 @@ final readonly class MoneiApi
     public function registerApplePayDomain(string $domain): void
     {
         $this->applePayDomain->register(new RegisterApplePayDomainRequest(['domain_name' => $domain]));
+    }
+
+    /**
+     * The card brands of the account (`metadata.card.brands`), in lower case. Empty when MONEI lists none.
+     *
+     * @return list<string>
+     *
+     * @throws ApiException
+     */
+    public function cardBrands(): array
+    {
+        try {
+            $result = $this->paymentMethods->getAllowed();
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException('MONEI answered payment methods the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+        }
+        if (!$result instanceof PaymentMethods) {
+            throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of payment methods.', $result::class));
+        }
+        // The SDK documents metadata as always set; MONEI may leave it out.
+        /** @var PaymentMethodsMetadata|null $metadata */
+        $metadata = $result->getMetadata();
+        /** @var list<mixed> $brands */
+        $brands = $metadata?->getCard()?->getBrands() ?? [];
+
+        return array_values(array_map(strtolower(...), array_filter($brands, is_string(...))));
     }
 
     /** The SDK documents a PaymentStatus object but returns the enum's string value. */

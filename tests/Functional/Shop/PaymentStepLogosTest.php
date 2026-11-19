@@ -17,9 +17,23 @@ final class PaymentStepLogosTest extends MoneiTestCase
 
         $row = $this->paymentRow($this->selectPaymentPage(), 'MONEI_BIZUM');
 
+        // The plugin replaces the stock `name` hookable: a second one would render a second radio.
+        self::assertCount(1, $row->filterXPath('descendant::input[@type="radio"]'));
         self::assertSame(['/bundles/moneisyliusplugin/images/bizum.svg'], $row->filterXPath('descendant::img')->each(static fn (Crawler $img): string => (string) $img->attr('src')));
         // e2e picks methods with getByLabel(name, {exact: true}): the logos and the badge must not join the name.
         self::assertSame('MONEI_BIZUM', self::accessibleText($row));
+    }
+
+    /** PayPal's wordmark is wide and short: at the card box height it looked smaller than the Bizum wordmark. */
+    public function testAPayPalMethodShowsThePayPalWordmarkAtTheWordmarkSize(): void
+    {
+        $this->attachCart($this->createMoneiPaymentMethod('MONEI_PAYPAL', ['payment_method' => 'paypal']));
+
+        $img = $this->paymentRow($this->selectPaymentPage(), 'MONEI_PAYPAL')->filterXPath('descendant::img');
+
+        self::assertSame(['/bundles/moneisyliusplugin/images/paypal.svg'], $img->each(static fn (Crawler $img): string => (string) $img->attr('src')));
+        self::assertSame('monei-wordmark', $img->attr('class'));
+        self::assertStringContainsString('height: 28px', (string) $img->attr('style'));
     }
 
     public function testATestKeyMethodShowsTheTestModeBadgeAndALiveKeyMethodDoesNot(): void

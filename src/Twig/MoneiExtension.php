@@ -6,6 +6,7 @@ namespace Monei\SyliusPlugin\Twig;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
+use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Sylius\Component\Core\Model\OrderInterface;
@@ -18,8 +19,10 @@ use Twig\TwigTest;
 /** Scalars only: the gateway configuration holds the API key. */
 final class MoneiExtension extends AbstractExtension
 {
-    public function __construct(private readonly SessionId $sessionId)
-    {
+    public function __construct(
+        private readonly SessionId $sessionId,
+        private readonly CardBrandLogos $cardBrandLogos,
+    ) {
     }
 
     private const MONEI_JS_URL = 'https://js.monei.com/v3/monei.js';
@@ -45,7 +48,7 @@ final class MoneiExtension extends AbstractExtension
      * Null for a non-MONEI method and for a broken config: the Payment step and the admin
      * list render every method, so one bad config must not break the page.
      *
-     * @return array{method: string, logos: list<string>, test_mode: bool}|null
+     * @return array{method: string, logos: list<string>, wordmarks: bool, test_mode: bool}|null
      */
     public function methodLogos(PaymentMethodInterface $paymentMethod): ?array
     {
@@ -59,9 +62,12 @@ final class MoneiExtension extends AbstractExtension
             return null;
         }
 
+        $card = MoneiMethod::Card === $config->method;
+
         return [
             'method' => $config->method->value,
-            'logos' => $config->method->logos(),
+            'logos' => $card ? $this->cardBrandLogos->forApiKey($config->apiKey) : $config->method->logos(),
+            'wordmarks' => !$card,
             'test_mode' => $config->testMode(),
         ];
     }

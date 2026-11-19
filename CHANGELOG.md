@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-11-19
+
+### Fixed
+
+- On the checkout Payment step, the MONEI method logos show on the right of the method name row, and the Test mode badge right after the name.
+- The card logos show only the card brands that your MONEI account accepts. Before, they always showed Visa, Mastercard and American Express.
+- PayPal, Apple Pay and Google Pay use MONEI's logos, at the same size as the Bizum, MB WAY and Multibanco logos.
+- The logo files changed (`maestro.svg` is new). Run `bin/console assets:install` after the update.
+
 ## [2.2.0] - 2026-11-19
 
 ### Added

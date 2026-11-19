@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Api;
 
 use Monei\Api\ApplePayDomainApi;
+use Monei\Api\PaymentMethodsApi;
 use Monei\Api\PaymentsApi;
 use Monei\Configuration;
 use Monei\Internal\GuzzleHttp\ClientInterface;
@@ -16,6 +17,8 @@ final readonly class MoneiApiFactory
     public function __construct(
         private ClientInterface $httpClient,
         private string $userAgent,
+        // Short timeout: the payment methods call runs while the checkout page renders.
+        private ClientInterface $renderHttpClient,
     ) {
     }
 
@@ -35,6 +38,7 @@ final readonly class MoneiApiFactory
         return new MoneiApi(
             new PaymentsApi($this->httpClient, $config),
             new ApplePayDomainApi($this->httpClient, $config),
+            new PaymentMethodsApi($this->renderHttpClient, $config),
         );
     }
 }

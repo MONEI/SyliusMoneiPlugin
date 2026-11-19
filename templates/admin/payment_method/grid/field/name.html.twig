@@ -28,7 +28,7 @@
                 <div class="d-flex flex-wrap gap-2">
                     {% for logo in monei.logos %}
                         <span class="payment-method-list__method d-inline-flex align-items-center justify-content-center">
-                            {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo } only %}
+                            {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo, wordmark: monei.wordmarks } only %}
                         </span>
                     {% endfor %}
                     <span class="visually-hidden">{{ ('monei.method.' ~ monei.method)|trans }}</span>

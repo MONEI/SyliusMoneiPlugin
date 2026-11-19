@@ -1,0 +1,22 @@
+{% set monei = monei_method_logos(hookable_metadata.context.method) %}
+
+{% if monei is null %}
+    {% include '@SyliusShop/shared/form/select_payment/payment/choice/details/name.html.twig' %}
+{% else %}
+    {% set form = hookable_metadata.context.form %}
+
+    {# Inside the radio's <label>: aria-hidden keeps the method name as the radio's accessible name. #}
+    <div class="d-flex align-items-center flex-wrap gap-2">
+        <div {{ sylius_test_html_attribute('payment-method-checkbox') }}>
+            {{ form_widget(form, sylius_test_form_attribute('payment-method-select')) }}
+        </div>
+        {% if monei.test_mode %}
+            <span class="badge text-bg-warning monei-test-mode-badge" aria-hidden="true">{{ 'monei.ui.test_mode'|trans }}</span>
+        {% endif %}
+        <div class="monei-method-logos d-flex flex-wrap align-items-center gap-2 ms-auto" aria-hidden="true">
+            {% for logo in monei.logos %}
+                {% include '@MoneiSyliusPlugin/shared/method_logo.html.twig' with { logo: logo, wordmark: monei.wordmarks } only %}
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}

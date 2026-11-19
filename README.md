@@ -31,7 +31,7 @@ Version 2.0.0 is a full rewrite. If you installed 1.x, read [Upgrade from 1.x](#
   - **Hosted**: the buyer pays on the MONEI payment page.
   - **Onsite**: the buyer pays in your store, with monei.js. Card, Bizum, PayPal and Apple Pay / Google Pay only.
 - **Inline payment** (onsite with an Account ID): the card fields or the method button show on the checkout Complete step. See [Inline payment](#inline-payment).
-- Method logos next to each MONEI method on the checkout Payment step, and a "Test mode" badge for a `pk_test_` key. On Sylius 2.3, the admin payment method list shows the MONEI logo and the method logos, unless your store sets its own template for the name field of the `sylius_admin_payment_method` grid.
+- On the checkout Payment step, method logos on the right of each MONEI method name, and a "Test mode" badge after the name for a `pk_test_` key. The card method shows the card brands that your MONEI account accepts (MONEI's payment methods API, cached for one hour). If MONEI does not answer, it shows Visa and Mastercard. On Sylius 2.3, the admin payment method list shows the MONEI logo and the method logos, unless your store sets its own template for the name field of the `sylius_admin_payment_method` grid.
 - Authorize now, capture later from the Sylius admin (card, Apple Pay / Google Pay, PayPal).
 - Refunds with the core Refund button, or full and partial refunds with [`sylius/refund-plugin`](https://github.com/Sylius/RefundPlugin).
 - The payment status always comes from the MONEI API.
@@ -306,7 +306,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 This plugin is open-source software under the [MIT license](LICENSE).
 
-The card, Apple Pay, Google Pay and PayPal logos (`public/images/{visa,master_card,amex,apple_pay,google_pay,paypal}.svg`) come from Sylius AdminBundle. Copyright (c) 2011-present Sylius Sp. z o.o., MIT license ([Sylius](https://github.com/Sylius/Sylius)).
+The card brand logos (`public/images/{visa,master_card,amex,maestro}.svg`) come from Sylius AdminBundle. Copyright (c) 2011-present Sylius Sp. z o.o., MIT license ([Sylius](https://github.com/Sylius/Sylius)). The other logos are MONEI's.
 
 ## Links
 
