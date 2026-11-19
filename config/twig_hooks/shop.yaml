@@ -9,9 +9,9 @@ sylius_twig_hooks:
                 priority: 0
 
         'sylius_shop.shared.form.select_payment.payment.choice.monei.details':
-            logos:
-                template: '@MoneiSyliusPlugin/shop/checkout/select_payment/logos.html.twig'
-                priority: -100
+            name:
+                template: '@MoneiSyliusPlugin/shop/shared/form/select_payment/payment/choice/details/name.html.twig'
+                priority: 100
 
         'sylius_shop.checkout.complete.content.form':
             monei:
