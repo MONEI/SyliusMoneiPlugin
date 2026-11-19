@@ -108,23 +108,27 @@
             // Safari before 16 has no requestSubmit(); a plain submit still places the order.
             // Returns false when a submit listener of the store cancelled the submit.
             function submitForm() {
-                var cancelled = false;
+                // Kept from the capture phase, so a listener that stops propagation cannot hide the cancel.
+                var submitEvent = null;
                 var watch = function (event) {
-                    cancelled = event.target === form && event.defaultPrevented;
+                    if (event.target === form) {
+                        submitEvent = event;
+                    }
                 };
-                window.addEventListener('submit', watch);
+                window.addEventListener('submit', watch, true);
                 try {
                     form.requestSubmit ? form.requestSubmit(placeOrder) : form.submit();
                 } finally {
-                    window.removeEventListener('submit', watch);
+                    window.removeEventListener('submit', watch, true);
                 }
 
-                return !cancelled;
+                return !(submitEvent && submitEvent.defaultPrevented);
             }
 
-            // The store's own checks run before the buyer approves the payment.
+            // The store's own checks run before the buyer approves the payment. The stock form is
+            // novalidate (Sylius validates on the server), so the constraints are checked here directly.
             function formIsValid() {
-                return form.noValidate || form.reportValidity();
+                return form.reportValidity();
             }
 
             // From here Place order submits without a token, and the pay page shows its own fields.

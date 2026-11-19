@@ -307,7 +307,10 @@ test.describe("inline card", () => {
     // A store script that stops the Complete form submit (for example its own checks).
     await page.evaluate(() => {
       const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
-      form.addEventListener("submit", (event) => event.preventDefault());
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      });
     });
 
     await fillInlineCard(page, VISA_CHALLENGE, "Ana Inline");
@@ -321,10 +324,9 @@ test.describe("inline card", () => {
 
   test("a form made invalid while the token is made keeps Place order usable", async ({ page }) => {
     const email = await toComplete(page, "monei_card_inline", PRODUCTS.sticker, "inline-invalid-late");
-    // A store that validates the Complete form, here with a required terms box.
+    // A store that adds a required terms box; the stock form stays novalidate.
     await page.evaluate(() => {
       const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
-      form.noValidate = false;
       const terms = document.createElement("input");
       terms.type = "checkbox";
       terms.id = "terms";
@@ -501,10 +503,9 @@ test.describe("inline Bizum", () => {
   test("the store's form checks run before the Bizum window opens", async ({ page }) => {
     await locateBuyer(page, "ES");
     await toComplete(page, "monei_bizum_inline", PRODUCTS.sticker, "inline-bizum-checks");
-    // A store that validates the Complete form, here with a required terms box.
+    // A store that adds a required terms box; the stock form stays novalidate.
     await page.evaluate(() => {
       const form = document.querySelector("form[name=sylius_checkout_complete]") as HTMLFormElement;
-      form.noValidate = false;
       const terms = document.createElement("input");
       terms.type = "checkbox";
       terms.id = "terms";
