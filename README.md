@@ -80,10 +80,13 @@ The plugin's payment request commands always run in the web request. This is als
 ### 1. Install the package
 
 ```bash
-composer require monei/sylius-monei-plugin:^2.0
+composer update sylius/sylius --with-all-dependencies
+composer require monei/sylius-monei-plugin:^2.2
 ```
 
-Keep the `^2.0` constraint. Without it, Composer can select 1.x on an older Sylius. Version 1.x does not work.
+Version 2.2 needs Sylius 2.2.13 or later on the 2.2 line, or 2.3.3 or later. These versions fix Sylius security advisories. The first command updates Sylius to them; skip it if your store already runs them. Without it, Composer cannot install 2.2 on an older Sylius (Sylius-Standard 2.3 still locks 2.3.2).
+
+Keep the `^2.2` constraint. Without it, Composer can select an older version on an older Sylius, and 1.x does not work.
 
 ### 2. Register the bundle
 
