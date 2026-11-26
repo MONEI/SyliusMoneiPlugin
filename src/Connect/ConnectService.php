@@ -116,7 +116,7 @@ final readonly class ConnectService
             $liveAccount = $returned['live']['accountId'] ?? null;
             foreach (['live', 'test'] as $mode) {
                 if (isset($returned['errors'][$mode])) {
-                    $result['problems'][] = ['mode' => $mode, 'code' => $returned['errors'][$mode]];
+                    $result['problems'][] = ['mode' => $mode, 'code' => self::brokerProblem($returned['errors'][$mode])];
                 }
                 if (!isset($returned[$mode]) || self::otherAccount($before, $liveAccount)) {
                     continue;
@@ -131,7 +131,7 @@ final readonly class ConnectService
                 }
             }
         } catch (ConnectException $e) {
-            $result = self::failed($e->getError());
+            $result = self::failed(self::brokerProblem($e->getError()));
         }
 
         $result = $this->connection->transactional(function () use ($before, $entry, $liveAccount, $proven, $result): array {
@@ -192,6 +192,14 @@ final readonly class ConnectService
             ($status >= 200 && $status < 300) || 400 === $status => null,
             401 === $status || 403 === $status => 'keyRejected',
             default => 'temporarily_unavailable',
+        };
+    }
+
+    private static function brokerProblem(string $code): string
+    {
+        return match ($code) {
+            'blocked', 'ineligible', 'cap', 'not_approved', 'temporarily_unavailable', 'access_denied', 'invalid_request', 'invalid_client', 'invalid_grant' => $code,
+            default => 'generic',
         };
     }
 

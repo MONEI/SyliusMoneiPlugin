@@ -53,6 +53,8 @@ monei:
             test: Test
         account: 'Account:'
         disconnected: No MONEI account is connected.
+        callback_success: MONEI connected. You can close this tab.
+        callback_failed: MONEI could not connect
         last_result: Last Connect result
         connected: '%mode% connected.'
         callback_url: 'Callback URL:'
@@ -64,6 +66,10 @@ monei:
         no_manual_methods: No payment methods use manual keys.
         dashboard: Manage API keys in the MONEI dashboard
         problem:
+            missingCode: The authorization code is missing. Start Connect again.
+            unknownState: The connection request is invalid or was already used. Start Connect again.
+            expiredState: The connection request expired. Start Connect again.
+            disconnected: The shop disconnected during authorization. Start Connect again.
             blocked: MONEI blocked this connection.
             ineligible: This MONEI account is ineligible to connect.
             cap: Revoke unused API keys in the MONEI dashboard and try again.
@@ -73,5 +79,7 @@ monei:
             otherAccount: This shop uses another MONEI account. Disconnect first.
             applePayRegistrationFailed: MONEI could not register one or more Apple Pay domains.
             access_denied: Access was denied. Start Connect again to retry.
+            invalid_request: MONEI rejected the connection request. Start Connect again.
+            invalid_client: MONEI did not recognize this integration.
             invalid_grant: The authorization expired or was already used. Start Connect again.
             generic: MONEI could not complete the connection. Start Connect again.

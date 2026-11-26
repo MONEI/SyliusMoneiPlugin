@@ -19,6 +19,7 @@ use Monei\SyliusPlugin\Connect\CallbackUrl;
 use Monei\SyliusPlugin\Connect\ConnectionStore;
 use Monei\SyliusPlugin\Connect\ConnectService;
 use Monei\SyliusPlugin\Controller\Admin\ConnectController;
+use Monei\SyliusPlugin\Controller\ConnectCallbackController;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
@@ -94,6 +95,10 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('router'),
             service('twig'),
         ]);
+
+    $services->set(ConnectCallbackController::class)
+        ->public()
+        ->args([service(ConnectService::class), service('twig')]);
 
     $services->set(AdminMenuListener::class)
         ->tag('kernel.event_listener', ['event' => 'sylius.menu.admin.main']);

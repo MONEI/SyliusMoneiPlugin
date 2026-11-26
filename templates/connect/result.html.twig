@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="{{ app.request.locale|replace({'_': '-'}) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ 'monei.connect.connection'|trans }}</title>
+</head>
+<body>
+    <main>
+        <h1>{{ (result.switched ? 'monei.connect.callback_success' : 'monei.connect.callback_failed')|trans }}</h1>
+        {% include '@MoneiSyliusPlugin/connect/details.html.twig' with {result: result} only %}
+    </main>
+</body>
+</html>

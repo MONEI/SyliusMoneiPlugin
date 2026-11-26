@@ -25,19 +25,7 @@
 
                         {% if lastResult %}
                             <h3>{{ 'monei.connect.last_result'|trans }}</h3>
-                            <ul>
-                                {% for mode in lastResult.switched %}
-                                    <li>{{ 'monei.connect.connected'|trans({'%mode%': ('monei.connect.mode.' ~ mode)|trans}) }}</li>
-                                {% endfor %}
-                                {% for problem in lastResult.problems %}
-                                    {% set key = 'monei.connect.problem.' ~ problem.code %}
-                                    {% set message = key|trans %}
-                                    <li>
-                                        {% if problem.mode %}<strong>{{ ('monei.connect.mode.' ~ problem.mode)|trans }}</strong>{% endif %}
-                                        {{ message == key ? 'monei.connect.problem.generic'|trans : message }}
-                                    </li>
-                                {% endfor %}
-                            </ul>
+                            {% include '@MoneiSyliusPlugin/connect/details.html.twig' with {result: lastResult} only %}
                         {% endif %}
 
                         {% if callbackUrl %}

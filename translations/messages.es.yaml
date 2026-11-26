@@ -53,6 +53,8 @@ monei:
             test: Prueba
         account: 'Cuenta:'
         disconnected: No hay ninguna cuenta de MONEI conectada.
+        callback_success: MONEI se ha conectado. Puedes cerrar esta pestaña.
+        callback_failed: No se ha podido conectar con MONEI
         last_result: Último resultado de la conexión
         connected: 'Modo %mode% conectado.'
         callback_url: 'URL de retorno:'
@@ -64,6 +66,10 @@ monei:
         no_manual_methods: Ningún método de pago usa claves manuales.
         dashboard: Gestionar claves API en el panel de MONEI
         problem:
+            missingCode: Falta el código de autorización. Vuelve a iniciar la conexión.
+            unknownState: La solicitud de conexión no es válida o ya se ha usado. Vuelve a iniciar la conexión.
+            expiredState: La solicitud de conexión ha caducado. Vuelve a iniciar la conexión.
+            disconnected: La tienda se ha desconectado durante la autorización. Vuelve a iniciar la conexión.
             blocked: MONEI ha bloqueado esta conexión.
             ineligible: Esta cuenta de MONEI no cumple los requisitos para conectarse.
             cap: Revoca las claves API que no uses en el panel de MONEI y vuelve a intentarlo.
@@ -73,5 +79,7 @@ monei:
             otherAccount: Esta tienda usa otra cuenta de MONEI. Desconéctala primero.
             applePayRegistrationFailed: MONEI no ha podido registrar uno o más dominios de Apple Pay.
             access_denied: Se ha denegado el acceso. Vuelve a iniciar la conexión.
+            invalid_request: MONEI ha rechazado la solicitud de conexión. Vuelve a iniciar la conexión.
+            invalid_client: MONEI no ha reconocido esta integración.
             invalid_grant: La autorización ha caducado o ya se ha usado. Vuelve a iniciar la conexión.
             generic: MONEI no ha podido completar la conexión. Vuelve a iniciar el proceso.
