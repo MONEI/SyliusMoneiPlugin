@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
+use Monei\SyliusPlugin\ApplePay\ApplePayDomainRegistrar;
 use Monei\SyliusPlugin\ApplePay\DomainAssociationController;
 use Monei\SyliusPlugin\ApplePay\RegisterDomainOnSaveListener;
 use Monei\SyliusPlugin\Callback\CallbackQuota;
@@ -15,6 +16,7 @@ use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
 use Monei\SyliusPlugin\Connect\ConnectionStore;
+use Monei\SyliusPlugin\Connect\ConnectService;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
@@ -74,6 +76,18 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
 
     $services->set(ConnectionStore::class)
         ->args([service('doctrine.dbal.default_connection'), service('sylius.encrypter')->nullOnInvalid()]);
+
+    $services->set(ConnectService::class)
+        ->factory([ConnectService::class, 'create'])
+        ->args([
+            service('doctrine.dbal.default_connection'),
+            service(ConnectionStore::class),
+            service('clock'),
+            service('monei.http_client'),
+            service(MoneiApiFactory::class),
+            service(ApplePayDomainRegistrar::class),
+            '%env(default::MONEI_CONNECT_BASE_URL)%',
+        ]);
 
     $services->set(SyncContext::class);
 
@@ -200,12 +214,19 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
     $services->set(DomainAssociationController::class)
         ->tag('controller.service_arguments');
 
-    // The resource controller dispatches these after the flush, so a MONEI refusal never blocks the save.
-    $services->set(RegisterDomainOnSaveListener::class)
+    $services->set(ApplePayDomainRegistrar::class)
         ->args([
             service(MoneiApiFactory::class),
             service('request_stack'),
             service('monolog.logger.monei'),
+            service('sylius.repository.payment_method'),
+        ]);
+
+    // The resource controller dispatches these after the flush, so a MONEI refusal never blocks the save.
+    $services->set(RegisterDomainOnSaveListener::class)
+        ->args([
+            service(ApplePayDomainRegistrar::class),
+            service('request_stack'),
             service(GatewayConfigurationProvider::class),
         ])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])

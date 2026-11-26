@@ -348,6 +348,7 @@ abstract class MoneiTestCase extends WebTestCase
         $this->holdRowLock('sylius_payment', (int) $payment->getId(), $mode);
     }
 
+    /** Holds a row lock on any test table until teardown, with a 1 s wait for the caller. */
     protected function holdRowLock(string $table, int $id, string $mode = 'FOR UPDATE'): void
     {
         \assert(\in_array($mode, ['FOR SHARE', 'FOR UPDATE'], true));

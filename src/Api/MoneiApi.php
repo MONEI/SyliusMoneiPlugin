@@ -8,6 +8,9 @@ use Monei\Api\ApplePayDomainApi;
 use Monei\Api\PaymentMethodsApi;
 use Monei\Api\PaymentsApi;
 use Monei\ApiException;
+use Monei\Internal\GuzzleHttp\ClientInterface;
+use Monei\Internal\GuzzleHttp\Exception\GuzzleException;
+use Monei\Internal\Psr\Http\Message\RequestInterface;
 use Monei\Model\CancelPaymentRequest;
 use Monei\Model\CapturePaymentRequest;
 use Monei\Model\CreatePaymentRequest;
@@ -35,6 +38,8 @@ final readonly class MoneiApi
         private PaymentsApi $payments,
         private ApplePayDomainApi $applePayDomain,
         private PaymentMethodsApi $paymentMethods,
+        private PaymentMethodsApi $probePaymentMethods,
+        private ClientInterface $httpClient,
     ) {
     }
 
@@ -79,6 +84,22 @@ final readonly class MoneiApi
             'amount' => $amount,
             'refund_reason' => PaymentRefundReason::REQUESTED_BY_CUSTOMER,
         ])));
+    }
+
+    public function probe(): int
+    {
+        // Only the status matters. An empty or unfamiliar response body must not turn a 2xx into a failure.
+        try {
+            /** @var RequestInterface $request The SDK scopes its PSR-7 classes. */
+            $request = $this->probePaymentMethods->getAllowedRequest();
+
+            return $this->httpClient->send($request, [
+                'http_errors' => false,
+                'allow_redirects' => false,
+            ])->getStatusCode();
+        } catch (GuzzleException) {
+            return 0;
+        }
     }
 
     /** @throws ApiException */

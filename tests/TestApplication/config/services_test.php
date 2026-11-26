@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\Internal\GuzzleHttp\HandlerStack;
 use Monei\SyliusPlugin\Connect\ConnectionStore;
+use Monei\SyliusPlugin\Connect\ConnectService;
 use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Tests\Functional\MoneiLogHandler;
@@ -44,6 +45,7 @@ return static function (ContainerConfigurator $container): void {
         ->tag('kernel.event_listener', ['event' => 'workflow.sylius_payment.transition.complete', 'priority' => 100]);
 
     // Tests fetch these before any plugin service uses them, so the container would remove them.
+    $services->alias('monei.test.connect_service', ConnectService::class)->public();
     $services->alias('monei.test.connection_store', ConnectionStore::class)->public();
     $services->alias('monei.test.payment_lock', PaymentLock::class)->public();
     $services->alias('monei.test.status_applier', StatusApplier::class)->public();

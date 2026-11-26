@@ -40,6 +40,8 @@ final readonly class MoneiApiFactory
             new PaymentsApi($this->httpClient, $config),
             new ApplePayDomainApi($this->httpClient, $config),
             new PaymentMethodsApi($this->renderHttpClient, $config),
+            new PaymentMethodsApi($this->httpClient, $config),
+            $this->httpClient,
         );
     }
 }
