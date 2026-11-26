@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\CommandHandler;
 
+use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
+use Monei\SyliusPlugin\Api\UnreadableAnswerException;
+use Monei\SyliusPlugin\Callback\CallbackQuota;
+use Monei\SyliusPlugin\Callback\CallbackVerifier;
 use Monei\SyliusPlugin\Callback\InvalidCallbackException;
-use Monei\SyliusPlugin\Callback\SignedCallback;
 use Monei\SyliusPlugin\Command\NotifyPaymentRequest;
-use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
+use Monei\SyliusPlugin\Payment\MoneiDetails;
 use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
@@ -18,11 +21,7 @@ use Sylius\Component\Payment\Model\PaymentRequestInterface;
 use Sylius\Component\Payment\PaymentRequestTransitions;
 use Sylius\Component\Payment\Repository\PaymentRequestRepositoryInterface;
 
-/**
- * A MONEI callback: fetches the signed MONEI payment with the API key that signed it (the
- * route's payment method) and copies its status. A fetch error is thrown, so MONEI gets a
- * 5xx and retries.
- */
+/** Fetches the callback's payment under the route method's credentials before applying any status. */
 final readonly class NotifyPaymentRequestHandler
 {
     /** @param PaymentRequestRepositoryInterface<PaymentRequestInterface> $paymentRequestRepository */
@@ -32,7 +31,8 @@ final readonly class NotifyPaymentRequestHandler
         private MoneiApiFactory $apiFactory,
         private StatusApplier $statusApplier,
         private StateMachineInterface $stateMachine,
-        private GatewayConfigurationProvider $gatewayConfigurations,
+        private CallbackVerifier $verifier,
+        private CallbackQuota $quota,
     ) {
     }
 
@@ -50,12 +50,39 @@ final readonly class NotifyPaymentRequestHandler
 
         // Checked again: `/payment-requests/{hash}` re-dispatches a non-final notify request
         // with any unsigned body merged into its payload.
-        [$body, $signature] = self::signedRequest($paymentRequest->getPayload());
-        $callback = SignedCallback::verify($body, $signature, $this->gatewayConfigurations->forPaymentMethod($paymentMethod)->apiKey);
+        [$body, $signature] = self::storedRequest($paymentRequest->getPayload());
+        $callback = $this->verifier->forPaymentMethod($body, $signature, $paymentMethod);
+        $paymentId = (int) $payment->getId();
+        if (null === $callback->apiKey) {
+            $this->quota->check($paymentId, $callback->paymentId);
+        }
+        $apiKey = $callback->apiKeyOrFail();
 
         $this->paymentLock->acquire($payment);
 
-        $moneiPayment = $this->apiFactory->forPaymentMethod($paymentMethod)->getPayment($callback->paymentId);
+        $orderId = null;
+        if (!$callback->signed) {
+            $orderId = MoneiDetails::orderId($payment);
+            if (null === $orderId) {
+                throw InvalidCallbackException::acknowledged($callback->paymentId, 'the Sylius payment has no stored order id');
+            }
+
+            $this->quota->charge($paymentId, $callback->paymentId);
+        }
+
+        try {
+            $moneiPayment = $this->apiFactory->forApiKey($apiKey)->getPayment($callback->paymentId);
+        } catch (ApiException $e) {
+            if (!$callback->signed && ($e instanceof UnreadableAnswerException || 404 === $e->getCode())) {
+                throw InvalidCallbackException::acknowledged($callback->paymentId, 'the requested payment was not found or could not be read');
+            }
+
+            throw $e;
+        }
+        if (!$callback->signed && $orderId !== $moneiPayment->getOrderId()) {
+            throw InvalidCallbackException::acknowledged($callback->paymentId, 'the fetched order id differs from the bound order id');
+        }
+
         $this->statusApplier->apply($payment, $moneiPayment);
 
         if ($this->stateMachine->can($paymentRequest, PaymentRequestTransitions::GRAPH, PaymentRequestTransitions::TRANSITION_COMPLETE)) {
@@ -66,19 +93,19 @@ final readonly class NotifyPaymentRequestHandler
     /**
      * Body and `MONEI-Signature` header of the HTTP request Sylius stored in the payload.
      *
-     * @return array{string, string}
+     * @return array{string, ?string}
      */
-    private static function signedRequest(mixed $payload): array
+    private static function storedRequest(mixed $payload): array
     {
         $httpRequest = \is_array($payload) ? ($payload['http_request'] ?? null) : null;
         $body = \is_array($httpRequest) ? ($httpRequest['content'] ?? null) : null;
         $headers = \is_array($httpRequest) ? ($httpRequest['headers'] ?? null) : null;
         $signature = \is_array($headers) && \is_array($headers['monei-signature'] ?? null) ? ($headers['monei-signature'][0] ?? null) : null;
 
-        if (!\is_string($body) || !\is_string($signature)) {
+        if (!\is_string($body)) {
             throw InvalidCallbackException::unsigned();
         }
 
-        return [$body, $signature];
+        return [$body, \is_string($signature) ? $signature : null];
     }
 }

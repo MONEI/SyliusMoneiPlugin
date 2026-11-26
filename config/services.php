@@ -7,6 +7,8 @@ use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
 use Monei\SyliusPlugin\ApplePay\DomainAssociationController;
 use Monei\SyliusPlugin\ApplePay\RegisterDomainOnSaveListener;
+use Monei\SyliusPlugin\Callback\CallbackQuota;
+use Monei\SyliusPlugin\Callback\CallbackVerifier;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
@@ -142,8 +144,14 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
+    $services->set(CallbackVerifier::class)
+        ->args([service(GatewayConfigurationProvider::class)]);
+
+    $services->set(CallbackQuota::class)
+        ->args([service('doctrine.dbal.default_connection'), service(ConnectionStore::class), service('clock')]);
+
     $services->set(MoneiNotifyPaymentProvider::class)
-        ->args([service('sylius.repository.payment'), service(GatewayConfigurationProvider::class)])
+        ->args([service('sylius.repository.payment'), service(CallbackVerifier::class), service(CallbackQuota::class)])
         ->tag('sylius.payment_request.payment_notify_provider');
 
     $services->set(NotifyPaymentRequestHandler::class)
@@ -153,7 +161,8 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service(MoneiApiFactory::class),
             service(StatusApplier::class),
             service('sylius_abstraction.state_machine'),
-            service(GatewayConfigurationProvider::class),
+            service(CallbackVerifier::class),
+            service(CallbackQuota::class),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 

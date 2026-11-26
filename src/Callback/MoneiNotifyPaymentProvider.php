@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Callback;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
-use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Sylius\Bundle\PaymentBundle\Provider\NotifyPaymentProviderInterface;
 use Sylius\Component\Core\Model\PaymentInterface as CorePaymentInterface;
 use Sylius\Component\Core\Repository\PaymentRepositoryInterface;
@@ -27,7 +26,8 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
     /** @param PaymentRepositoryInterface<CorePaymentInterface> $paymentRepository */
     public function __construct(
         private PaymentRepositoryInterface $paymentRepository,
-        private GatewayConfigurationProvider $gatewayConfigurations,
+        private CallbackVerifier $verifier,
+        private CallbackQuota $quota,
     ) {
     }
 
@@ -46,14 +46,9 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
 
     public function getPayment(Request $request, PaymentMethodInterface $paymentMethod): PaymentInterface
     {
-        // The signature is checked before anything is loaded.
-        $callback = SignedCallback::verify(
-            $request->getContent(),
-            $request->headers->get('MONEI-Signature'),
-            $this->gatewayConfigurations->forPaymentMethod($paymentMethod)->apiKey,
-        );
+        $callback = $this->verifier->forPaymentMethod($request->getContent(), $request->headers->get('MONEI-Signature'), $paymentMethod);
 
-        $paymentId = $request->query->get(self::PAYMENT_QUERY);
+        $paymentId = $request->query->all()[self::PAYMENT_QUERY] ?? null;
         if (!\is_string($paymentId) || 1 !== preg_match('/^\d+$/D', $paymentId)) {
             throw InvalidCallbackException::refused(\sprintf('the callback URL has no "%s" parameter; only the callback URL the plugin sets on each payment is supported', self::PAYMENT_QUERY));
         }
@@ -62,6 +57,12 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
         if (!$payment instanceof PaymentInterface) {
             throw InvalidCallbackException::ignored(\sprintf('Sylius payment %s does not exist (MONEI payment %s)', $paymentId, $callback->paymentId));
         }
+
+        if (!$callback->signed) {
+            // Only the handler charges attempts, including replays of stored notify requests.
+            $this->quota->check((int) $paymentId, $callback->paymentId);
+        }
+        $callback->apiKeyOrFail();
 
         return $payment;
     }

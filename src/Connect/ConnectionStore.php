@@ -53,6 +53,17 @@ final readonly class ConnectionStore
         return $this->readConnection(true);
     }
 
+    public function lockRow(): void
+    {
+        if (!$this->connection->isTransactionActive()) {
+            throw new \LogicException('Lock the MONEI connection inside a transaction.');
+        }
+
+        if (false === $this->connection->fetchOne('SELECT id FROM monei_connection WHERE id = ? FOR UPDATE', [self::ID])) {
+            throw new \RuntimeException('The MONEI connection row is missing.');
+        }
+    }
+
     public function writeMode(bool $live, string $accountId, string $apiKey, string $signingSecret): void
     {
         $this->ensure();

@@ -221,11 +221,11 @@ abstract class MoneiTestCase extends WebTestCase
     }
 
     /** Binds the order's last payment to a MONEI payment created with `$paymentMethodCode`. */
-    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE', string $moneiMethod = 'card'): void
+    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE', string $moneiMethod = 'card', ?string $orderId = null): void
     {
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType, $moneiMethod);
+        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType, $moneiMethod, $orderId);
         $this->entityManager()->flush();
     }
 
@@ -345,6 +345,11 @@ abstract class MoneiTestCase extends WebTestCase
      */
     protected function holdPaymentRowLock(PaymentInterface $payment, string $mode = 'FOR SHARE'): void
     {
+        $this->holdRowLock('sylius_payment', (int) $payment->getId(), $mode);
+    }
+
+    protected function holdRowLock(string $table, int $id, string $mode = 'FOR UPDATE'): void
+    {
         \assert(\in_array($mode, ['FOR SHARE', 'FOR UPDATE'], true));
         $connection = $this->secondConnection();
 
@@ -357,7 +362,7 @@ abstract class MoneiTestCase extends WebTestCase
         $this->entityManager()->getConnection()->close();
 
         $connection->beginTransaction();
-        $connection->fetchOne('SELECT id FROM sylius_payment WHERE id = ? '.$mode, [$payment->getId()]);
+        $connection->fetchOne('SELECT id FROM '.$connection->quoteIdentifier($table).' WHERE id = ? '.$mode, [$id]);
     }
 
     /** @return list<array{level: \Monolog\Level, message: string, text: string}> records of the `monei` channel */

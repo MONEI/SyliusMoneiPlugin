@@ -48,7 +48,7 @@ final readonly class MoneiExceptionListener
             return;
         }
 
-        $level = Response::HTTP_NO_CONTENT === $exception->httpStatus ? 'warning' : 'error';
+        $level = $exception->httpStatus < 400 ? 'warning' : 'error';
         $this->logger->log($level, 'MONEI callback not processed: {reason}', [
             'reason' => $exception->getMessage(),
             'status' => $exception->httpStatus,

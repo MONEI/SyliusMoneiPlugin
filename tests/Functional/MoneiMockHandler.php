@@ -26,10 +26,10 @@ final class MoneiMockHandler
      */
     private const CARD_BRANDS = 'GET /allowed-payment-methods';
 
-    /** @var list<ResponseInterface|\Throwable> */
+    /** @var list<ResponseInterface|\Throwable|\Closure> */
     private static array $queue = [];
 
-    /** @var array<string, list<ResponseInterface|\Throwable>> keyed by "<METHOD> <path>" */
+    /** @var array<string, list<ResponseInterface|\Throwable|\Closure>> keyed by "<METHOD> <path>" */
     private static array $queueByPath = [];
 
     /** @var list<RequestInterface> */
@@ -47,7 +47,7 @@ final class MoneiMockHandler
     }
 
     /** Answers the next request that no path-keyed response matches. */
-    public static function append(ResponseInterface|\Throwable ...$responses): void
+    public static function append(ResponseInterface|\Throwable|\Closure ...$responses): void
     {
         foreach ($responses as $response) {
             self::$queue[] = $response;
@@ -55,7 +55,7 @@ final class MoneiMockHandler
     }
 
     /** Answers the next request to `$key`, for example "GET /payments/pay_1" (without the "/v1" prefix). */
-    public static function appendFor(string $key, ResponseInterface|\Throwable ...$responses): void
+    public static function appendFor(string $key, ResponseInterface|\Throwable|\Closure ...$responses): void
     {
         foreach ($responses as $response) {
             self::$queueByPath[$key][] = $response;
@@ -77,7 +77,7 @@ final class MoneiMockHandler
     /** @return list<string> */
     public static function unused(): array
     {
-        $unused = array_map(static fn (ResponseInterface|\Throwable $response): string => 'FIFO '.self::describe($response), self::$queue);
+        $unused = array_map(static fn (ResponseInterface|\Throwable|\Closure $response): string => 'FIFO '.self::describe($response), self::$queue);
         foreach (self::$queueByPath as $key => $responses) {
             foreach ($responses as $response) {
                 $unused[] = $key.' '.self::describe($response);
@@ -119,11 +119,15 @@ final class MoneiMockHandler
             return Create::rejectionFor(new \OutOfBoundsException(\sprintf('No mocked MONEI response for "%s".', $key)));
         }
 
+        if ($response instanceof \Closure) {
+            $response = $response();
+        }
+
         return $response instanceof \Throwable ? Create::rejectionFor($response) : Create::promiseFor($response);
     }
 
-    private static function describe(ResponseInterface|\Throwable $response): string
+    private static function describe(ResponseInterface|\Throwable|\Closure $response): string
     {
-        return $response instanceof \Throwable ? $response::class : (string) $response->getStatusCode();
+        return $response instanceof ResponseInterface ? (string) $response->getStatusCode() : $response::class;
     }
 }

@@ -99,7 +99,7 @@ final readonly class MoneiApi
         try {
             $result = $this->paymentMethods->getAllowed();
         } catch (\InvalidArgumentException $e) {
-            throw new ApiException('MONEI answered payment methods the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+            throw new UnreadableAnswerException('MONEI answered payment methods the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
         }
         if (!$result instanceof PaymentMethods) {
             throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of payment methods.', $result::class));
@@ -156,7 +156,7 @@ final readonly class MoneiApi
             $result = $call();
         } catch (\InvalidArgumentException $e) {
             // The SDK throws this, not an ApiException, for a status outside its enum.
-            throw new ApiException('MONEI answered a payment the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+            throw new UnreadableAnswerException('MONEI answered a payment the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
         }
         if (!$result instanceof Payment) {
             throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of a payment.', $result::class));

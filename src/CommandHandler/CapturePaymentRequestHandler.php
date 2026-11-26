@@ -244,7 +244,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), $configuration->transactionType(), $configuration->method->value);
+        MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), $configuration->transactionType(), $configuration->method->value, $createRequest->getOrderId());
 
         if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
             $this->logger->error('MONEI created payment {monei_payment} for Sylius payment {payment} as FAILED: {message}', $context + [

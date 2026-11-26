@@ -48,6 +48,20 @@ final class GatewayFormTest extends MoneiTestCase
         ], 'MONEI_PAYPAL');
     }
 
+    public function testManualCredentialsRejectAScopedKeyWithoutASigningSecret(): void
+    {
+        $form = $this->createForm('MONEI_MANUAL');
+        $form[self::CONFIG.'[credentials]'] = 'manual';
+        $form[self::CONFIG.'[api_key]'] = 'mk_test_fixture';
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString('The MONEI API key must start with pk_test_ or pk_live_.', $this->fieldRow($crawler, 'api_key')->text());
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
+    }
+
     public function testConnectedTestSavesWithAnEmptyManualKeyAndDoesNotStoreConnectionCredentials(): void
     {
         $form = $this->createForm('MONEI_CONNECTED_TEST');

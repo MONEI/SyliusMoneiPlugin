@@ -23,18 +23,23 @@ final readonly class SignedCallback
             throw InvalidCallbackException::unsigned();
         }
 
+        return new self(self::paymentIdFromBody($body));
+    }
+
+    public static function paymentIdFromBody(string $body): string
+    {
         try {
             $data = json_decode($body, true, 512, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
-            throw InvalidCallbackException::refused('the signed body is not JSON');
+            throw InvalidCallbackException::refused('the callback body is not JSON');
         }
 
         $id = \is_array($data) ? ($data['id'] ?? null) : null;
         if (!\is_string($id) || '' === $id) {
-            throw InvalidCallbackException::refused('the signed body has no payment id');
+            throw InvalidCallbackException::refused('the callback body has no payment id');
         }
 
-        return new self($id);
+        return $id;
     }
 
     /** Header format: `t=<timestamp>,v1=<hex HMAC-SHA256 of "<timestamp>.<body>">`. */
