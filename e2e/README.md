@@ -56,3 +56,10 @@ JWT keypair that the test application ships, so nobody can sign an admin API tok
   `e2e:start` creates one test payment and cancels it at once. The ID goes to the `seed` container
   only, and `start.sh` masks it in the GitHub Actions job log. The checkout Complete page shows it
   in its HTML, so `specs/inline.spec.ts` records no trace or screenshot.
+
+## Connect with MONEI
+
+After the tunnel registers, `e2e:start` sets the channel hostname so the HTTP admin can build an
+HTTPS Connect callback. The Connect specs check session and CSRF refusals on localhost, forged
+state rejection through the public tunnel, and the broker redirect without following it. They use
+the same sandbox setup as the manual-key payment specs and need no additional credentials.

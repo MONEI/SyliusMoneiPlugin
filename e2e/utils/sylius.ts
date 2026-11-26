@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 import { COMPOSE_FILE } from "./env.ts";
 
 /** Rows of a query on the store database, through the e2e MySQL container. */
-function query(sql: string): string[][] {
+export function query(sql: string): string[][] {
   const output = execFileSync(
     "docker",
     ["compose", "-f", COMPOSE_FILE, "exec", "-T", "-e", "MYSQL_PWD=root", "mysql",

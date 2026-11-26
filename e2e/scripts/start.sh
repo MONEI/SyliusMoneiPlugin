@@ -64,6 +64,11 @@ gha_mask "${store_url#https://}"
 # Written, never printed: the public repo's CI logs must not show the tunnel host.
 printf '%s\n' "$store_url" >"$GENERATED_DIR/store-url"
 
+# The localhost admin builds the HTTPS Connect callback from the channel hostname.
+printf "UPDATE sylius_channel SET hostname = '%s' WHERE code = 'E2E';\n" "${store_url#https://}" |
+  compose exec -T -e MYSQL_PWD=root mysql mysql -uroot sylius_monei_prod >/dev/null 2>&1 ||
+  fail "could not set the e2e channel hostname"
+
 tunnel_ready() { curl -fsS --max-time 10 -o /dev/null "$store_url/en_US/"; }
 wait_for 120 tunnel "the store through the tunnel" tunnel_ready
 
