@@ -34,6 +34,9 @@ final class ConnectPageTest extends MoneiTestCase
     public function testForgedDisconnectAndGetWithValidTokenCannotClearTheConnection(): void
     {
         $this->createConnectedTestMethod();
+        $this->createMoneiPaymentMethod('MONEI_MANUAL');
+        $db = $this->secondConnection();
+        $configBefore = $db->fetchFirstColumn('SELECT config FROM sylius_gateway_config ORDER BY id');
         $this->loginAdmin();
         $token = $this->csrfToken('monei_connect_disconnect');
 
@@ -48,6 +51,7 @@ final class ConnectPageTest extends MoneiTestCase
         $this->client->request('POST', self::DISCONNECT, ['_token' => $token]);
         self::assertResponseRedirects(self::PAGE, 303);
         self::assertNull($this->store()->read()->testAccountId);
+        self::assertTrue($configBefore === $db->fetchFirstColumn('SELECT config FROM sylius_gateway_config ORDER BY id'), 'Disconnect must preserve the stored payment method configuration.');
     }
 
     #[DataProvider('adminRoutes')]
@@ -78,6 +82,7 @@ final class ConnectPageTest extends MoneiTestCase
         $callback = 'https://shop.example/monei/connect';
         self::assertSame($callback, $page->filterXPath('//main//code')->text());
         self::assertCount(1, $page->filterXPath('//aside//a[@href="'.self::PAGE.'"]'));
+        self::assertCount(1, $page->filterXPath('//form[@action="'.self::START.'" and @target="_blank"]'));
         self::assertFalse($this->entityManager()->getConnection()->fetchOne('SELECT id FROM monei_connection'));
 
         $this->client->submit($page->selectButton('Connect with MONEI')->form());
@@ -137,6 +142,7 @@ final class ConnectPageTest extends MoneiTestCase
         self::assertCount(1, $page->selectLink('MONEI_MANUAL'));
         self::assertCount(0, $page->selectLink('OFFLINE'));
         self::assertCount(0, $page->selectLink('MONEI_CONNECTED'));
+        self::assertCount(1, $page->filterXPath('//main//a[@href="https://dashboard.monei.com/settings/api"]'));
         $html = $this->client->getResponse()->getContent();
         self::assertTrue(\is_string($html) && !str_contains($html, 'mk_test_fixture') && !str_contains($html, 'mksec_test_fixture') && !str_contains($html, self::API_KEY));
     }

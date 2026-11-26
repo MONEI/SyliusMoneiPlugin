@@ -49,7 +49,9 @@ final class CallbackRouteTest extends MoneiTestCase
         $secret = 'mksec_replacement_fixture';
         $this->channel->setHostname('shop.example');
         $this->createConnectedTestMethod(['payment_method' => 'apple_google_pay']);
+        $this->createMoneiPaymentMethod('MONEI_MANUAL');
         $this->entityManager()->flush();
+        $configBefore = $this->secondConnection()->fetchFirstColumn('SELECT config FROM sylius_gateway_config ORDER BY id');
         $this->seedState();
 
         MoneiMockHandler::appendFor('POST /integrations/token', new Response(200, [], json_encode([
@@ -77,6 +79,7 @@ final class CallbackRouteTest extends MoneiTestCase
         self::assertSame(self::ACCOUNT_ID, $snapshot->testAccountId);
         self::assertTrue($key === $snapshot->testApiKey && $secret === $snapshot->testSigningSecret);
         self::assertNull($this->store()->readState(self::STATE));
+        self::assertTrue($configBefore === $this->secondConnection()->fetchFirstColumn('SELECT config FROM sylius_gateway_config ORDER BY id'), 'Connect must not change the stored credentials of any payment method.');
 
         $raw = $this->entityManager()->getConnection()->fetchOne('SELECT last_result FROM monei_connection');
         self::assertIsString($raw);
@@ -85,6 +88,22 @@ final class CallbackRouteTest extends MoneiTestCase
         foreach ($this->moneiLogs() as $record) {
             self::assertTrue(!str_contains($record['text'], 'mk_') && !str_contains($record['text'], 'mksec_'));
         }
+    }
+
+    public function testBrokerResponseMissingASigningSecretCannotReplaceTheWorkingKey(): void
+    {
+        $this->createConnectedTestMethod();
+        $this->seedState();
+        MoneiMockHandler::appendFor('POST /integrations/token', new Response(200, [], json_encode([
+            'test' => ['accountId' => self::ACCOUNT_ID, 'apiKey' => 'mk_test_replacement_fixture'],
+        ], \JSON_THROW_ON_ERROR)));
+
+        $this->client->request('GET', '/monei/connect?code=fixture&state='.self::STATE);
+
+        self::assertResponseStatusCodeSame(400);
+        self::assertSame(['POST /integrations/token'], $this->requestKeys());
+        self::assertTrue('mk_test_fixture' === $this->store()->read()->testApiKey);
+        self::assertNull($this->store()->readState(self::STATE));
     }
 
     private function seedState(): void

@@ -304,6 +304,18 @@ final class CallbackTest extends MoneiTestCase
         self::assertSame([Level::Warning], array_column($this->moneiLogs(), 'level'));
     }
 
+    public function testUnsignedCallbackForAnUnknownSyliusPaymentDoesNotSpendQuotaOrFetch(): void
+    {
+        $order = $this->connectedOrder();
+
+        $this->postCallback('MONEI_CONNECTED', $this->paymentId($order) + 1, null, self::CONNECTED_BODY);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(0, $this->attemptCount());
+    }
+
     public function testDisconnectedMethodAsksMoneiToRetryWithoutCreatingANotifyRequest(): void
     {
         $order = $this->connectedOrder();

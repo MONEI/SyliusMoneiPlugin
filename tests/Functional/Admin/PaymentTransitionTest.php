@@ -174,6 +174,20 @@ final class PaymentTransitionTest extends MoneiTestCase
         self::assertSame('refunded', $this->paymentState($order));
     }
 
+    public function testRefundAfterDisconnectDoesNotRecordALocalOnlyRefund(): void
+    {
+        $order = $this->placeOrder($this->createConnectedTestMethod());
+        $this->bindPayment($order, 'pay_1', 'MONEI_CONNECTED');
+        $this->applyMoneiStatus($order, 'pay_1', 'SUCCEEDED');
+        $this->disconnectMonei();
+
+        $this->transition($order, 'refund');
+
+        self::assertSame([], $this->requestKeys());
+        self::assertSame('completed', $this->paymentState($order));
+        $this->assertOrderPageShows($order, 'The MONEI payment cannot be reached with the API key of payment method MONEI_CONNECTED.');
+    }
+
     public function testRefundOfAPartiallyRefundedPaymentRefundsTheRest(): void
     {
         $order = $this->completedOrder();
