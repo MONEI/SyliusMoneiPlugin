@@ -11,6 +11,7 @@ use Monei\ConnectException;
 use Monei\Internal\GuzzleHttp\ClientInterface;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\ApplePay\ApplePayDomainRegistrar;
+use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Symfony\Component\Clock\ClockInterface;
 
 /**
@@ -52,7 +53,7 @@ final readonly class ConnectService
             $store,
             $clock,
             static fn (string $code, string $verifier, string $client, string $uri, string $base): array => Connect::exchange($code, $verifier, $client, $uri, $base, $httpClient),
-            static fn (string $key): int => $apiFactory->forApiKey($key)->probe(),
+            $apiFactory->probe(...),
             $registrar->registerConnected(...),
             $baseUrl ?: Connect::BASE_URL,
         );
@@ -113,7 +114,8 @@ final readonly class ConnectService
         $liveAccount = null;
         try {
             $returned = ($this->exchange)($code, $entry->verifier, self::CLIENT, $entry->redirectUri, $this->baseUrl);
-            $liveAccount = $returned['live']['accountId'] ?? null;
+            $candidate = $returned['live']['accountId'] ?? '';
+            $liveAccount = 1 === preg_match(GatewayConfiguration::ACCOUNT_ID_PATTERN, $candidate) ? $candidate : null;
             foreach (['live', 'test'] as $mode) {
                 if (isset($returned['errors'][$mode])) {
                     $result['problems'][] = ['mode' => $mode, 'code' => self::brokerProblem($returned['errors'][$mode])];
@@ -181,8 +183,8 @@ final readonly class ConnectService
     /** @param array<string, string> $values */
     private function probeMode(string $mode, array $values): ?string
     {
-        if ('' === ($values['accountId'] ?? '') || !str_starts_with($values['apiKey'] ?? '', 'mk_'.$mode.'_')
-            || !str_starts_with($values['signingSecret'] ?? '', 'mksec_') || 'mksec_' === $values['signingSecret']) {
+        if (1 !== preg_match(GatewayConfiguration::ACCOUNT_ID_PATTERN, $values['accountId'] ?? '')
+            || !GatewayConfiguration::validConnectedKeyPair('live' === $mode, $values['apiKey'] ?? '', $values['signingSecret'] ?? '')) {
             return 'keyRejected';
         }
 

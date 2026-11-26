@@ -63,8 +63,8 @@ final readonly class NotifyPaymentRequestHandler
         $orderId = null;
         if (!$callback->signed) {
             $orderId = MoneiDetails::orderId($payment);
-            if (null === $orderId) {
-                throw InvalidCallbackException::acknowledged($callback->paymentId, 'the Sylius payment has no stored order id');
+            if (null === $orderId && $callback->paymentId !== MoneiDetails::paymentId($payment)) {
+                throw InvalidCallbackException::acknowledged($callback->paymentId, 'the callback payment id differs from the binding and the Sylius payment has no stored order id');
             }
 
             $this->quota->charge($paymentId, $callback->paymentId);
@@ -79,7 +79,7 @@ final readonly class NotifyPaymentRequestHandler
 
             throw $e;
         }
-        if (!$callback->signed && $orderId !== $moneiPayment->getOrderId()) {
+        if (null !== $orderId && $orderId !== $moneiPayment->getOrderId()) {
             throw InvalidCallbackException::acknowledged($callback->paymentId, 'the fetched order id differs from the bound order id');
         }
 

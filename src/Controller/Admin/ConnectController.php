@@ -53,6 +53,7 @@ final readonly class ConnectController
         return new Response($this->twig->render('@MoneiSyliusPlugin/admin/connect/index.html.twig', [
             'callbackUrl' => $this->callbackUrl->forRequest($request),
             'modes' => $modes,
+            'hasAccountBinding' => null !== $connection->liveAccountId || null !== $connection->testAccountId,
             'lastResult' => $connection->lastResult,
             'manualMethods' => $manualMethods,
         ]), headers: ['Cache-Control' => 'no-store']);

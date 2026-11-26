@@ -54,6 +54,20 @@ final class ConnectPageTest extends MoneiTestCase
         self::assertTrue($configBefore === $db->fetchFirstColumn('SELECT config FROM sylius_gateway_config ORDER BY id'), 'Disconnect must preserve the stored payment method configuration.');
     }
 
+    public function testDisconnectCanClearARetainedBindingWhenTheCredentialsAreUnreadable(): void
+    {
+        $this->store()->writeMode(true, self::ACCOUNT_ID, 'mk_live_fixture', 'mksec_fixture');
+        $this->secondConnection()->update('monei_connection', ['live_api_key' => 'unreadable'], ['id' => 1]);
+        self::assertNull($this->store()->read()->liveApiKey);
+        $this->loginAdmin();
+        $page = $this->client->request('GET', self::PAGE);
+
+        $this->client->submit($page->selectButton('Disconnect')->form());
+
+        self::assertResponseRedirects(self::PAGE, 303);
+        self::assertNull($this->store()->read()->liveAccountId);
+    }
+
     #[DataProvider('adminRoutes')]
     public function testAnonymousRequestsAreSentToAdminLogin(string $method, string $route): void
     {
@@ -116,12 +130,12 @@ final class ConnectPageTest extends MoneiTestCase
     public function testRejectedChannelFallsBackToTheHttpsRequestWithItsInstallPrefix(): void
     {
         $this->loginAdmin();
-        $page = $this->client->request('GET', 'https://admin.example/shop'.self::PAGE, server: [
+        $page = $this->client->request('GET', 'https://admin.example:8443/shop'.self::PAGE, server: [
             'SCRIPT_NAME' => '/shop/index.php',
             'SCRIPT_FILENAME' => '/app/public/index.php',
         ]);
         self::assertResponseIsSuccessful();
-        self::assertSame('https://admin.example/shop/monei/connect', $page->filterXPath('//main//code')->text());
+        self::assertSame('https://admin.example:8443/shop/monei/connect', $page->filterXPath('//main//code')->text());
     }
 
     public function testPageMasksConnectedAndManualKeysAndShowsTheLastResult(): void

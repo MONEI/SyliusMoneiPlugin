@@ -77,12 +77,9 @@ final readonly class GatewayConfiguration
     public static function fromArray(array $config): self
     {
         $credentials = $config[self::CREDENTIALS] ?? self::MANUAL;
-        $keyPattern = match ($credentials) {
-            self::MANUAL => '/^pk_(test|live)_\S+$/D',
-            self::CONNECTED_LIVE => '/^mk_live_\S+$/D',
-            self::CONNECTED_TEST => '/^mk_test_\S+$/D',
-            default => throw new InvalidGatewayConfigurationException(self::CREDENTIALS, 'monei.gateway_configuration.credentials.invalid', 'Choose a MONEI credential source.'),
-        };
+        if (!\in_array($credentials, [self::MANUAL, self::CONNECTED_LIVE, self::CONNECTED_TEST], true)) {
+            throw new InvalidGatewayConfigurationException(self::CREDENTIALS, 'monei.gateway_configuration.credentials.invalid', 'Choose a MONEI credential source.');
+        }
 
         $apiKey = $config[self::API_KEY] ?? null;
         $apiKey = \is_string($apiKey) ? trim($apiKey) : '';
@@ -91,12 +88,12 @@ final readonly class GatewayConfiguration
             if ('' === $apiKey) {
                 throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.missing', 'The MONEI API key is missing.');
             }
-            if (1 !== preg_match($keyPattern, $apiKey)) {
+            if (1 !== preg_match('/^pk_(test|live)_\S+$/D', $apiKey)) {
                 throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.invalid', 'The MONEI API key must start with pk_test_ or pk_live_.');
             }
         } else {
             $signingSecret = $config[self::SIGNING_SECRET] ?? null;
-            if (1 !== preg_match($keyPattern, $apiKey) || !\is_string($signingSecret) || 1 !== preg_match('/^mksec_\S+$/D', $signingSecret)) {
+            if (!\is_string($signingSecret) || !self::validConnectedKeyPair(self::CONNECTED_LIVE === $credentials, $apiKey, $signingSecret)) {
                 throw self::notConnected($credentials);
             }
         }
@@ -139,6 +136,12 @@ final readonly class GatewayConfiguration
         }
 
         return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout, $accountId, $credentials, $signingSecret);
+    }
+
+    public static function validConnectedKeyPair(bool $live, string $apiKey, string $signingSecret): bool
+    {
+        return 1 === preg_match($live ? '/^mk_live_\S+$/D' : '/^mk_test_\S+$/D', $apiKey)
+            && 1 === preg_match('/^mksec_\S+$/D', $signingSecret);
     }
 
     private static function notConnected(string $credentials): InvalidGatewayConfigurationException

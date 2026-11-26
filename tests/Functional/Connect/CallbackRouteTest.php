@@ -95,14 +95,19 @@ final class CallbackRouteTest extends MoneiTestCase
         $this->createConnectedTestMethod();
         $this->seedState();
         MoneiMockHandler::appendFor('POST /integrations/token', new Response(200, [], json_encode([
-            'test' => ['accountId' => self::ACCOUNT_ID, 'apiKey' => 'mk_test_replacement_fixture'],
+            'live' => ['accountId' => self::ACCOUNT_ID, 'apiKey' => 'mk_live_replacement_fixture'],
+            'test' => ['accountId' => self::ACCOUNT_ID, 'apiKey' => 'mk_test_replacement_fixture', 'signingSecret' => 'mksec_replacement_fixture'],
         ], \JSON_THROW_ON_ERROR)));
 
-        $this->client->request('GET', '/monei/connect?code=fixture&state='.self::STATE);
+        $page = $this->client->request('GET', '/monei/connect?code=fixture&state='.self::STATE);
 
         self::assertResponseStatusCodeSame(400);
+        self::assertStringContainsString('MONEI Connect is temporarily unavailable. Try again later.', $page->filterXPath('//main')->text());
+        self::assertEquals(['switched' => [], 'problems' => [['mode' => null, 'code' => 'temporarily_unavailable']]], $this->store()->read()->lastResult);
         self::assertSame(['POST /integrations/token'], $this->requestKeys());
         self::assertTrue('mk_test_fixture' === $this->store()->read()->testApiKey);
+        self::assertTrue('mksec_test_fixture' === $this->store()->read()->testSigningSecret);
+        self::assertNull($this->store()->read()->liveApiKey);
         self::assertNull($this->store()->readState(self::STATE));
     }
 

@@ -44,6 +44,7 @@ Version 2.0.0 is a full rewrite. If you installed 1.x, read [Upgrade from 1.x](#
 ## Requirements
 
 - PHP 8.2 or later.
+- MONEI PHP SDK (`monei/monei-php-sdk`) ^2.18.
 - Sylius 2.2.13 or later on the 2.2 line, or Sylius 2.3.3 or later.
 - The Symfony Workflow state machine adapter (`symfony_workflow`) for the `sylius_payment` and `sylius_order` graphs. See [State machine adapter](#state-machine-adapter).
 - A public store URL that MONEI can reach from the internet. MONEI sends a callback for each payment to it. See [Callback URL](#callback-url).
@@ -154,11 +155,13 @@ PostgreSQL is untested. The bundled migration runs on MySQL. On PostgreSQL, gene
 
 The public connection callback is `https://<channel host>/monei/connect`. The plugin uses the first eligible hostname from enabled channels, or the admin host when the admin request uses HTTPS. If the store runs in a subdirectory, the callback includes that path.
 
-The MONEI page shows **Use manual keys** when it cannot build an eligible callback URL. This happens when there is no eligible HTTPS host, the install path is deeper than two segments, the URL contains `index.php`, or the broker refuses the host. See [Advanced: manual API keys](#advanced-manual-api-keys).
+The MONEI page shows **Use manual keys** when it cannot build an eligible callback URL. This happens when there is no eligible HTTPS host, the install path is deeper than two segments, the URL contains `index.php`, or another local SDK callback URL rule fails. If the URL passes local validation and the broker later refuses the connection, the refusal appears in the Connect result. See [Advanced: manual API keys](#advanced-manual-api-keys).
 
-Any Sylius admin user can connect or disconnect. Core Sylius has no per-admin permissions. **Disconnect** removes both connected modes from the store and stops the methods that use them from appearing at checkout. You can revoke the keys separately in the MONEI Dashboard.
+Any Sylius admin user can connect or disconnect. Core Sylius has no per-admin permissions. **Disconnect** removes both connected modes from the store and stops the methods that use them from appearing at checkout. Sylius refuses captures and refunds for payments that use the disconnected modes. You can still cancel the Sylius order, but the MONEI payment remains payable. You can revoke the keys separately in the MONEI Dashboard.
 
-Reconnect to the same account to refresh its credentials. To connect a different live account, disconnect first. Switching a payment method to credentials for another account leaves its open payments unreachable from Sylius. Finish those payments before switching.
+Reconnect to the same account to refresh its credentials. To connect a different live account, disconnect first. Switching a payment method to credentials for another account or between Live and Test can leave its existing payments unreachable from Sylius, even when both modes belong to the same account. Finish those payments before switching.
+
+The plugin stores connected API keys, signing secrets, and pending PKCE verifiers in plaintext when `sylius.encrypter` is unavailable. Previously encrypted credentials become unreadable if the encrypter is removed or its key is lost.
 
 `MONEI_CONNECT_BASE_URL` overrides the broker URL for development only.
 
@@ -244,6 +247,8 @@ When you save an enabled Apple Pay / Google Pay payment method, the plugin regis
 
 When MONEI refuses a domain, the admin shows a warning and the save still completes. Apple Pay does not show on that domain until it is registered. Save the payment method again to retry. When you add a channel to the payment method or change a channel hostname, save the payment method again to register the new domain. Apple Pay needs HTTPS and the route import from [step 4](#4-import-the-routes). Google Pay needs no domain registration.
 
+Connecting or reconnecting also registers domains for enabled wallet methods that use the refreshed mode. Registration failures appear in the Connect result, and the refreshed credentials stay active.
+
 ## How it works
 
 - **Pay.** The plugin creates a MONEI payment for the Sylius payment and sends the buyer to the MONEI page (hosted) or shows the monei.js form (onsite). When the buyer pays again, the plugin reuses a pending MONEI payment, or cancels it and creates a new one when the method or amount changed.
@@ -267,6 +272,7 @@ When MONEI refuses a domain, the admin shows a warning and the save still comple
 
 ## Limits
 
+- **Missing signing secret in SDK 2.18.** The SDK rejects the entire Connect exchange response if either returned mode omits its signing secret. The Connect result shows a temporary failure, and the plugin keeps the existing credentials.
 - **Currencies with 2 decimals only.** Sylius stores every amount with 2 decimals. A payment in a currency with 0 or 3 decimals fails before any call to MONEI.
 - **No dashboard webhook.** The plugin uses only the callback URL that it sets on each payment. Do not add a webhook for Sylius in the MONEI dashboard: its events carry no Sylius payment id, and the plugin refuses them.
 - **Actions in the MONEI dashboard are not recorded in Sylius.** MONEI sends no callback for refunds, captures, voids or expiry. The return page and the plugin's admin actions still read the current MONEI status.

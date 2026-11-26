@@ -38,7 +38,7 @@
                             <p>{{ 'monei.connect.manual'|trans }}</p>
                         {% endif %}
 
-                        {% if modes %}
+                        {% if hasAccountBinding %}
                             <form class="mt-3" action="{{ path('monei_sylius_admin_connect_disconnect') }}" method="post">
                                 <input type="hidden" name="_token" value="{{ csrf_token('monei_connect_disconnect') }}">
                                 <p>{{ 'monei.connect.disconnect_warning'|trans }}</p>

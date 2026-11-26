@@ -23,7 +23,7 @@ final readonly class CallbackUrl
             $hosts[] = $channel->getHostname();
         }
         if ($request->isSecure()) {
-            $hosts[] = $request->getHost();
+            $hosts[] = $request->getHttpHost();
         }
 
         foreach ($hosts as $host) {

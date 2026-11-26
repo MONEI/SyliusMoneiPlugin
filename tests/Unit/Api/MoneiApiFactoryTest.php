@@ -24,8 +24,8 @@ final class MoneiApiFactoryTest extends TestCase
         /** @var list<array{request: RequestInterface}> $history */
         $history = [];
         $stack = HandlerStack::create(new MockHandler([
-            new Response(200, ['Content-Type' => 'application/json'], '{"id":"pay_a"}'),
-            new Response(200, ['Content-Type' => 'application/json'], '{"id":"pay_b"}'),
+            new Response(200, ['Content-Type' => 'application/json'], '{"id":"pay_a","status":"PENDING"}'),
+            new Response(200, ['Content-Type' => 'application/json'], '{"id":"pay_b","status":"PENDING"}'),
         ]));
         $stack->push(Middleware::history($history));
         $client = new Client(['handler' => $stack]);

@@ -64,27 +64,26 @@ final readonly class ConnectionStore
 
     public function writeMode(bool $live, string $accountId, string $apiKey, string $signingSecret): void
     {
-        $this->ensure();
+        if (!$this->connection->isTransactionActive()) {
+            $this->ensure();
+        }
         $mode = $live ? 'live' : 'test';
 
-        $this->connection->transactional(function () use ($mode, $accountId, $apiKey, $signingSecret): void {
-            $this->lock();
-            $this->connection->update('monei_connection', [
-                $mode.'_account_id' => $accountId,
-                $mode.'_api_key' => $this->encrypt($apiKey),
-                $mode.'_signing_secret' => $this->encrypt($signingSecret),
-            ], ['id' => self::ID]);
-        });
+        $this->connection->update('monei_connection', [
+            $mode.'_account_id' => $accountId,
+            $mode.'_api_key' => $this->encrypt($apiKey),
+            $mode.'_signing_secret' => $this->encrypt($signingSecret),
+        ], ['id' => self::ID]);
     }
 
     /** @param array<string, mixed> $result */
     public function writeResult(array $result): void
     {
-        $this->ensure();
-        $this->connection->transactional(function () use ($result): void {
-            $this->lock();
-            $this->connection->update('monei_connection', ['last_result' => $result], ['id' => self::ID], ['last_result' => Types::JSON]);
-        });
+        if (!$this->connection->isTransactionActive()) {
+            $this->ensure();
+        }
+
+        $this->connection->update('monei_connection', ['last_result' => $result], ['id' => self::ID], ['last_result' => Types::JSON]);
     }
 
     public function clear(): void
@@ -100,6 +99,7 @@ final readonly class ConnectionStore
                 'test_api_key' => null,
                 'test_signing_secret' => null,
                 'generation' => $locked->generation + 1,
+                'last_result' => null,
             ], ['id' => self::ID]);
             $this->connection->executeStatement('DELETE FROM monei_connect_state');
         });
@@ -107,15 +107,13 @@ final readonly class ConnectionStore
 
     public function insertState(string $state, string $verifier, string $redirectUri, int $generation, \DateTimeImmutable $createdAt): void
     {
-        $this->connection->transactional(function () use ($state, $verifier, $redirectUri, $generation, $createdAt): void {
-            $this->connection->insert('monei_connect_state', [
-                'state' => $state,
-                'verifier' => $this->encrypt($verifier),
-                'redirect_uri' => $redirectUri,
-                'generation' => $generation,
-                'created_at' => $createdAt,
-            ], ['created_at' => Types::DATETIME_IMMUTABLE]);
-        });
+        $this->connection->insert('monei_connect_state', [
+            'state' => $state,
+            'verifier' => $this->encrypt($verifier),
+            'redirect_uri' => $redirectUri,
+            'generation' => $generation,
+            'created_at' => $createdAt,
+        ], ['created_at' => Types::DATETIME_IMMUTABLE]);
     }
 
     public function readState(string $state): ?PendingConnectState
@@ -173,19 +171,15 @@ final readonly class ConnectionStore
 
     public function insertAttempt(int $paymentId, \DateTimeImmutable $createdAt): void
     {
-        $this->connection->transactional(function () use ($paymentId, $createdAt): void {
-            $this->connection->insert('monei_callback_attempt', [
-                'payment_id' => $paymentId,
-                'created_at' => $createdAt,
-            ], ['created_at' => Types::DATETIME_IMMUTABLE]);
-        });
+        $this->connection->insert('monei_callback_attempt', [
+            'payment_id' => $paymentId,
+            'created_at' => $createdAt,
+        ], ['created_at' => Types::DATETIME_IMMUTABLE]);
     }
 
     private function deleteBefore(string $table, \DateTimeImmutable $cutoff): void
     {
-        $this->connection->transactional(function () use ($table, $cutoff): void {
-            $this->connection->executeStatement('DELETE FROM '.$table.' WHERE created_at < ?', [$cutoff], [Types::DATETIME_IMMUTABLE]);
-        });
+        $this->connection->executeStatement('DELETE FROM '.$table.' WHERE created_at < ?', [$cutoff], [Types::DATETIME_IMMUTABLE]);
     }
 
     private function readConnection(bool $lock): ConnectionSnapshot

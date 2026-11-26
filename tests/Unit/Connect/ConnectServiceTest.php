@@ -17,8 +17,8 @@ final class ConnectServiceTest extends TestCase
     private const URI = 'https://shop.example/monei/connect';
     private const STATE = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     private const OTHER_STATE = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-    private const LIVE = ['accountId' => 'live-account', 'apiKey' => 'mk_live_new', 'signingSecret' => 'mksec_live_new'];
-    private const TEST = ['accountId' => 'new-test-account', 'apiKey' => 'mk_test_new', 'signingSecret' => 'mksec_test_new'];
+    private const LIVE = ['accountId' => '11111111-1111-1111-1111-111111111111', 'apiKey' => 'mk_live_new', 'signingSecret' => 'mksec_live_new'];
+    private const TEST = ['accountId' => '22222222-2222-2222-2222-222222222222', 'apiKey' => 'mk_test_new', 'signingSecret' => 'mksec_test_new'];
 
     private ConnectionStore $store;
     private Connection $db;
@@ -26,8 +26,8 @@ final class ConnectServiceTest extends TestCase
     private array $states = [];
     private array $row = [
         'generation' => 0, 'last_result' => null,
-        'live_account_id' => 'live-account', 'live_api_key' => 'mk_live_old', 'live_signing_secret' => 'mksec_live_old',
-        'test_account_id' => 'old-test-account', 'test_api_key' => 'mk_test_old', 'test_signing_secret' => 'mksec_test_old',
+        'live_account_id' => '11111111-1111-1111-1111-111111111111', 'live_api_key' => 'mk_live_old', 'live_signing_secret' => 'mksec_live_old',
+        'test_account_id' => '33333333-3333-3333-3333-333333333333', 'test_api_key' => 'mk_test_old', 'test_signing_secret' => 'mksec_test_old',
     ];
     private bool $deleteLostRace = false;
 
@@ -135,7 +135,7 @@ final class ConnectServiceTest extends TestCase
 
         self::assertSame(null === $problem ? ['test'] : [], $result['switched']);
         self::assertSame(null === $problem ? [] : [['mode' => 'test', 'code' => $problem]], $result['problems']);
-        self::assertSame(null === $problem ? 'new-test-account' : 'old-test-account', $this->store->read()->testAccountId);
+        self::assertSame(null === $problem ? '22222222-2222-2222-2222-222222222222' : '33333333-3333-3333-3333-333333333333', $this->store->read()->testAccountId);
         self::assertTrue('mk_live_old' === $this->store->read()->liveApiKey);
     }
 
@@ -165,7 +165,7 @@ final class ConnectServiceTest extends TestCase
     {
         $this->seed();
         $result = $this->service(static fn (): array => [
-            'live' => ['accountId' => 'other-account'] + self::LIVE, 'test' => self::TEST,
+            'live' => ['accountId' => '44444444-4444-4444-4444-444444444444'] + self::LIVE, 'test' => self::TEST,
         ])->complete(self::STATE, 'code');
 
         self::assertSame(['switched' => [], 'problems' => [['mode' => null, 'code' => 'otherAccount']]], $result);
@@ -180,7 +180,7 @@ final class ConnectServiceTest extends TestCase
             static fn (): array => ['live' => self::LIVE, 'test' => self::TEST],
             function (string $key): int {
                 if ('mk_live_new' === $key) {
-                    $this->store->writeMode(true, 'other-account', 'mk_live_other', 'mksec_other');
+                    $this->store->writeMode(true, '44444444-4444-4444-4444-444444444444', 'mk_live_other', 'mksec_other');
                 }
 
                 return 200;
@@ -188,7 +188,7 @@ final class ConnectServiceTest extends TestCase
         )->complete(self::STATE, 'code');
 
         self::assertSame(['switched' => [], 'problems' => [['mode' => null, 'code' => 'otherAccount']]], $result);
-        self::assertSame('other-account', $this->store->read()->liveAccountId);
+        self::assertSame('44444444-4444-4444-4444-444444444444', $this->store->read()->liveAccountId);
         self::assertNull($this->store->read()->testAccountId);
     }
 
@@ -213,13 +213,22 @@ final class ConnectServiceTest extends TestCase
         self::assertNull($connection->lastResult);
     }
 
-    public function testAModeWithoutASigningSecretIsRejectedBeforeProbing(): void
+    #[DataProvider('invalidCredentials')]
+    public function testInvalidCredentialsCannotReplaceAWorkingModeAndAreNeverProbed(array $invalid): void
     {
         $this->seed();
-        $result = $this->service(static fn (): array => ['test' => ['signingSecret' => ''] + self::TEST])->complete(self::STATE, 'code');
+        $result = $this->service(static fn (): array => ['test' => $invalid + self::TEST])->complete(self::STATE, 'code');
 
         self::assertSame(['switched' => [], 'problems' => [['mode' => 'test', 'code' => 'keyRejected']]], $result);
         self::assertTrue('mk_test_old' === $this->store->read()->testApiKey);
+    }
+
+    public static function invalidCredentials(): iterable
+    {
+        yield 'missing secret' => [['signingSecret' => '']];
+        yield 'secret with whitespace' => [['signingSecret' => 'mksec_two words']];
+        yield 'invalid account' => [['accountId' => 'invalid']];
+        yield 'empty key suffix' => [['apiKey' => 'mk_test_']];
     }
 
     public function testApplePayUsesTheNewKeyAndRegistrationFailureKeepsTheSwap(): void
