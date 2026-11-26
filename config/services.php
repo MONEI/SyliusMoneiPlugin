@@ -12,6 +12,7 @@ use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
+use Monei\SyliusPlugin\Connect\ConnectionStore;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
@@ -53,6 +54,9 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
 
     $services->set(ForcePaymentRequestsListener::class)
         ->tag('doctrine.event_listener', ['event' => 'prePersist']);
+
+    $services->set(ConnectionStore::class)
+        ->args([service('doctrine.dbal.default_connection'), service('sylius.encrypter')->nullOnInvalid()]);
 
     $services->set(SyncContext::class);
 

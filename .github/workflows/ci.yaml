@@ -87,6 +87,15 @@ jobs:
           APP_CACHE_DIR: ${{ github.workspace }}/var/cache-without-refund-plugin
         run: vendor/bin/phpunit --testsuite functional --filter ContainerTest
 
+      - name: Container test without payment encryption
+        env:
+          MONEI_TEST_WITHOUT_ENCRYPTION: '1'
+          APP_CACHE_DIR: ${{ github.workspace }}/var/cache-without-encryption
+        run: vendor/bin/phpunit --testsuite without-encryption
+
+      - name: MONEI migration matches the ORM schema
+        run: make test-migrations PHP= MIGRATION_DATABASE_URL='mysql://root:root@127.0.0.1:3306/sylius_monei_migrations_%kernel.environment%'
+
   code-style:
     name: Code style and composer.json
     runs-on: ubuntu-latest

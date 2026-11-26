@@ -17,6 +17,10 @@
         </testsuite>
         <testsuite name="functional">
             <directory>tests/Functional</directory>
+            <exclude>tests/Functional/Connect/WithoutEncryptionContainerTest.php</exclude>
+        </testsuite>
+        <testsuite name="without-encryption">
+            <file>tests/Functional/Connect/WithoutEncryptionContainerTest.php</file>
         </testsuite>
     </testsuites>
     <source>
