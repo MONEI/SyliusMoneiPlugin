@@ -1,7 +1,9 @@
 monei:
     apple_pay:
+        credentials_unavailable: 'Apple Pay domain registration was skipped because the MONEI payment method is unavailable. Check its credentials and save it again.'
         domain_not_registered: 'MONEI did not register %domain% for Apple Pay (%reason%). Apple Pay does not show on that domain until it is registered. Save the payment method again to retry.'
     payment:
+        method_unavailable: 'This payment method is currently unavailable. Choose another payment method.'
         in_progress: 'A payment for this order is still in progress. Complete it or wait until it expires.'
         already_paid: 'MONEI already has a paid or authorized payment for this order. Contact the store.'
     order:

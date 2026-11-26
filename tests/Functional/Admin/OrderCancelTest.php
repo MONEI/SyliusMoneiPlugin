@@ -119,6 +119,19 @@ final class OrderCancelTest extends MoneiTestCase
     }
 
     /** User decision: the hold expires at MONEI, so the listener's fetch must not refuse either. */
+    public function testDisconnectDoesNotBlockCancellingAnOrderWhosePaymentMayStillBePayable(): void
+    {
+        $order = $this->placeOrder($this->createConnectedTestMethod());
+        $this->bindPayment($order, 'pay_1', 'MONEI_CONNECTED');
+        $this->disconnectMonei();
+
+        $this->cancel($order);
+
+        self::assertSame([], $this->requestKeys());
+        self::assertSame('cancelled', $this->orderState($order));
+        self::assertContains(Level::Critical, array_column($this->moneiLogs(), 'level'));
+    }
+
     public function testCancelOfAnUnreachableAuthorizedPaymentGoesOn(): void
     {
         $order = $this->authorizedOrder();

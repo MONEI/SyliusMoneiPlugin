@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\OrderPay;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
+use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
+use Monei\SyliusPlugin\Http\Flash;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Sylius\Bundle\CoreBundle\OrderPay\Provider\UrlProviderInterface;
 use Sylius\Bundle\PaymentBundle\Provider\HttpResponseProviderInterface;
@@ -14,7 +16,9 @@ use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Payment\Model\PaymentRequestInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
 /**
@@ -30,24 +34,35 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
         private UrlProviderInterface $afterPayUrlProvider,
         private SessionId $sessionId,
         private GatewayConfigurationProvider $gatewayConfigurations,
+        private UrlGeneratorInterface $urlGenerator,
+        private RequestStack $requestStack,
     ) {
     }
 
     public function supports(Request|RequestConfiguration $request, PaymentRequestInterface $paymentRequest): bool
     {
-        return \in_array($paymentRequest->getAction(), [PaymentRequestInterface::ACTION_CAPTURE, PaymentRequestInterface::ACTION_AUTHORIZE], true)
-            && PaymentRequestInterface::STATE_PROCESSING === $paymentRequest->getState()
-            && PaymentInterface::STATE_NEW === $paymentRequest->getPayment()->getState()
-            && (null !== self::redirectUrl($paymentRequest) || null !== self::onsitePaymentId($paymentRequest));
+        if (!\in_array($paymentRequest->getAction(), [PaymentRequestInterface::ACTION_CAPTURE, PaymentRequestInterface::ACTION_AUTHORIZE], true)
+            || !\in_array($paymentRequest->getState(), [PaymentRequestInterface::STATE_NEW, PaymentRequestInterface::STATE_PROCESSING], true)
+            || PaymentInterface::STATE_NEW !== $paymentRequest->getPayment()->getState()) {
+            return false;
+        }
+
+        if (PaymentRequestInterface::STATE_PROCESSING === $paymentRequest->getState()
+            && (null !== self::redirectUrl($paymentRequest) || null !== self::onsitePaymentId($paymentRequest))) {
+            return true;
+        }
+
+        try {
+            $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
+        } catch (InvalidGatewayConfigurationException) {
+            return true;
+        }
+
+        return false;
     }
 
     public function getResponse(Request|RequestConfiguration $request, PaymentRequestInterface $paymentRequest): Response
     {
-        $moneiPaymentId = self::onsitePaymentId($paymentRequest);
-        if (null === $moneiPaymentId) {
-            return new RedirectResponse((string) self::redirectUrl($paymentRequest), Response::HTTP_SEE_OTHER);
-        }
-
         $payment = $paymentRequest->getPayment();
         if (!$payment instanceof PaymentInterface) {
             throw new \LogicException('A Sylius core payment is expected.');
@@ -56,7 +71,21 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
         if (!$order instanceof OrderInterface) {
             throw new \LogicException('The payment has no order.');
         }
-        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
+        try {
+            $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
+        } catch (InvalidGatewayConfigurationException) {
+            Flash::add($this->requestStack, 'error', 'monei.payment.method_unavailable');
+
+            return new RedirectResponse($this->urlGenerator->generate('sylius_shop_order_show', [
+                'tokenValue' => $order->getTokenValue(),
+            ]), Response::HTTP_SEE_OTHER);
+        }
+
+        $moneiPaymentId = self::onsitePaymentId($paymentRequest);
+        if (null === $moneiPaymentId) {
+            return new RedirectResponse(self::redirectUrl($paymentRequest) ?? $this->afterPayUrlProvider->getUrl($paymentRequest), Response::HTTP_SEE_OTHER);
+        }
+
         $inline = $configuration->inline();
 
         // Scalars only: the gateway configuration holds the API key.

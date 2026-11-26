@@ -70,10 +70,10 @@ final class CompletePageTest extends MoneiTestCase
         self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
     }
 
-    /** The hook runs on every checkout: a broken MONEI config must not break the page. */
-    public function testAMethodWithABrokenConfigRendersTheCompletePageWithoutTheComponent(): void
+    public function testDisconnectAfterMethodSelectionRendersTheCompletePageWithoutTheComponent(): void
     {
-        $this->attachCart($this->createMoneiPaymentMethod('MONEI_BROKEN', ['payment_method' => 'nope', 'mode' => 'onsite', 'account_id' => self::ACCOUNT_ID]));
+        $this->attachCart($this->createConnectedTestMethod(['mode' => 'onsite']));
+        $this->disconnectMonei();
 
         self::assertCount(0, $this->completePage()->filterXPath('//*[@id="monei-inline"]'));
     }

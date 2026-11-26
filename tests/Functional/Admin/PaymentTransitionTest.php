@@ -36,6 +36,20 @@ final class PaymentTransitionTest extends MoneiTestCase
         $this->assertOrderPageShows($order, 'MONEI did not capture the payment (The payment cannot be captured).');
     }
 
+    public function testCaptureAfterDisconnectLeavesThePaymentAuthorizedAndShowsTheUnreachableMessage(): void
+    {
+        $order = $this->placeOrder($this->createConnectedTestMethod(['use_authorize' => true]));
+        $this->bindPayment($order, 'pay_1', 'MONEI_CONNECTED', 'AUTH');
+        $this->applyMoneiStatus($order, 'pay_1', 'AUTHORIZED');
+        $this->disconnectMonei();
+
+        $this->transition($order, 'complete');
+
+        self::assertSame([], $this->requestKeys());
+        self::assertSame('authorized', $this->paymentState($order));
+        $this->assertOrderPageShows($order, 'The MONEI payment cannot be reached with the API key of payment method MONEI_CONNECTED.');
+    }
+
     public function testACaptureMoneiIsStillRunningAsksToTryAgain(): void
     {
         $order = $this->authorizedOrder();

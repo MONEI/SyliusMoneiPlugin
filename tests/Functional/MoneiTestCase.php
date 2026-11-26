@@ -138,6 +138,19 @@ abstract class MoneiTestCase extends WebTestCase
         return $method;
     }
 
+    /** @param array<string, mixed> $config */
+    protected function createConnectedTestMethod(array $config = []): PaymentMethodInterface
+    {
+        self::getContainer()->get('monei.test.connection_store')->writeMode(false, self::ACCOUNT_ID, 'mk_test_fixture', 'mksec_test_fixture');
+
+        return $this->createMoneiPaymentMethod('MONEI_CONNECTED', $config + ['credentials' => 'connected_test', 'api_key' => '']);
+    }
+
+    protected function disconnectMonei(): void
+    {
+        self::getContainer()->get('monei.test.connection_store')->clear();
+    }
+
     protected function createOfflinePaymentMethod(string $code): PaymentMethodInterface
     {
         /** @var PaymentMethodInterface $method */

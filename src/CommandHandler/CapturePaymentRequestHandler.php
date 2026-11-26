@@ -13,7 +13,9 @@ use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\Command\CapturePaymentRequest;
+use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
+use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use Monei\SyliusPlugin\Http\Flash;
 use Monei\SyliusPlugin\Payment\BoundPayment;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
@@ -88,6 +90,13 @@ final readonly class CapturePaymentRequestHandler
         }
 
         try {
+            $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
+        } catch (InvalidGatewayConfigurationException) {
+            // The shop response returns the buyer to method selection.
+            return;
+        }
+
+        try {
             $bound = $this->boundPayments->fetch($payment);
         } catch (UnreachableBoundPaymentException) {
             $bound = null;
@@ -102,13 +111,13 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        $this->handle($paymentRequest, $payment, $bound);
+        $this->handle($paymentRequest, $payment, $bound, $configuration);
     }
 
-    private function handle(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, ?BoundPayment $bound): void
+    private function handle(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, ?BoundPayment $bound, GatewayConfiguration $configuration): void
     {
         if (null === $bound || \in_array(MoneiApi::status($bound->payment), self::RETRYABLE, true)) {
-            $this->create($paymentRequest, $payment);
+            $this->create($paymentRequest, $payment, $configuration);
 
             return;
         }
@@ -121,28 +130,27 @@ final readonly class CapturePaymentRequestHandler
         }
 
         // The type and MONEI method checks catch a gateway config change after the payment was created.
-        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
         if (MoneiDetails::paymentMethodCode($payment) === $paymentRequest->getMethod()->getCode()
             && $bound->payment->getAmount() === $payment->getAmount()
             && MoneiDetails::transactionType($payment) === $configuration->transactionType()
             && MoneiDetails::moneiMethod($payment) === $configuration->method->value) {
-            $this->forward($paymentRequest, $bound->payment);
+            $this->forward($paymentRequest, $bound->payment, $configuration);
 
             return;
         }
 
-        $this->replace($paymentRequest, $payment, $bound);
+        $this->replace($paymentRequest, $payment, $bound, $configuration);
     }
 
     /** The bound PENDING payment was made for another method, amount, transaction type or MONEI method. */
-    private function replace(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, BoundPayment $bound): void
+    private function replace(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, BoundPayment $bound, GatewayConfiguration $configuration): void
     {
         $moneiPaymentId = (string) $bound->payment->getId();
         $context = ['monei_payment' => $moneiPaymentId, 'payment' => $payment->getId()];
 
         try {
             $bound->api->cancelPayment($moneiPaymentId);
-            $this->create($paymentRequest, $payment);
+            $this->create($paymentRequest, $payment, $configuration);
 
             return;
         } catch (ApiException $e) {
@@ -159,13 +167,13 @@ final readonly class CapturePaymentRequestHandler
         }
 
         if (!\in_array(MoneiApi::status($bound->payment), MoneiApi::PENDING, true)) {
-            $this->handle($paymentRequest, $payment, $bound);
+            $this->handle($paymentRequest, $payment, $bound, $configuration);
 
             return;
         }
 
         // Still PENDING: it is with the processor.
-        $createRequest = $this->createRequest($paymentRequest, $payment);
+        $createRequest = $this->createRequest($paymentRequest, $payment, $configuration);
         if (null === $createRequest) {
             return;
         }
@@ -180,26 +188,26 @@ final readonly class CapturePaymentRequestHandler
         }
 
         $this->logger->warning('MONEI payment {monei_payment} of Sylius payment {payment} is with the processor and cannot be cancelled ({code}): a new payment is created, and the old one stays payable until it expires.', $context);
-        $this->send($paymentRequest, $payment, $createRequest);
+        $this->send($paymentRequest, $payment, $createRequest, $configuration);
     }
 
-    private function create(PaymentRequestInterface $paymentRequest, PaymentInterface $payment): void
+    private function create(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, GatewayConfiguration $configuration): void
     {
-        $createRequest = $this->createRequest($paymentRequest, $payment);
+        $createRequest = $this->createRequest($paymentRequest, $payment, $configuration);
         if (null !== $createRequest) {
-            $this->send($paymentRequest, $payment, $createRequest);
+            $this->send($paymentRequest, $payment, $createRequest, $configuration);
         }
     }
 
     /** @return CreatePaymentRequest|null null when the payment cannot be sent; the payment is then failed */
-    private function createRequest(PaymentRequestInterface $paymentRequest, PaymentInterface $payment): ?CreatePaymentRequest
+    private function createRequest(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, GatewayConfiguration $configuration): ?CreatePaymentRequest
     {
         $paymentMethod = $paymentRequest->getMethod();
 
         try {
             return $this->createPaymentRequestFactory->create(
                 $payment,
-                $this->gatewayConfigurations->forPaymentMethod($paymentMethod),
+                $configuration,
                 $this->afterPayUrlProvider->getUrl($paymentRequest, UrlGeneratorInterface::ABSOLUTE_URL),
                 MoneiNotifyPaymentProvider::callbackUrl($this->urlGenerator, $payment, $paymentMethod),
             );
@@ -211,13 +219,13 @@ final readonly class CapturePaymentRequestHandler
         }
     }
 
-    private function send(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, CreatePaymentRequest $createRequest): void
+    private function send(PaymentRequestInterface $paymentRequest, PaymentInterface $payment, CreatePaymentRequest $createRequest, GatewayConfiguration $configuration): void
     {
         $paymentMethod = $paymentRequest->getMethod();
         $context = ['payment' => $payment->getId(), 'order_id' => $createRequest->getOrderId()];
 
         try {
-            $moneiPayment = $this->apiFactory->forPaymentMethod($paymentMethod)->createPayment($createRequest);
+            $moneiPayment = $this->apiFactory->forApiKey($configuration->apiKey)->createPayment($createRequest);
         } catch (ApiException $e) {
             $context += ['code' => $e->getCode(), 'message' => MoneiApi::errorMessage($e)];
             if (400 === $e->getCode() && 1 === preg_match(self::DUPLICATE_ORDER, $context['message'], $match)) {
@@ -236,7 +244,6 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
         MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), $configuration->transactionType(), $configuration->method->value);
 
         if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
@@ -249,11 +256,11 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        $this->forward($paymentRequest, $moneiPayment);
+        $this->forward($paymentRequest, $moneiPayment, $configuration);
     }
 
     /** Sends the buyer to the PENDING MONEI payment: its next action resumes an abandoned 3DS at its challenge. */
-    private function forward(PaymentRequestInterface $paymentRequest, MoneiPayment $moneiPayment): void
+    private function forward(PaymentRequestInterface $paymentRequest, MoneiPayment $moneiPayment, GatewayConfiguration $configuration): void
     {
         $nextAction = $moneiPayment->getNextAction();
         if (PaymentNextAction::TYPE_COMPLETE === $nextAction?->getType()) {
@@ -265,7 +272,7 @@ final readonly class CapturePaymentRequestHandler
 
         // MONEI refuses a second confirm, so a payment past its confirm (an abandoned 3DS) resumes on its redirect URL.
         if (PaymentNextAction::TYPE_CONFIRM === $nextAction?->getType()
-            && $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod())->onsite) {
+            && $configuration->onsite) {
             $paymentRequest->setResponseData(['onsite' => true, 'monei_payment_id' => (string) $moneiPayment->getId()]);
         } else {
             $paymentRequest->setResponseData(['redirect_url' => (string) $nextAction?->getRedirectUrl()]);

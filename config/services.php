@@ -27,6 +27,8 @@ use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
+use Monei\SyliusPlugin\Payment\UsableMoneiDefaultMethodResolver;
+use Monei\SyliusPlugin\Payment\UsableMoneiMethodsResolver;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
 use Monei\SyliusPlugin\Twig\CardBrandLogos;
 use Monei\SyliusPlugin\Twig\MoneiExtension;
@@ -51,6 +53,14 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
 
     $services->set(GatewayConfigurationProvider::class)
         ->args([service(ConnectionStore::class)]);
+
+    $services->set(UsableMoneiMethodsResolver::class)
+        ->decorate('sylius.resolver.payment_methods')
+        ->args([service('.inner'), service(GatewayConfigurationProvider::class)]);
+
+    $services->set(UsableMoneiDefaultMethodResolver::class)
+        ->decorate('sylius.resolver.payment_method.default')
+        ->args([service('.inner'), service(UsableMoneiMethodsResolver::class)]);
 
     $services->set(MoneiGatewayConfigurationType::class)
         ->args([service(GatewayConfigurationProvider::class)])
@@ -99,6 +109,8 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('sylius_shop.provider.order_pay.after_pay_url'),
             service(SessionId::class),
             service(GatewayConfigurationProvider::class),
+            service('router'),
+            service('request_stack'),
         ])
         ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
 

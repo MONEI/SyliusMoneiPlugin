@@ -9,6 +9,7 @@ use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
 use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
+use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Monei\SyliusPlugin\Http\Flash;
 use Psr\Log\LoggerInterface;
@@ -38,8 +39,15 @@ final readonly class RegisterDomainOnSaveListener
             return;
         }
 
-        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
-        if (MoneiMethod::AppleGooglePay !== $configuration->method) {
+        if (MoneiMethod::AppleGooglePay->value !== ($paymentMethod->getGatewayConfig()?->getConfig()[GatewayConfiguration::METHOD] ?? null)) {
+            return;
+        }
+
+        try {
+            $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
+        } catch (InvalidGatewayConfigurationException) {
+            Flash::add($this->requestStack, 'warning', 'monei.apple_pay.credentials_unavailable');
+
             return;
         }
 
