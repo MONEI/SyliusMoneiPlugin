@@ -39,8 +39,6 @@ final readonly class ConnectionStore
 
     public function read(): ConnectionSnapshot
     {
-        $this->ensure();
-
         return $this->readConnection(false);
     }
 
@@ -201,6 +199,10 @@ final readonly class ConnectionStore
         /** @var array{live_account_id: ?string, live_api_key: ?string, live_signing_secret: ?string, test_account_id: ?string, test_api_key: ?string, test_signing_secret: ?string, generation: int|numeric-string, last_result: ?string}|false $row */
         $row = $this->connection->fetchAssociative($sql, [self::ID]);
         if (false === $row) {
+            if (!$lock) {
+                return new ConnectionSnapshot(null, null, null, null, null, null, 0, null);
+            }
+
             throw new \RuntimeException('The MONEI connection row is missing.');
         }
 

@@ -46,3 +46,32 @@ monei:
             card_layout_single: Single line
             account_id: Account ID
             account_id_help: Optional. Your MONEI account ID, from the MONEI dashboard. In onsite mode, the payment form then shows on the checkout page. Leave empty to keep the separate payment page.
+    connect:
+        connection: MONEI connection
+        mode:
+            live: Live
+            test: Test
+        account: 'Account:'
+        disconnected: No MONEI account is connected.
+        last_result: Last Connect result
+        connected: '%mode% connected.'
+        callback_url: 'Callback URL:'
+        start: Connect with MONEI
+        manual: Use manual keys. Connect requires an eligible HTTPS callback URL.
+        disconnect: Disconnect
+        disconnect_warning: Connected payment methods will stop appearing at checkout.
+        manual_methods: Payment methods using manual keys
+        no_manual_methods: No payment methods use manual keys.
+        dashboard: Manage API keys in the MONEI dashboard
+        problem:
+            blocked: MONEI blocked this connection.
+            ineligible: This MONEI account is ineligible to connect.
+            cap: Revoke unused API keys in the MONEI dashboard and try again.
+            not_approved: Live keys are available after MONEI approves your account.
+            temporarily_unavailable: MONEI Connect is temporarily unavailable. Try again later.
+            keyRejected: MONEI rejected the key.
+            otherAccount: This shop uses another MONEI account. Disconnect first.
+            applePayRegistrationFailed: MONEI could not register one or more Apple Pay domains.
+            access_denied: Access was denied. Start Connect again to retry.
+            invalid_grant: The authorization expired or was already used. Start Connect again.
+            generic: MONEI could not complete the connection. Start Connect again.

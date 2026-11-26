@@ -46,3 +46,32 @@ monei:
             card_layout_single: Una sola línea
             account_id: ID de cuenta
             account_id_help: Opcional. Tu ID de cuenta de MONEI, del panel de MONEI. En modo en tienda, el formulario de pago se muestra entonces en la página de checkout. Déjalo vacío para mantener la página de pago separada.
+    connect:
+        connection: Conexión con MONEI
+        mode:
+            live: Producción
+            test: Prueba
+        account: 'Cuenta:'
+        disconnected: No hay ninguna cuenta de MONEI conectada.
+        last_result: Último resultado de la conexión
+        connected: 'Modo %mode% conectado.'
+        callback_url: 'URL de retorno:'
+        start: Conectar con MONEI
+        manual: Usa claves manuales. Para conectar se necesita una URL de retorno HTTPS válida.
+        disconnect: Desconectar
+        disconnect_warning: Los métodos de pago conectados dejarán de aparecer al finalizar el pedido.
+        manual_methods: Métodos de pago que usan claves manuales
+        no_manual_methods: Ningún método de pago usa claves manuales.
+        dashboard: Gestionar claves API en el panel de MONEI
+        problem:
+            blocked: MONEI ha bloqueado esta conexión.
+            ineligible: Esta cuenta de MONEI no cumple los requisitos para conectarse.
+            cap: Revoca las claves API que no uses en el panel de MONEI y vuelve a intentarlo.
+            not_approved: Las claves de producción estarán disponibles cuando MONEI apruebe tu cuenta.
+            temporarily_unavailable: La conexión con MONEI no está disponible temporalmente. Inténtalo más tarde.
+            keyRejected: MONEI ha rechazado la clave.
+            otherAccount: Esta tienda usa otra cuenta de MONEI. Desconéctala primero.
+            applePayRegistrationFailed: MONEI no ha podido registrar uno o más dominios de Apple Pay.
+            access_denied: Se ha denegado el acceso. Vuelve a iniciar la conexión.
+            invalid_grant: La autorización ha caducado o ya se ha usado. Vuelve a iniciar la conexión.
+            generic: MONEI no ha podido completar la conexión. Vuelve a iniciar el proceso.

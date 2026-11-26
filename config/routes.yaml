@@ -2,3 +2,18 @@ monei_sylius_apple_pay_domain_association:
     path: /.well-known/apple-developer-merchantid-domain-association
     methods: [GET]
     controller: Monei\SyliusPlugin\ApplePay\DomainAssociationController
+
+monei_sylius_admin_connect:
+    path: /%sylius_admin.path_name%/monei
+    methods: [GET]
+    controller: Monei\SyliusPlugin\Controller\Admin\ConnectController::index
+
+monei_sylius_admin_connect_start:
+    path: /%sylius_admin.path_name%/monei/connect/start
+    methods: [POST]
+    controller: Monei\SyliusPlugin\Controller\Admin\ConnectController::start
+
+monei_sylius_admin_connect_disconnect:
+    path: /%sylius_admin.path_name%/monei/connect/disconnect
+    methods: [POST]
+    controller: Monei\SyliusPlugin\Controller\Admin\ConnectController::disconnect

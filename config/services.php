@@ -15,8 +15,10 @@ use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
+use Monei\SyliusPlugin\Connect\CallbackUrl;
 use Monei\SyliusPlugin\Connect\ConnectionStore;
 use Monei\SyliusPlugin\Connect\ConnectService;
+use Monei\SyliusPlugin\Controller\Admin\ConnectController;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
@@ -24,6 +26,7 @@ use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
 use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Grid\PaymentMethodGridMutator;
+use Monei\SyliusPlugin\Menu\AdminMenuListener;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
@@ -76,6 +79,24 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
 
     $services->set(ConnectionStore::class)
         ->args([service('doctrine.dbal.default_connection'), service('sylius.encrypter')->nullOnInvalid()]);
+
+    $services->set(CallbackUrl::class)
+        ->args([service('sylius.repository.channel')]);
+
+    $services->set(ConnectController::class)
+        ->public()
+        ->args([
+            service(CallbackUrl::class),
+            service(ConnectionStore::class),
+            service(ConnectService::class),
+            service('sylius.repository.payment_method'),
+            service('security.csrf.token_manager'),
+            service('router'),
+            service('twig'),
+        ]);
+
+    $services->set(AdminMenuListener::class)
+        ->tag('kernel.event_listener', ['event' => 'sylius.menu.admin.main']);
 
     $services->set(ConnectService::class)
         ->factory([ConnectService::class, 'create'])
