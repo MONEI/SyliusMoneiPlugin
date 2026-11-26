@@ -9,7 +9,7 @@ use Monei\Api\PaymentMethodsApi;
 use Monei\Api\PaymentsApi;
 use Monei\Configuration;
 use Monei\Internal\GuzzleHttp\ClientInterface;
-use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 
 final readonly class MoneiApiFactory
@@ -19,12 +19,13 @@ final readonly class MoneiApiFactory
         private string $userAgent,
         // Short timeout: the payment methods call runs while the checkout page renders.
         private ClientInterface $renderHttpClient,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
     public function forPaymentMethod(PaymentMethodInterface $paymentMethod): MoneiApi
     {
-        return $this->forApiKey(GatewayConfiguration::fromPaymentMethod($paymentMethod)->apiKey);
+        return $this->forApiKey($this->gatewayConfigurations->forPaymentMethod($paymentMethod)->apiKey);
     }
 
     public function forApiKey(string $apiKey): MoneiApi

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Twig;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
@@ -22,6 +23,7 @@ final class MoneiExtension extends AbstractExtension
     public function __construct(
         private readonly SessionId $sessionId,
         private readonly CardBrandLogos $cardBrandLogos,
+        private readonly GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
@@ -57,7 +59,7 @@ final class MoneiExtension extends AbstractExtension
         }
 
         try {
-            $config = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+            $config = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
         } catch (InvalidGatewayConfigurationException) {
             return null;
         }
@@ -88,7 +90,7 @@ final class MoneiExtension extends AbstractExtension
         }
 
         try {
-            $config = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+            $config = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
         } catch (InvalidGatewayConfigurationException) {
             return null;
         }

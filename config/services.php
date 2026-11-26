@@ -18,6 +18,7 @@ use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Grid\PaymentMethodGridMutator;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
@@ -46,9 +47,13 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ->args([['timeout' => 2, 'connect_timeout' => 2]]);
 
     $services->set(MoneiApiFactory::class)
-        ->args([service('monei.http_client'), UserAgent::current(), service('monei.render_http_client')]);
+        ->args([service('monei.http_client'), UserAgent::current(), service('monei.render_http_client'), service(GatewayConfigurationProvider::class)]);
+
+    $services->set(GatewayConfigurationProvider::class)
+        ->args([service(ConnectionStore::class)]);
 
     $services->set(MoneiGatewayConfigurationType::class)
+        ->args([service(GatewayConfigurationProvider::class)])
         ->tag('sylius.gateway_configuration_type', ['type' => 'monei', 'label' => 'monei.gateway_factory.monei'])
         ->tag('form.type');
 
@@ -93,6 +98,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('twig'),
             service('sylius_shop.provider.order_pay.after_pay_url'),
             service(SessionId::class),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
 
@@ -109,6 +115,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('router'),
             service('request_stack'),
             service('monolog.logger.monei'),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
@@ -124,7 +131,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
     $services->set(MoneiNotifyPaymentProvider::class)
-        ->args([service('sylius.repository.payment')])
+        ->args([service('sylius.repository.payment'), service(GatewayConfigurationProvider::class)])
         ->tag('sylius.payment_request.payment_notify_provider');
 
     $services->set(NotifyPaymentRequestHandler::class)
@@ -134,6 +141,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service(MoneiApiFactory::class),
             service(StatusApplier::class),
             service('sylius_abstraction.state_machine'),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
@@ -177,6 +185,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service(MoneiApiFactory::class),
             service('request_stack'),
             service('monolog.logger.monei'),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_update']);
@@ -192,7 +201,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ]);
 
     $services->set(MoneiExtension::class)
-        ->args([service(SessionId::class), service(CardBrandLogos::class)])
+        ->args([service(SessionId::class), service(CardBrandLogos::class), service(GatewayConfigurationProvider::class)])
         ->tag('twig.extension');
 
     // Grid mutators exist from sylius/grid-bundle 1.16.

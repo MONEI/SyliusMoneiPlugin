@@ -79,6 +79,19 @@ final class CreatePaymentRequestFactoryTest extends TestCase
         yield 'multibanco' => ['multibanco', ['multibanco']];
     }
 
+    public function testConnectedOnsiteCreateBindsTheCheckoutTokenToTheOrderSession(): void
+    {
+        $request = self::create(config: [
+            'credentials' => 'connected_test',
+            'api_key' => 'mk_test_fixture',
+            'signing_secret' => 'mksec_test_fixture',
+            'account_id' => '00000000-0000-4000-8000-000000000000',
+            'mode' => 'onsite',
+        ]);
+
+        self::assertSame(substr(hash_hmac('sha256', 'monei-session|1', 'secret'), 0, 40), $request->getSessionId());
+    }
+
     /** MONEI expires a PENDING payment after 7 days at most; a longer order expiry gets that limit. */
     public function testExpireAtIsAtMostSevenDaysFromNow(): void
     {
@@ -110,6 +123,7 @@ final class CreatePaymentRequestFactoryTest extends TestCase
     ): CreatePaymentRequest {
         $order = new Order();
         $order->setNumber($orderNumber);
+        (new \ReflectionProperty(Order::class, 'id'))->setValue($order, 1);
 
         $payment = new Payment();
         $payment->setAmount($amount);

@@ -13,7 +13,7 @@ use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\Command\CapturePaymentRequest;
-use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Http\Flash;
 use Monei\SyliusPlugin\Payment\BoundPayment;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
@@ -63,6 +63,7 @@ final readonly class CapturePaymentRequestHandler
         private UrlGeneratorInterface $urlGenerator,
         private RequestStack $requestStack,
         private LoggerInterface $logger,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
@@ -120,7 +121,7 @@ final readonly class CapturePaymentRequestHandler
         }
 
         // The type and MONEI method checks catch a gateway config change after the payment was created.
-        $configuration = GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod());
+        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
         if (MoneiDetails::paymentMethodCode($payment) === $paymentRequest->getMethod()->getCode()
             && $bound->payment->getAmount() === $payment->getAmount()
             && MoneiDetails::transactionType($payment) === $configuration->transactionType()
@@ -198,7 +199,7 @@ final readonly class CapturePaymentRequestHandler
         try {
             return $this->createPaymentRequestFactory->create(
                 $payment,
-                GatewayConfiguration::fromPaymentMethod($paymentMethod),
+                $this->gatewayConfigurations->forPaymentMethod($paymentMethod),
                 $this->afterPayUrlProvider->getUrl($paymentRequest, UrlGeneratorInterface::ABSOLUTE_URL),
                 MoneiNotifyPaymentProvider::callbackUrl($this->urlGenerator, $payment, $paymentMethod),
             );
@@ -235,7 +236,7 @@ final readonly class CapturePaymentRequestHandler
             return;
         }
 
-        $configuration = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
         MoneiDetails::bind($payment, (string) $moneiPayment->getId(), (string) $paymentMethod->getCode(), $configuration->transactionType(), $configuration->method->value);
 
         if (PaymentStatus::FAILED === MoneiApi::status($moneiPayment)) {
@@ -264,7 +265,7 @@ final readonly class CapturePaymentRequestHandler
 
         // MONEI refuses a second confirm, so a payment past its confirm (an abandoned 3DS) resumes on its redirect URL.
         if (PaymentNextAction::TYPE_CONFIRM === $nextAction?->getType()
-            && GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod())->onsite) {
+            && $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod())->onsite) {
             $paymentRequest->setResponseData(['onsite' => true, 'monei_payment_id' => (string) $moneiPayment->getId()]);
         } else {
             $paymentRequest->setResponseData(['redirect_url' => (string) $nextAction?->getRedirectUrl()]);

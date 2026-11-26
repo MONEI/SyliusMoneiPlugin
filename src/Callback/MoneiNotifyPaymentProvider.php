@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Callback;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Sylius\Bundle\PaymentBundle\Provider\NotifyPaymentProviderInterface;
 use Sylius\Component\Core\Model\PaymentInterface as CorePaymentInterface;
 use Sylius\Component\Core\Repository\PaymentRepositoryInterface;
@@ -24,8 +25,10 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
     private const PAYMENT_QUERY = 'payment';
 
     /** @param PaymentRepositoryInterface<CorePaymentInterface> $paymentRepository */
-    public function __construct(private PaymentRepositoryInterface $paymentRepository)
-    {
+    public function __construct(
+        private PaymentRepositoryInterface $paymentRepository,
+        private GatewayConfigurationProvider $gatewayConfigurations,
+    ) {
     }
 
     public static function callbackUrl(UrlGeneratorInterface $urlGenerator, PaymentInterface $payment, PaymentMethodInterface $paymentMethod): string
@@ -47,7 +50,7 @@ final readonly class MoneiNotifyPaymentProvider implements NotifyPaymentProvider
         $callback = SignedCallback::verify(
             $request->getContent(),
             $request->headers->get('MONEI-Signature'),
-            GatewayConfiguration::fromPaymentMethod($paymentMethod)->apiKey,
+            $this->gatewayConfigurations->forPaymentMethod($paymentMethod)->apiKey,
         );
 
         $paymentId = $request->query->get(self::PAYMENT_QUERY);

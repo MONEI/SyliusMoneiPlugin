@@ -25,6 +25,10 @@ monei:
             do_not_close: No cierres esta ventana.
     form:
         gateway_configuration:
+            credentials: Credenciales
+            credentials_manual: Clave API manual
+            credentials_connected_live: Cuenta Live conectada
+            credentials_connected_test: Cuenta Test conectada
             api_key: Clave API
             api_key_help: Tu clave API de MONEI (pk_test_… o pk_live_…), del panel de MONEI.
             payment_method: Método de pago MONEI

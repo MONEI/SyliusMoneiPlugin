@@ -8,7 +8,7 @@ use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Callback\InvalidCallbackException;
 use Monei\SyliusPlugin\Callback\SignedCallback;
 use Monei\SyliusPlugin\Command\NotifyPaymentRequest;
-use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Sylius\Abstraction\StateMachine\StateMachineInterface;
@@ -32,6 +32,7 @@ final readonly class NotifyPaymentRequestHandler
         private MoneiApiFactory $apiFactory,
         private StatusApplier $statusApplier,
         private StateMachineInterface $stateMachine,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
@@ -50,7 +51,7 @@ final readonly class NotifyPaymentRequestHandler
         // Checked again: `/payment-requests/{hash}` re-dispatches a non-final notify request
         // with any unsigned body merged into its payload.
         [$body, $signature] = self::signedRequest($paymentRequest->getPayload());
-        $callback = SignedCallback::verify($body, $signature, GatewayConfiguration::fromPaymentMethod($paymentMethod)->apiKey);
+        $callback = SignedCallback::verify($body, $signature, $this->gatewayConfigurations->forPaymentMethod($paymentMethod)->apiKey);
 
         $this->paymentLock->acquire($payment);
 

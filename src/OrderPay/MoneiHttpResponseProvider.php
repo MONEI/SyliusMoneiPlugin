@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\OrderPay;
 
-use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Sylius\Bundle\CoreBundle\OrderPay\Provider\UrlProviderInterface;
 use Sylius\Bundle\PaymentBundle\Provider\HttpResponseProviderInterface;
@@ -29,6 +29,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
         private Environment $twig,
         private UrlProviderInterface $afterPayUrlProvider,
         private SessionId $sessionId,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
@@ -55,7 +56,7 @@ final readonly class MoneiHttpResponseProvider implements HttpResponseProviderIn
         if (!$order instanceof OrderInterface) {
             throw new \LogicException('The payment has no order.');
         }
-        $configuration = GatewayConfiguration::fromPaymentMethod($paymentRequest->getMethod());
+        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentRequest->getMethod());
         $inline = $configuration->inline();
 
         // Scalars only: the gateway configuration holds the API key.

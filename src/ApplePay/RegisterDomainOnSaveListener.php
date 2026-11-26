@@ -8,6 +8,7 @@ use Monei\ApiException;
 use Monei\SyliusPlugin\Api\MoneiApi;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Monei\SyliusPlugin\Http\Flash;
 use Psr\Log\LoggerInterface;
@@ -26,6 +27,7 @@ final readonly class RegisterDomainOnSaveListener
         private MoneiApiFactory $apiFactory,
         private RequestStack $requestStack,
         private LoggerInterface $logger,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
@@ -36,7 +38,7 @@ final readonly class RegisterDomainOnSaveListener
             return;
         }
 
-        $configuration = GatewayConfiguration::fromPaymentMethod($paymentMethod);
+        $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
         if (MoneiMethod::AppleGooglePay !== $configuration->method) {
             return;
         }
