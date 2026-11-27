@@ -53,8 +53,11 @@ monei:
             test: Prueba
         account: 'Cuenta:'
         disconnected: No hay ninguna cuenta de MONEI conectada.
-        callback_success: MONEI se ha conectado. Puedes cerrar esta pestaña.
-        callback_failed: No se ha podido conectar con MONEI
+        callback_connected: MONEI está conectado
+        callback_failed: MONEI no está conectado
+        callback_refused: Este enlace de conexión no funciona
+        go_to_settings: Ir a la configuración de MONEI
+        close_hint: También puedes cerrar esta pestaña y recargar la página de configuración.
         last_result: Último resultado de la conexión
         connected: 'Modo %mode% conectado.'
         callback_url: 'URL de retorno:'

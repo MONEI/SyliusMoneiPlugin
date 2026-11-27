@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-11-27
+
+### Fixed
+
+- The page that opens after Connect with MONEI now has the same design as in the other MONEI plugins: a card with the MONEI logo, the result for each mode, and a **Go to MONEI settings** button. An invalid or used connect link shows no link into the admin.
+- The Connect with MONEI token exchange sends the plugin's `MONEI/Sylius` User-Agent, like the other MONEI API calls.
+
 ## [2.3.0] - 2026-11-27
 
 ### Added
