@@ -54,7 +54,7 @@ monei:
         account: 'Cuenta:'
         disconnected: No hay ninguna cuenta de MONEI conectada.
         callback_connected: MONEI está conectado
-        callback_failed: MONEI no está conectado
+        callback_failed: MONEI no ha podido completar esta conexión
         callback_refused: Este enlace de conexión no funciona
         go_to_settings: Ir a la configuración de MONEI
         close_hint: También puedes cerrar esta pestaña y recargar la página de configuración.

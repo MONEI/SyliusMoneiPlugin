@@ -106,7 +106,7 @@ final class CallbackRouteTest extends MoneiTestCase
 
         self::assertResponseStatusCodeSame(400);
         self::assertStringContainsString('MONEI Connect is temporarily unavailable. Try again later.', $page->filterXPath('//main')->text());
-        self::assertSame('MONEI is not connected', $page->filterXPath('//h1')->text());
+        self::assertSame('MONEI could not complete this connection', $page->filterXPath('//h1')->text());
         self::assertCount(1, $page->filterXPath('//main//a'));
         self::assertEquals(['switched' => [], 'problems' => [['mode' => null, 'code' => 'temporarily_unavailable']]], $this->store()->read()->lastResult);
         self::assertSame(['POST /integrations/token'], $this->requestKeys());

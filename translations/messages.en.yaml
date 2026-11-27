@@ -54,7 +54,7 @@ monei:
         account: 'Account:'
         disconnected: No MONEI account is connected.
         callback_connected: MONEI is connected
-        callback_failed: MONEI is not connected
+        callback_failed: MONEI could not complete this connection
         callback_refused: This connect link does not work
         go_to_settings: Go to MONEI settings
         close_hint: You can also close this tab and reload the settings page.
