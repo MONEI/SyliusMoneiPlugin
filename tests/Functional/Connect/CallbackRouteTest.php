@@ -30,6 +30,8 @@ final class CallbackRouteTest extends MoneiTestCase
         self::assertTrue($this->client->getResponse()->headers->hasCacheControlDirective('no-store'));
         self::assertNull($this->client->getResponse()->headers->get('Location'));
         self::assertStringContainsString($message, $page->filterXPath('//main')->text());
+        self::assertSame('This connect link does not work', $page->filterXPath('//h1')->text());
+        self::assertCount(0, $page->filterXPath('//main//a'), 'A refused link must not point into the admin.');
         self::assertNotNull($this->store()->readState(self::STATE));
         self::assertEquals($previous, $this->store()->read()->lastResult);
         self::assertSame([], MoneiMockHandler::history());
@@ -66,7 +68,8 @@ final class CallbackRouteTest extends MoneiTestCase
         $page = $this->client->request('GET', 'https://callback.example/monei/connect?code=fixture&state='.self::STATE);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('MONEI connected. You can close this tab.', $page->filterXPath('//h1')->text());
+        self::assertSame('MONEI is connected', $page->filterXPath('//h1')->text());
+        self::assertSame('https://callback.example/admin/monei', $page->filterXPath('//main//a')->attr('href'));
         self::assertStringContainsString('MONEI could not register one or more Apple Pay domains.', $page->filterXPath('//main')->text());
         $html = (string) $this->client->getResponse()->getContent();
         self::assertTrue(!str_contains($html, 'mk_') && !str_contains($html, 'mksec_'));
@@ -103,6 +106,8 @@ final class CallbackRouteTest extends MoneiTestCase
 
         self::assertResponseStatusCodeSame(400);
         self::assertStringContainsString('MONEI Connect is temporarily unavailable. Try again later.', $page->filterXPath('//main')->text());
+        self::assertSame('MONEI could not complete this connection', $page->filterXPath('//h1')->text());
+        self::assertCount(1, $page->filterXPath('//main//a'));
         self::assertEquals(['switched' => [], 'problems' => [['mode' => null, 'code' => 'temporarily_unavailable']]], $this->store()->read()->lastResult);
         self::assertSame(['POST /integrations/token'], $this->requestKeys());
         self::assertTrue('mk_test_fixture' === $this->store()->read()->testApiKey);

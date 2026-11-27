@@ -49,8 +49,9 @@ use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 return static function (ContainerConfigurator $container, ContainerBuilder $builder): void {
     $services = $container->services();
 
+    // The default User-Agent is for Connect::exchange, which sets none; SDK API calls send the same one from their Configuration.
     $services->set('monei.http_client', Client::class)
-        ->args([['timeout' => 30, 'connect_timeout' => 10]]);
+        ->args([['timeout' => 30, 'connect_timeout' => 10, 'headers' => ['User-Agent' => UserAgent::current()]]]);
 
     // For calls made while a page renders.
     $services->set('monei.render_http_client', Client::class)
