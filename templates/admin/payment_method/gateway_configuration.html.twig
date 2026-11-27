@@ -1,6 +1,14 @@
 {% set config = hookable_metadata.context.form.gatewayConfig.config %}
 
-<div class="col-12 col-md-6">
+<style>
+    .monei-credentials:has(option:checked:not([value="manual"])) ~ .monei-manual-credential {
+        display: none;
+    }
+</style>
+<div class="col-12 col-md-6 monei-credentials">
+    {{ form_row(config.credentials) }}
+</div>
+<div class="col-12 col-md-6 monei-manual-credential">
     {{ form_row(config.api_key) }}
 </div>
 <div class="col-12 col-md-6">
@@ -18,6 +26,6 @@
 <div class="col-12 col-md-6">
     {{ form_row(config.card_layout) }}
 </div>
-<div class="col-12 col-md-6">
+<div class="col-12 col-md-6 monei-manual-credential">
     {{ form_row(config.account_id) }}
 </div>

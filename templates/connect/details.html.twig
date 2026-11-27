@@ -1,0 +1,13 @@
+<ul>
+    {% for mode in result.switched %}
+        <li>{{ 'monei.connect.connected'|trans({'%mode%': ('monei.connect.mode.' ~ mode)|trans}) }}</li>
+    {% endfor %}
+    {% for problem in result.problems %}
+        {% set key = 'monei.connect.problem.' ~ problem.code %}
+        {% set message = key|trans %}
+        <li>
+            {% if problem.mode %}<strong>{{ ('monei.connect.mode.' ~ problem.mode)|trans }}</strong>{% endif %}
+            {{ message == key ? 'monei.connect.problem.generic'|trans : message }}
+        </li>
+    {% endfor %}
+</ul>

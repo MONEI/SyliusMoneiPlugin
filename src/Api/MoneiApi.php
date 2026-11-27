@@ -41,13 +41,18 @@ final readonly class MoneiApi
     /** @throws ApiException */
     public function createPayment(CreatePaymentRequest $request): Payment
     {
-        return self::payment(fn (): object => $this->payments->create($request));
+        return self::payment(fn () => $this->payments->create($request));
     }
 
     /** @throws ApiException */
     public function getPayment(string $id): Payment
     {
-        return self::payment(fn (): object => $this->payments->get($id));
+        $payment = self::payment(fn () => $this->payments->get($id));
+        if ($id !== $payment->getId() || '' === self::status($payment)) {
+            throw new UnreadableAnswerException('MONEI answered with a mismatched payment id or missing payment status.', self::UNREADABLE_ANSWER);
+        }
+
+        return $payment;
     }
 
     /**
@@ -57,13 +62,13 @@ final readonly class MoneiApi
      */
     public function capturePayment(string $id): Payment
     {
-        return self::payment(fn (): object => $this->payments->capture($id, new CapturePaymentRequest()));
+        return self::payment(fn () => $this->payments->capture($id, new CapturePaymentRequest()));
     }
 
     /** @throws ApiException */
     public function cancelPayment(string $id): Payment
     {
-        return self::payment(fn (): object => $this->payments->cancel($id, new CancelPaymentRequest([
+        return self::payment(fn () => $this->payments->cancel($id, new CancelPaymentRequest([
             'cancellation_reason' => PaymentCancellationReason::REQUESTED_BY_CUSTOMER,
         ])));
     }
@@ -75,7 +80,7 @@ final readonly class MoneiApi
      */
     public function refundPayment(string $id, int $amount): Payment
     {
-        return self::payment(fn (): object => $this->payments->refund($id, new RefundPaymentRequest([
+        return self::payment(fn () => $this->payments->refund($id, new RefundPaymentRequest([
             'amount' => $amount,
             'refund_reason' => PaymentRefundReason::REQUESTED_BY_CUSTOMER,
         ])));
@@ -99,7 +104,7 @@ final readonly class MoneiApi
         try {
             $result = $this->paymentMethods->getAllowed();
         } catch (\InvalidArgumentException $e) {
-            throw new ApiException('MONEI answered payment methods the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+            throw new UnreadableAnswerException('MONEI answered payment methods the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
         }
         if (!$result instanceof PaymentMethods) {
             throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of payment methods.', $result::class));
@@ -146,7 +151,7 @@ final readonly class MoneiApi
     /**
      * The SDK returns an error model instead of throwing only for a client without the `http_errors` middleware.
      *
-     * @param callable(): object $call
+     * @param callable(): mixed $call
      *
      * @throws ApiException
      */
@@ -156,10 +161,16 @@ final readonly class MoneiApi
             $result = $call();
         } catch (\InvalidArgumentException $e) {
             // The SDK throws this, not an ApiException, for a status outside its enum.
-            throw new ApiException('MONEI answered a payment the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+            throw new UnreadableAnswerException('MONEI answered a payment the SDK cannot read: '.$e->getMessage(), self::UNREADABLE_ANSWER);
+        } catch (ApiException $e) {
+            if ($e->getCode() >= 200 && $e->getCode() < 300) {
+                throw new UnreadableAnswerException('MONEI answered a payment the SDK cannot decode.', self::UNREADABLE_ANSWER);
+            }
+
+            throw $e;
         }
         if (!$result instanceof Payment) {
-            throw new \UnexpectedValueException(\sprintf('MONEI answered %s instead of a payment.', $result::class));
+            throw new UnreadableAnswerException(\sprintf('MONEI answered %s instead of a payment.', get_debug_type($result)), self::UNREADABLE_ANSWER);
         }
 
         return $result;

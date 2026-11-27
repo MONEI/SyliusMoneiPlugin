@@ -5,19 +5,29 @@ declare(strict_types=1);
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
 use Monei\SyliusPlugin\Api\UserAgent;
+use Monei\SyliusPlugin\ApplePay\ApplePayDomainRegistrar;
 use Monei\SyliusPlugin\ApplePay\DomainAssociationController;
 use Monei\SyliusPlugin\ApplePay\RegisterDomainOnSaveListener;
+use Monei\SyliusPlugin\Callback\CallbackQuota;
+use Monei\SyliusPlugin\Callback\CallbackVerifier;
 use Monei\SyliusPlugin\Callback\MoneiNotifyPaymentProvider;
 use Monei\SyliusPlugin\CommandHandler\CapturePaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\NotifyPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandHandler\StatusPaymentRequestHandler;
 use Monei\SyliusPlugin\CommandProvider\MoneiCommandProvider;
+use Monei\SyliusPlugin\Connect\CallbackUrl;
+use Monei\SyliusPlugin\Connect\ConnectionStore;
+use Monei\SyliusPlugin\Connect\ConnectService;
+use Monei\SyliusPlugin\Controller\Admin\ConnectController;
+use Monei\SyliusPlugin\Controller\ConnectCallbackController;
 use Monei\SyliusPlugin\EventListener\MoneiExceptionListener;
 use Monei\SyliusPlugin\EventListener\OrderCancelGuardListener;
 use Monei\SyliusPlugin\EventListener\PaymentTransitionListener;
 use Monei\SyliusPlugin\Form\Type\MoneiGatewayConfigurationType;
 use Monei\SyliusPlugin\Gateway\ForcePaymentRequestsListener;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Grid\PaymentMethodGridMutator;
+use Monei\SyliusPlugin\Menu\AdminMenuListener;
 use Monei\SyliusPlugin\OrderPay\MoneiHttpResponseProvider;
 use Monei\SyliusPlugin\Payment\BoundPaymentAccess;
 use Monei\SyliusPlugin\Payment\CreatePaymentRequestFactory;
@@ -25,6 +35,8 @@ use Monei\SyliusPlugin\Payment\PaymentLock;
 use Monei\SyliusPlugin\Payment\SessionId;
 use Monei\SyliusPlugin\Payment\StatusApplier;
 use Monei\SyliusPlugin\Payment\SyncContext;
+use Monei\SyliusPlugin\Payment\UsableMoneiDefaultMethodResolver;
+use Monei\SyliusPlugin\Payment\UsableMoneiMethodsResolver;
 use Monei\SyliusPlugin\RefundPlugin\MoneiRefundStep;
 use Monei\SyliusPlugin\Twig\CardBrandLogos;
 use Monei\SyliusPlugin\Twig\MoneiExtension;
@@ -45,14 +57,63 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ->args([['timeout' => 2, 'connect_timeout' => 2]]);
 
     $services->set(MoneiApiFactory::class)
-        ->args([service('monei.http_client'), UserAgent::current(), service('monei.render_http_client')]);
+        ->args([service('monei.http_client'), UserAgent::current(), service('monei.render_http_client'), service(GatewayConfigurationProvider::class)]);
+
+    $services->set(GatewayConfigurationProvider::class)
+        ->args([service(ConnectionStore::class)]);
+
+    $services->set(UsableMoneiMethodsResolver::class)
+        ->decorate('sylius.resolver.payment_methods')
+        ->args([service('.inner'), service(GatewayConfigurationProvider::class)]);
+
+    $services->set(UsableMoneiDefaultMethodResolver::class)
+        ->decorate('sylius.resolver.payment_method.default')
+        ->args([service('.inner'), service(UsableMoneiMethodsResolver::class)]);
 
     $services->set(MoneiGatewayConfigurationType::class)
+        ->args([service(GatewayConfigurationProvider::class)])
         ->tag('sylius.gateway_configuration_type', ['type' => 'monei', 'label' => 'monei.gateway_factory.monei'])
         ->tag('form.type');
 
     $services->set(ForcePaymentRequestsListener::class)
         ->tag('doctrine.event_listener', ['event' => 'prePersist']);
+
+    $services->set(ConnectionStore::class)
+        ->args([service('doctrine.dbal.default_connection'), service('sylius.encrypter')->nullOnInvalid()]);
+
+    $services->set(CallbackUrl::class)
+        ->args([service('sylius.repository.channel')]);
+
+    $services->set(ConnectController::class)
+        ->public()
+        ->args([
+            service(CallbackUrl::class),
+            service(ConnectionStore::class),
+            service(ConnectService::class),
+            service('sylius.repository.payment_method'),
+            service('security.csrf.token_manager'),
+            service('router'),
+            service('twig'),
+        ]);
+
+    $services->set(ConnectCallbackController::class)
+        ->public()
+        ->args([service(ConnectService::class), service('twig')]);
+
+    $services->set(AdminMenuListener::class)
+        ->tag('kernel.event_listener', ['event' => 'sylius.menu.admin.main']);
+
+    $services->set(ConnectService::class)
+        ->factory([ConnectService::class, 'create'])
+        ->args([
+            service('doctrine.dbal.default_connection'),
+            service(ConnectionStore::class),
+            service('clock'),
+            service('monei.http_client'),
+            service(MoneiApiFactory::class),
+            service(ApplePayDomainRegistrar::class),
+            '%env(default::MONEI_CONNECT_BASE_URL)%',
+        ]);
 
     $services->set(SyncContext::class);
 
@@ -89,6 +150,9 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('twig'),
             service('sylius_shop.provider.order_pay.after_pay_url'),
             service(SessionId::class),
+            service(GatewayConfigurationProvider::class),
+            service('router'),
+            service('request_stack'),
         ])
         ->tag('sylius.payment_request.provider.http_response', ['gateway_factory' => 'monei']);
 
@@ -105,6 +169,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service('router'),
             service('request_stack'),
             service('monolog.logger.monei'),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
@@ -119,8 +184,14 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
+    $services->set(CallbackVerifier::class)
+        ->args([service(GatewayConfigurationProvider::class)]);
+
+    $services->set(CallbackQuota::class)
+        ->args([service('doctrine.dbal.default_connection'), service(ConnectionStore::class), service('clock')]);
+
     $services->set(MoneiNotifyPaymentProvider::class)
-        ->args([service('sylius.repository.payment')])
+        ->args([service('sylius.repository.payment'), service(CallbackVerifier::class), service(CallbackQuota::class)])
         ->tag('sylius.payment_request.payment_notify_provider');
 
     $services->set(NotifyPaymentRequestHandler::class)
@@ -130,6 +201,8 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
             service(MoneiApiFactory::class),
             service(StatusApplier::class),
             service('sylius_abstraction.state_machine'),
+            service(CallbackVerifier::class),
+            service(CallbackQuota::class),
         ])
         ->tag('messenger.message_handler', ['bus' => 'sylius.payment_request.command_bus']);
 
@@ -167,12 +240,20 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
     $services->set(DomainAssociationController::class)
         ->tag('controller.service_arguments');
 
-    // The resource controller dispatches these after the flush, so a MONEI refusal never blocks the save.
-    $services->set(RegisterDomainOnSaveListener::class)
+    $services->set(ApplePayDomainRegistrar::class)
         ->args([
             service(MoneiApiFactory::class),
             service('request_stack'),
             service('monolog.logger.monei'),
+            service('sylius.repository.payment_method'),
+        ]);
+
+    // The resource controller dispatches these after the flush, so a MONEI refusal never blocks the save.
+    $services->set(RegisterDomainOnSaveListener::class)
+        ->args([
+            service(ApplePayDomainRegistrar::class),
+            service('request_stack'),
+            service(GatewayConfigurationProvider::class),
         ])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_create'])
         ->tag('kernel.event_listener', ['event' => 'sylius.payment_method.post_update']);
@@ -188,7 +269,7 @@ return static function (ContainerConfigurator $container, ContainerBuilder $buil
         ]);
 
     $services->set(MoneiExtension::class)
-        ->args([service(SessionId::class), service(CardBrandLogos::class)])
+        ->args([service(SessionId::class), service(CardBrandLogos::class), service(GatewayConfigurationProvider::class)])
         ->tag('twig.extension');
 
     // Grid mutators exist from sylius/grid-bundle 1.16.

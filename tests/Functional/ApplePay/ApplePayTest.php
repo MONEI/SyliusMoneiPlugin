@@ -9,6 +9,11 @@ use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
 use Symfony\Component\DomCrawler\Form;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\EventDispatcher\GenericEvent;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 final class ApplePayTest extends MoneiTestCase
 {
@@ -68,6 +73,30 @@ final class ApplePayTest extends MoneiTestCase
             'SELECT name FROM sylius_payment_method_translation WHERE translatable_id = ?',
             [$method->getId()],
         ));
+    }
+
+    public function testDisconnectAfterSavingAWalletMethodWarnsAndSkipsDomainRegistration(): void
+    {
+        $this->setChannelHostname('shop.example.com');
+        $method = $this->createConnectedTestMethod(['payment_method' => 'apple_google_pay']);
+        $this->disconnectMonei();
+        $request = Request::create('/admin/payment-methods');
+        $session = new Session(new MockArraySessionStorage());
+        $request->setSession($session);
+        $container = self::getContainer();
+        $stack = $container->get('request_stack');
+        $stack->push($request);
+        $dispatcher = $container->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        try {
+            $dispatcher->dispatch(new GenericEvent($method), 'sylius.payment_method.post_update');
+        } finally {
+            $stack->pop();
+        }
+
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(['monei.apple_pay.credentials_unavailable'], $session->getFlashBag()->get('warning'));
     }
 
     public function testSavingACardMethodSendsNothingToMonei(): void

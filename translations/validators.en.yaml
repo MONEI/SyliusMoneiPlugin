@@ -1,5 +1,9 @@
 monei:
     gateway_configuration:
+        credentials:
+            invalid: Choose a MONEI credential source.
+            connect_live: Connect Live with MONEI first.
+            connect_test: Connect Test with MONEI first.
         api_key:
             missing: Enter the MONEI API key.
             invalid: The MONEI API key must start with pk_test_ or pk_live_.

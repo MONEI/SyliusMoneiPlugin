@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Form\Type;
 
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use Monei\SyliusPlugin\Gateway\MoneiMethod;
 use Symfony\Component\Form\AbstractType;
@@ -12,24 +13,38 @@ use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\Form\FormEvent;
+use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Constraints\NotBlank;
-use Symfony\Component\Validator\Constraints\Regex;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 final class MoneiGatewayConfigurationType extends AbstractType
 {
     private const GROUPS = ['sylius'];
 
+    public function __construct(private readonly GatewayConfigurationProvider $gatewayConfigurations)
+    {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
+            ->add(GatewayConfiguration::CREDENTIALS, ChoiceType::class, [
+                'label' => 'monei.form.gateway_configuration.credentials',
+                'choices' => [
+                    'monei.form.gateway_configuration.credentials_manual' => GatewayConfiguration::MANUAL,
+                    'monei.form.gateway_configuration.credentials_connected_live' => GatewayConfiguration::CONNECTED_LIVE,
+                    'monei.form.gateway_configuration.credentials_connected_test' => GatewayConfiguration::CONNECTED_TEST,
+                ],
+                'empty_data' => GatewayConfiguration::MANUAL,
+            ])
             ->add(GatewayConfiguration::API_KEY, TextType::class, [
                 'label' => 'monei.form.gateway_configuration.api_key',
                 'help' => 'monei.form.gateway_configuration.api_key_help',
                 'attr' => ['placeholder' => 'pk_test_…', 'autocomplete' => 'off'],
-                'constraints' => [new NotBlank(groups: self::GROUPS)],
+                'required' => false,
             ])
             ->add(GatewayConfiguration::METHOD, ChoiceType::class, [
                 'label' => 'monei.form.gateway_configuration.payment_method',
@@ -75,38 +90,49 @@ final class MoneiGatewayConfigurationType extends AbstractType
                 'required' => false,
                 'empty_data' => '',
                 'attr' => ['autocomplete' => 'off'],
-                'constraints' => [new Regex(
-                    pattern: GatewayConfiguration::ACCOUNT_ID_PATTERN,
-                    message: 'monei.gateway_configuration.account_id.invalid',
-                    groups: self::GROUPS,
-                )],
             ])
+            ->addEventListener(FormEvents::SUBMIT, static function (FormEvent $event): void {
+                $config = $event->getData();
+                if (\is_array($config) && GatewayConfiguration::MANUAL !== ($config[GatewayConfiguration::CREDENTIALS] ?? GatewayConfiguration::MANUAL)) {
+                    unset($config[GatewayConfiguration::API_KEY], $config[GatewayConfiguration::ACCOUNT_ID]);
+                    $event->setData($config);
+                }
+            })
         ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefault('constraints', [
-            new Callback(callback: self::validate(...), groups: self::GROUPS),
+            new Callback(callback: $this->validate(...), groups: self::GROUPS),
         ]);
     }
 
-    public static function validate(mixed $config, ExecutionContextInterface $context): void
+    private function validate(mixed $config, ExecutionContextInterface $context): void
     {
         if (!\is_array($config)) {
             return;
         }
 
         try {
-            GatewayConfiguration::fromArray($config);
+            $resolved = $this->gatewayConfigurations->resolve($config);
         } catch (InvalidGatewayConfigurationException $exception) {
-            // NotBlank already reports an empty field.
-            if (\in_array($config[$exception->field] ?? null, [null, ''], true)) {
+            // The method field already has a NotBlank constraint.
+            if (GatewayConfiguration::METHOD === $exception->field && empty($config[GatewayConfiguration::METHOD])) {
                 return;
             }
 
             $context->buildViolation($exception->translationKey)
                 ->atPath('['.$exception->field.']')
+                ->addViolation();
+
+            return;
+        }
+
+        $accountId = $config[GatewayConfiguration::ACCOUNT_ID] ?? '';
+        if (GatewayConfiguration::MANUAL === $resolved->credentials && '' !== $accountId && null === $resolved->accountId) {
+            $context->buildViolation('monei.gateway_configuration.account_id.invalid')
+                ->atPath('['.GatewayConfiguration::ACCOUNT_ID.']')
                 ->addViolation();
         }
     }

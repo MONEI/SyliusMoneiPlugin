@@ -4,18 +4,32 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Tests\Functional\Callback;
 
+use Doctrine\ORM\Event\PostPersistEventArgs;
 use Monei\Internal\Psr\Http\Message\RequestInterface;
+use Monei\Internal\Psr\Http\Message\ResponseInterface;
+use Monei\SyliusPlugin\Connect\ConnectionStore;
 use Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler;
 use Monei\SyliusPlugin\Tests\Functional\MoneiTestCase;
 use Monolog\Level;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
+use Sylius\Component\Payment\Model\PaymentRequestInterface;
+use Symfony\Component\Clock\Clock;
+use Symfony\Component\Clock\Test\ClockSensitiveTrait;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Process\Process;
 
 /** MONEI callbacks on `/payment-methods/{code}?payment=<id>`. MONEI is mocked. */
 final class CallbackTest extends MoneiTestCase
 {
+    use ClockSensitiveTrait;
+
+    private const CONNECTED_ID = 'aabbccddeeff00112233445566778899';
+    private const CONNECTED_BODY = '{"id":"'.self::CONNECTED_ID.'","status":"SUCCEEDED"}';
+    private const CONNECTED_ORDER_ID = 'original-order';
+
     private const OTHER_API_KEY = 'pk_test_fedcba9876543210fedcba9876543210';
 
     private const BODY = '{"id":"pay_1","status":"SUCCEEDED","amount":10000,"currency":"EUR"}';
@@ -193,14 +207,476 @@ final class CallbackTest extends MoneiTestCase
         self::assertSame('new', $this->paymentState($order));
     }
 
-    private function postCallback(string $code, int $paymentId, ?string $signature = self::SIGNATURE): void
+    public function testTheSixthUnsignedCallbackAddsNoNotifyRowOrFetchAndTheQuotaExpires(): void
+    {
+        $order = $this->connectedOrder();
+        $clock = Clock::get();
+        for ($i = 0; $i < 5; ++$i) {
+            MoneiMockHandler::append(self::connectedPayment());
+            $this->postConnectedCallback($order);
+            self::assertResponseStatusCodeSame(204);
+        }
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertCount(5, $this->paymentRequests($order));
+        self::assertCount(5, $this->requestKeys());
+        self::assertSame(5, $this->attemptCount());
+
+        $clock->sleep(61);
+        MoneiMockHandler::append(self::connectedPayment());
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertCount(6, $this->requestKeys());
+        self::assertSame(1, $this->attemptCount());
+    }
+
+    public function testAttemptsForOtherPaymentsExhaustTheInstallQuota(): void
+    {
+        $order = $this->connectedOrder();
+        $this->seedAttempts($this->paymentId($order) + 1, 60);
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(60, $this->attemptCount());
+    }
+
+    public function testV2SettlesEvenWhenTheUnsignedQuotaIsSpent(): void
+    {
+        $order = $this->connectedOrder();
+        $this->seedAttempts($this->paymentId($order), 5);
+        MoneiMockHandler::append(self::connectedPayment('SUCCEEDED'));
+
+        $this->postConnectedCallback($order, self::v2Signature());
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame('completed', $this->paymentState($order));
+        self::assertSame(5, $this->attemptCount());
+    }
+
+    #[DataProvider('authoritativeStatuses')]
+    public function testHeaderlessCallbackUsesTheFetchedStatus(string $status, string $expectedState): void
+    {
+        $order = $this->connectedOrder();
+        MoneiMockHandler::append(self::connectedPayment($status));
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame($expectedState, $this->paymentState($order));
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function authoritativeStatuses(): iterable
+    {
+        yield 'settle from MONEI' => ['SUCCEEDED', 'completed'];
+        yield 'ignore the claimed success' => ['PENDING', 'new'];
+    }
+
+    public function testUnsignedCallbackForAnEarlierAttemptReportsTheFundsWithoutSettling(): void
+    {
+        $order = $this->connectedOrder();
+        $this->bindPayment($order, str_repeat('b', 32), 'MONEI_CONNECTED', orderId: self::CONNECTED_ORDER_ID);
+        MoneiMockHandler::append(self::connectedPayment('SUCCEEDED'));
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(['GET /payments/'.self::CONNECTED_ID], $this->requestKeys());
+        self::assertSame('new', $this->paymentState($order));
+        self::assertContains(Level::Critical, array_column($this->moneiLogs(), 'level'));
+    }
+
+    public function testUnsignedCallbackForTheBoundPaymentWithoutAnOrderIdUsesTheFetchedStatus(): void
+    {
+        $order = $this->connectedOrder(bindOrderId: false);
+        MoneiMockHandler::append(self::connectedPayment('SUCCEEDED'));
+
+        $body = str_replace('SUCCEEDED', 'PENDING', self::CONNECTED_BODY);
+        $this->postCallback('MONEI_CONNECTED', $this->paymentId($order), null, $body);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(1, $this->attemptCount());
+        self::assertSame(['GET /payments/'.self::CONNECTED_ID], $this->requestKeys());
+        self::assertSame('completed', $this->paymentState($order));
+    }
+
+    public function testRepeatedUnsignedCallbacksForAnotherPaymentWithoutAStoredOrderIdAddNoNotifyRowsOrFetches(): void
+    {
+        $order = $this->connectedOrder(bindOrderId: false);
+        $otherBody = str_replace(self::CONNECTED_ID, str_repeat('b', 32), self::CONNECTED_BODY);
+
+        for ($i = 0; $i < 2; ++$i) {
+            $this->postCallback('MONEI_CONNECTED', $this->paymentId($order), null, $otherBody);
+
+            self::assertResponseStatusCodeSame(200);
+            self::assertSame([], $this->paymentRequests($order));
+            self::assertSame([], $this->requestKeys());
+        }
+
+        self::assertSame(0, $this->attemptCount());
+        self::assertSame('new', $this->paymentState($order));
+        self::assertSame([Level::Warning, Level::Warning], array_column($this->moneiLogs(), 'level'));
+    }
+
+    public function testUnsignedCallbackForAnUnknownSyliusPaymentDoesNotSpendQuotaOrFetch(): void
+    {
+        $order = $this->connectedOrder();
+
+        $this->postCallback('MONEI_CONNECTED', $this->paymentId($order) + 1, null, self::CONNECTED_BODY);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(0, $this->attemptCount());
+    }
+
+    public function testDisconnectedMethodAsksMoneiToRetryWithoutCreatingANotifyRequest(): void
+    {
+        $order = $this->connectedOrder();
+        $this->disconnectMonei();
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+        self::assertSame([Level::Error], array_column($this->moneiLogs(), 'level'));
+        self::assertStringContainsString(self::CONNECTED_ID, $this->moneiLogs()[0]['text']);
+    }
+
+    public function testDisconnectedMethodAsksMoneiToRetryOnlyTheBoundPaymentWithoutAnOrderId(): void
+    {
+        $order = $this->connectedOrder(bindOrderId: false);
+        $this->disconnectMonei();
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+
+        $otherBody = str_replace(self::CONNECTED_ID, str_repeat('b', 32), self::CONNECTED_BODY);
+        $this->postCallback('MONEI_CONNECTED', $this->paymentId($order), null, $otherBody);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame([], $this->paymentRequests($order));
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(0, $this->attemptCount());
+    }
+
+    public function testUnsignedCallbackForADifferentOrderCannotTriggerRefundAlerts(): void
+    {
+        $order = $this->connectedOrder();
+        $this->bindPayment($order, str_repeat('b', 32), 'MONEI_CONNECTED', orderId: self::CONNECTED_ORDER_ID);
+        MoneiMockHandler::append(self::moneiPayment(self::CONNECTED_ID, 'SUCCEEDED', extra: ['orderId' => 'other-order']));
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('new', $this->paymentState($order));
+        self::assertSame([Level::Warning], array_column($this->moneiLogs(), 'level'));
+    }
+
+    public function testAnUnsignedFetchCannotStartWhileTheQuotaRowIsLocked(): void
+    {
+        $order = $this->connectedOrder();
+        $this->holdRowLock('monei_connection', 1);
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame([], $this->requestKeys());
+        self::assertSame(0, $this->attemptCount());
+    }
+
+    public function testConcurrentUnsignedCallbacksCannotBothSpendTheLastInstallQuotaSlot(): void
+    {
+        $first = $this->connectedOrder();
+        $method = $first->getLastPayment()?->getMethod();
+        \assert($method instanceof PaymentMethodInterface);
+        $second = $this->placeOrder($method);
+        $this->bindPayment($second, self::CONNECTED_ID, 'MONEI_CONNECTED', orderId: self::CONNECTED_ORDER_ID);
+        $this->seedAttempts($this->paymentId($second) + 1, 59);
+        $clock = Clock::get()->now()->format(\DATE_ATOM);
+        $worker = <<<'PHP'
+            require 'vendor/autoload.php';
+            require 'vendor/sylius/test-application/config/bootstrap.php';
+
+            \Symfony\Component\Clock\Clock::set(new \Symfony\Component\Clock\MockClock($argv[1]));
+            $client = new \Symfony\Bundle\FrameworkBundle\KernelBrowser(new \Sylius\TestApplication\Kernel('test', true));
+            \Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler::append(
+                new \Monei\Internal\GuzzleHttp\Psr7\Response(200, [], $argv[4]),
+            );
+            $client->request('POST', $argv[2], server: ['CONTENT_TYPE' => 'application/json'], content: $argv[3]);
+            $requests = \Monei\SyliusPlugin\Tests\Functional\MoneiMockHandler::history();
+            echo json_encode([$client->getResponse()->getStatusCode(), count($requests)], JSON_THROW_ON_ERROR);
+            PHP;
+        $payment = json_encode([
+            'id' => self::CONNECTED_ID, 'status' => 'PENDING', 'amount' => 10000,
+            'currency' => 'EUR', 'orderId' => self::CONNECTED_ORDER_ID,
+        ], \JSON_THROW_ON_ERROR);
+        $workers = [];
+        foreach ([$first, $second] as $order) {
+            $url = '/payment-methods/MONEI_CONNECTED?payment='.$this->paymentId($order);
+            $workers[] = new Process([\PHP_BINARY, '-r', $worker, $clock, $url, self::CONNECTED_BODY, $payment], env: ['APP_ENV' => 'test'], timeout: 30);
+        }
+
+        $database = $this->secondConnection();
+        $database->beginTransaction();
+        try {
+            $database->fetchOne('SELECT id FROM monei_connection WHERE id = 1 FOR UPDATE');
+            foreach ($workers as $process) {
+                $process->start();
+            }
+
+            // Both requests passed the provider and reached the handler's independent quota transaction.
+            $deadline = microtime(true) + 10;
+            do {
+                $blocked = (int) $database->fetchOne(<<<'SQL'
+                    SELECT COUNT(DISTINCT requesting.ENGINE_TRANSACTION_ID)
+                    FROM performance_schema.data_lock_waits AS waiting
+                    JOIN performance_schema.data_locks AS requesting
+                        ON requesting.ENGINE_LOCK_ID = waiting.REQUESTING_ENGINE_LOCK_ID
+                    WHERE requesting.OBJECT_SCHEMA = DATABASE()
+                        AND requesting.OBJECT_NAME = 'monei_connection'
+                    SQL);
+                if (2 === $blocked) {
+                    break;
+                }
+                usleep(20_000);
+            } while (microtime(true) < $deadline);
+            self::assertSame(2, $blocked, 'Both callbacks must contend for the quota row.');
+            $database->commit();
+
+            $results = [];
+            foreach ($workers as $process) {
+                $process->wait();
+                self::assertTrue($process->isSuccessful(), $process->getErrorOutput());
+                $results[] = json_decode($process->getOutput(), true, flags: \JSON_THROW_ON_ERROR);
+            }
+            self::assertEqualsCanonicalizing([[204, 1], [503, 0]], $results);
+            self::assertSame(60, $this->attemptCount());
+        } finally {
+            if ($database->isTransactionActive()) {
+                $database->rollBack();
+            }
+            foreach ($workers as $process) {
+                $process->stop(0);
+            }
+        }
+    }
+
+    public function testMultibancoCallbackMatchesTheOriginalOrderIdAfterAPrefixChange(): void
+    {
+        $method = $this->createConnectedTestMethod(['payment_method' => 'multibanco']);
+        $order = $this->placeOrder($method);
+        $originalOrderId = $order->getNumber().'-'.$this->paymentId($order);
+        MoneiMockHandler::append(self::moneiPayment(self::CONNECTED_ID, 'PENDING'));
+
+        $this->pay($order);
+        self::assertSame($originalOrderId, self::lastRequestBody()['orderId']);
+
+        $method = $this->entityManager()->find($method::class, $method->getId());
+        \assert($method instanceof PaymentMethodInterface);
+        $config = $method->getGatewayConfig();
+        \assert(null !== $config);
+        $config->setConfig(['order_id_prefix' => 'WEB-'] + $config->getConfig());
+        $this->entityManager()->flush();
+
+        MoneiMockHandler::append(self::moneiPayment(self::CONNECTED_ID, 'SUCCEEDED', extra: ['orderId' => $originalOrderId]));
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame('completed', $this->paymentState($order));
+    }
+
+    public function testAnUnsignedReplayOfTheOpenConnectedNotifyRequestStillNeedsQuota(): void
+    {
+        $order = $this->connectedOrder();
+        MoneiMockHandler::append(self::error(500, 'Internal server error'));
+        $this->postConnectedCallback($order, self::v2Signature());
+        self::assertGreaterThanOrEqual(500, $this->client->getResponse()->getStatusCode());
+
+        $hash = $this->secondConnection()->fetchOne("SELECT BIN_TO_UUID(hash) FROM sylius_payment_request WHERE action = 'notify'");
+        \assert(\is_string($hash));
+        $this->seedAttempts($this->paymentId($order), 5);
+
+        $this->client->request('POST', '/payment-requests/'.$hash, server: ['CONTENT_TYPE' => 'application/json'], content: self::CONNECTED_BODY);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertSame(['GET /payments/'.self::CONNECTED_ID], $this->requestKeys());
+        self::assertSame(5, $this->attemptCount());
+    }
+
+    public function testASecretRotatedAfterTheProviderAcceptsV2MakesTheHandlerChargeQuota(): void
+    {
+        $order = $this->connectedOrder();
+        $this->client->disableReboot();
+        $store = self::getContainer()->get('monei.test.connection_store');
+        // Sylius persists the notify request after the provider and before dispatch.
+        $listener = new class($store) {
+            public function __construct(private readonly ConnectionStore $store)
+            {
+            }
+
+            public function postPersist(PostPersistEventArgs $event): void
+            {
+                $request = $event->getObject();
+                if ($request instanceof PaymentRequestInterface && PaymentRequestInterface::ACTION_NOTIFY === $request->getAction()) {
+                    $this->store->writeMode(false, MoneiTestCase::ACCOUNT_ID, 'mk_test_rotated_fixture', 'mksec_rotated_fixture');
+                }
+            }
+        };
+        $events = $this->entityManager()->getEventManager();
+        $events->addEventListener(['postPersist'], $listener);
+        MoneiMockHandler::append(self::connectedPayment());
+
+        try {
+            $this->postConnectedCallback($order, self::v2Signature());
+        } finally {
+            $events->removeEventListener(['postPersist'], $listener);
+        }
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame(1, $this->attemptCount());
+    }
+
+    #[DataProvider('fetchFailures')]
+    public function testUnsignedFetchAcknowledgesPermanentErrorsButRetriesAnActualOutage(int $upstreamStatus, int $callbackStatus): void
+    {
+        $order = $this->connectedOrder();
+        MoneiMockHandler::append(200 === $upstreamStatus
+            ? self::connectedPayment('UNKNOWN_STATUS')
+            : self::error($upstreamStatus, 'Fetch error'));
+
+        $this->postConnectedCallback($order);
+
+        if (500 === $callbackStatus) {
+            self::assertGreaterThanOrEqual(500, $this->client->getResponse()->getStatusCode());
+        } else {
+            self::assertResponseStatusCodeSame($callbackStatus);
+            self::assertContains(Level::Warning, array_column($this->moneiLogs(), 'level'));
+        }
+        self::assertSame('new', $this->paymentState($order));
+    }
+
+    /** @return iterable<string, array{int, int}> */
+    public static function fetchFailures(): iterable
+    {
+        yield 'payment from another account or mode' => [404, 200];
+        yield 'SDK cannot read the status' => [200, 200];
+        yield 'actual HTTP 502' => [502, 500];
+    }
+
+    #[DataProvider('unreadablePaymentBodies')]
+    public function testUnsignedCallbackAcknowledgesAnUnreadableSuccessWithoutSettling(string $body): void
+    {
+        $order = $this->connectedOrder();
+        MoneiMockHandler::append(new \Monei\Internal\GuzzleHttp\Psr7\Response(200, [], $body));
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame('new', $this->paymentState($order));
+        self::assertCount(1, $this->paymentRequests($order));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unreadablePaymentBodies(): iterable
+    {
+        yield 'empty' => [''];
+        yield 'non-JSON' => ['<html>Maintenance</html>'];
+        yield 'JSON null' => ['null'];
+        yield 'missing payment status' => ['{"id":"'.self::CONNECTED_ID.'","orderId":"'.self::CONNECTED_ORDER_ID.'"}'];
+        yield 'mismatched payment id' => ['{"id":"'.str_repeat('b', 32).'","orderId":"'.self::CONNECTED_ORDER_ID.'","status":"SUCCEEDED"}'];
+    }
+
+    public function testFailedFetchesKeepTheirQuotaChargesWhenMessengerRollsBack(): void
+    {
+        $order = $this->connectedOrder();
+        for ($i = 0; $i < 5; ++$i) {
+            MoneiMockHandler::append(self::error(500, 'Internal server error'));
+            $this->postConnectedCallback($order);
+            self::assertGreaterThanOrEqual(500, $this->client->getResponse()->getStatusCode());
+        }
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(503);
+        self::assertCount(5, $this->requestKeys());
+        self::assertCount(5, $this->paymentRequests($order));
+        self::assertSame(5, $this->attemptCount());
+    }
+
+    public function testTheQuotaRowCanBeLockedByAnotherConnectionDuringTheFetch(): void
+    {
+        $order = $this->connectedOrder();
+        $connection = $this->secondConnection();
+        $locked = false;
+        MoneiMockHandler::append(static function () use ($connection, &$locked): ResponseInterface {
+            $connection->executeStatement('SET SESSION innodb_lock_wait_timeout = 1');
+            $locked = $connection->transactional(static fn (): bool => false !== $connection->fetchOne('SELECT id FROM monei_connection WHERE id = 1 FOR UPDATE'));
+
+            return self::connectedPayment();
+        });
+
+        $this->postConnectedCallback($order);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertTrue($locked);
+    }
+
+    private function connectedOrder(bool $bindOrderId = true): OrderInterface
+    {
+        self::mockTime();
+        $order = $this->placeOrder($this->createConnectedTestMethod());
+        $this->bindPayment($order, self::CONNECTED_ID, 'MONEI_CONNECTED', orderId: $bindOrderId ? self::CONNECTED_ORDER_ID : null);
+
+        return $order;
+    }
+
+    private static function connectedPayment(string $status = 'PENDING'): ResponseInterface
+    {
+        return self::moneiPayment(self::CONNECTED_ID, $status, extra: ['orderId' => self::CONNECTED_ORDER_ID]);
+    }
+
+    private static function v2Signature(): string
+    {
+        return 't=1763300000,v2='.hash_hmac('sha256', '1763300000.'.self::CONNECTED_BODY, 'mksec_test_fixture');
+    }
+
+    private function postConnectedCallback(OrderInterface $order, ?string $signature = null): void
+    {
+        $this->postCallback('MONEI_CONNECTED', $this->paymentId($order), $signature, self::CONNECTED_BODY);
+    }
+
+    private function seedAttempts(int $paymentId, int $count): void
+    {
+        $createdAt = Clock::get()->now()->format('Y-m-d H:i:s');
+        for ($i = 0; $i < $count; ++$i) {
+            $this->secondConnection()->insert('monei_callback_attempt', ['payment_id' => $paymentId, 'created_at' => $createdAt]);
+        }
+    }
+
+    private function attemptCount(): int
+    {
+        return (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM monei_callback_attempt');
+    }
+
+    private function postCallback(string $code, int $paymentId, ?string $signature = self::SIGNATURE, string $body = self::BODY): void
     {
         $server = ['CONTENT_TYPE' => 'application/json'];
         if (null !== $signature) {
             $server['HTTP_MONEI_SIGNATURE'] = $signature;
         }
 
-        $this->client->request('POST', '/payment-methods/'.$code.'?payment='.$paymentId, server: $server, content: self::BODY);
+        $this->client->request('POST', '/payment-methods/'.$code.'?payment='.$paymentId, server: $server, content: $body);
     }
 
     private function switchMethod(OrderInterface $order, PaymentMethodInterface $paymentMethod): void

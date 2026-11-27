@@ -25,6 +25,10 @@ monei:
             do_not_close: Please do not close this window.
     form:
         gateway_configuration:
+            credentials: Credentials
+            credentials_manual: Manual API key
+            credentials_connected_live: Connected Live account
+            credentials_connected_test: Connected Test account
             api_key: API key
             api_key_help: Your MONEI API key (pk_test_… or pk_live_…), from the MONEI dashboard.
             payment_method: MONEI payment method
@@ -42,3 +46,40 @@ monei:
             card_layout_single: Single line
             account_id: Account ID
             account_id_help: Optional. Your MONEI account ID, from the MONEI dashboard. In onsite mode, the payment form then shows on the checkout page. Leave empty to keep the separate payment page.
+    connect:
+        connection: MONEI connection
+        mode:
+            live: Live
+            test: Test
+        account: 'Account:'
+        disconnected: No MONEI account is connected.
+        callback_success: MONEI connected. You can close this tab.
+        callback_failed: MONEI could not connect
+        last_result: Last Connect result
+        connected: '%mode% connected.'
+        callback_url: 'Callback URL:'
+        start: Connect with MONEI
+        manual: Use manual keys. Connect requires an eligible HTTPS callback URL.
+        disconnect: Disconnect
+        disconnect_warning: Connected payment methods will stop appearing at checkout.
+        manual_methods: Payment methods using manual keys
+        no_manual_methods: No payment methods use manual keys.
+        dashboard: Manage API keys in the MONEI dashboard
+        problem:
+            missingCode: The authorization code is missing. Start Connect again.
+            unknownState: The connection request is invalid or was already used. Start Connect again.
+            expiredState: The connection request expired. Start Connect again.
+            disconnected: The shop disconnected during authorization. Start Connect again.
+            blocked: MONEI blocked this connection.
+            ineligible: This MONEI account is ineligible to connect.
+            cap: Revoke unused API keys in the MONEI dashboard and try again.
+            not_approved: Live keys are available after MONEI approves your account.
+            temporarily_unavailable: MONEI Connect is temporarily unavailable. Try again later.
+            keyRejected: MONEI rejected the key.
+            otherAccount: This shop uses another MONEI account. Disconnect first.
+            applePayRegistrationFailed: MONEI could not register one or more Apple Pay domains.
+            access_denied: Access was denied. Start Connect again to retry.
+            invalid_request: MONEI rejected the connection request. Start Connect again.
+            invalid_client: MONEI did not recognize this integration.
+            invalid_grant: The authorization expired or was already used. Start Connect again.
+            generic: MONEI could not complete the connection. Start Connect again.

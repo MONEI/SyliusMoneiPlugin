@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Monei\SyliusPlugin\Gateway;
 
 use Monei\Model\PaymentTransactionType;
-use Sylius\Component\Payment\Model\GatewayConfigInterface;
 use Sylius\Component\Payment\Model\PaymentMethodInterface;
 
 /** The gateway config of a Sylius payment method with the `monei` factory. */
 final readonly class GatewayConfiguration
 {
     public const FACTORY_NAME = 'monei';
+
+    public const CREDENTIALS = 'credentials';
+    public const MANUAL = 'manual';
+    public const CONNECTED_LIVE = 'connected_live';
+    public const CONNECTED_TEST = 'connected_test';
+    public const SIGNING_SECRET = 'signing_secret';
 
     public const API_KEY = 'api_key';
     public const METHOD = 'payment_method';
@@ -38,6 +43,8 @@ final readonly class GatewayConfiguration
         /** Used by the card method in onsite mode only. */
         public string $cardLayout,
         public ?string $accountId,
+        public string $credentials,
+        public ?string $signingSecret,
     ) {
     }
 
@@ -49,7 +56,7 @@ final readonly class GatewayConfiguration
 
     public function testMode(): bool
     {
-        return str_starts_with($this->apiKey, 'pk_test_');
+        return str_starts_with($this->apiKey, 'pk_test_') || str_starts_with($this->apiKey, 'mk_test_');
     }
 
     public function transactionType(): string
@@ -62,16 +69,6 @@ final readonly class GatewayConfiguration
         return self::FACTORY_NAME === $paymentMethod?->getGatewayConfig()?->getFactoryName();
     }
 
-    public static function fromPaymentMethod(PaymentMethodInterface $paymentMethod): self
-    {
-        $gatewayConfig = $paymentMethod->getGatewayConfig();
-        if (!$gatewayConfig instanceof GatewayConfigInterface || self::FACTORY_NAME !== $gatewayConfig->getFactoryName()) {
-            throw new \InvalidArgumentException(\sprintf('Payment method "%s" is not a MONEI payment method.', (string) $paymentMethod->getCode()));
-        }
-
-        return self::fromArray($gatewayConfig->getConfig());
-    }
-
     /**
      * @param array<array-key, mixed> $config
      *
@@ -79,13 +76,26 @@ final readonly class GatewayConfiguration
      */
     public static function fromArray(array $config): self
     {
+        $credentials = $config[self::CREDENTIALS] ?? self::MANUAL;
+        if (!\in_array($credentials, [self::MANUAL, self::CONNECTED_LIVE, self::CONNECTED_TEST], true)) {
+            throw new InvalidGatewayConfigurationException(self::CREDENTIALS, 'monei.gateway_configuration.credentials.invalid', 'Choose a MONEI credential source.');
+        }
+
         $apiKey = $config[self::API_KEY] ?? null;
         $apiKey = \is_string($apiKey) ? trim($apiKey) : '';
-        if ('' === $apiKey) {
-            throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.missing', 'The MONEI API key is missing.');
-        }
-        if (1 !== preg_match('/^pk_(test|live)_\S+$/D', $apiKey)) {
-            throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.invalid', 'The MONEI API key must start with pk_test_ or pk_live_.');
+        $signingSecret = null;
+        if (self::MANUAL === $credentials) {
+            if ('' === $apiKey) {
+                throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.missing', 'The MONEI API key is missing.');
+            }
+            if (1 !== preg_match('/^pk_(test|live)_\S+$/D', $apiKey)) {
+                throw new InvalidGatewayConfigurationException(self::API_KEY, 'monei.gateway_configuration.api_key.invalid', 'The MONEI API key must start with pk_test_ or pk_live_.');
+            }
+        } else {
+            $signingSecret = $config[self::SIGNING_SECRET] ?? null;
+            if (!\is_string($signingSecret) || !self::validConnectedKeyPair(self::CONNECTED_LIVE === $credentials, $apiKey, $signingSecret)) {
+                throw self::notConnected($credentials);
+            }
         }
 
         $method = MoneiMethod::tryFrom(\is_string($config[self::METHOD] ?? null) ? $config[self::METHOD] : '');
@@ -121,6 +131,27 @@ final readonly class GatewayConfiguration
         $accountId = \is_string($accountId) ? trim($accountId) : '';
         $accountId = 1 === preg_match(self::ACCOUNT_ID_PATTERN, $accountId) ? $accountId : null;
 
-        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout, $accountId);
+        if (self::MANUAL !== $credentials && null === $accountId) {
+            throw self::notConnected($credentials);
+        }
+
+        return new self($apiKey, $method, $onsite, $authorize, $orderIdPrefix, $cardLayout, $accountId, $credentials, $signingSecret);
+    }
+
+    public static function validConnectedKeyPair(bool $live, string $apiKey, string $signingSecret): bool
+    {
+        return 1 === preg_match($live ? '/^mk_live_\S+$/D' : '/^mk_test_\S+$/D', $apiKey)
+            && 1 === preg_match('/^mksec_\S+$/D', $signingSecret);
+    }
+
+    private static function notConnected(string $credentials): InvalidGatewayConfigurationException
+    {
+        $mode = self::CONNECTED_TEST === $credentials ? 'test' : 'live';
+
+        return new InvalidGatewayConfigurationException(
+            self::CREDENTIALS,
+            'monei.gateway_configuration.credentials.connect_'.$mode,
+            \sprintf('Connect %s with MONEI first.', ucfirst($mode)),
+        );
     }
 }

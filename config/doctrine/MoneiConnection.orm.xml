@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <entity name="Monei\SyliusPlugin\Entity\MoneiConnection" table="monei_connection" read-only="true">
+        <id name="id" column="id" type="integer"/>
+        <field name="liveAccountId" column="live_account_id" type="string" length="36" nullable="true"/>
+        <field name="liveApiKey" column="live_api_key" type="text" nullable="true"/>
+        <field name="liveSigningSecret" column="live_signing_secret" type="text" nullable="true"/>
+        <field name="testAccountId" column="test_account_id" type="string" length="36" nullable="true"/>
+        <field name="testApiKey" column="test_api_key" type="text" nullable="true"/>
+        <field name="testSigningSecret" column="test_signing_secret" type="text" nullable="true"/>
+        <field name="generation" column="generation" type="integer"/>
+        <field name="lastResult" column="last_result" type="json" nullable="true"/>
+    </entity>
+</doctrine-mapping>

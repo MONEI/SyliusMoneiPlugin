@@ -4,14 +4,9 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\ApplePay;
 
-use Monei\ApiException;
-use Monei\SyliusPlugin\Api\MoneiApi;
-use Monei\SyliusPlugin\Api\MoneiApiFactory;
-use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
-use Monei\SyliusPlugin\Gateway\MoneiMethod;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
+use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use Monei\SyliusPlugin\Http\Flash;
-use Psr\Log\LoggerInterface;
-use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\PaymentMethodInterface;
 use Symfony\Component\EventDispatcher\GenericEvent;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -23,57 +18,32 @@ use Symfony\Component\HttpFoundation\RequestStack;
 final readonly class RegisterDomainOnSaveListener
 {
     public function __construct(
-        private MoneiApiFactory $apiFactory,
+        private ApplePayDomainRegistrar $registrar,
         private RequestStack $requestStack,
-        private LoggerInterface $logger,
+        private GatewayConfigurationProvider $gatewayConfigurations,
     ) {
     }
 
     public function __invoke(GenericEvent $event): void
     {
         $paymentMethod = $event->getSubject();
-        if (!$paymentMethod instanceof PaymentMethodInterface || !$paymentMethod->isEnabled() || !GatewayConfiguration::isMonei($paymentMethod)) {
+        if (!$paymentMethod instanceof PaymentMethodInterface || !ApplePayDomainRegistrar::supports($paymentMethod)) {
             return;
         }
 
-        $configuration = GatewayConfiguration::fromPaymentMethod($paymentMethod);
-        if (MoneiMethod::AppleGooglePay !== $configuration->method) {
+        try {
+            $configuration = $this->gatewayConfigurations->forPaymentMethod($paymentMethod);
+        } catch (InvalidGatewayConfigurationException) {
+            Flash::add($this->requestStack, 'warning', 'monei.apple_pay.credentials_unavailable');
+
             return;
         }
 
-        $api = $this->apiFactory->forApiKey($configuration->apiKey);
-        foreach ($this->domains($paymentMethod) as $domain) {
-            try {
-                $api->registerApplePayDomain($domain);
-            } catch (ApiException $e) {
-                $reason = MoneiApi::reason($e);
-                $this->logger->warning('MONEI did not register the Apple Pay domain {domain}: {reason}', [
-                    'domain' => $domain,
-                    'reason' => $reason,
-                    'payment_method' => $paymentMethod->getCode(),
-                ]);
-                Flash::add($this->requestStack, 'warning', [
-                    'message' => 'monei.apple_pay.domain_not_registered',
-                    'parameters' => ['%domain%' => $domain, '%reason%' => $reason],
-                ]);
-            }
+        foreach ($this->registrar->register($paymentMethod, $configuration->apiKey) as $domain => $reason) {
+            Flash::add($this->requestStack, 'warning', [
+                'message' => 'monei.apple_pay.domain_not_registered',
+                'parameters' => ['%domain%' => $domain, '%reason%' => $reason],
+            ]);
         }
-    }
-
-    /** @return list<string> */
-    private function domains(PaymentMethodInterface $paymentMethod): array
-    {
-        $requestHost = $this->requestStack->getMainRequest()?->getHost();
-        $domains = [];
-        foreach ($paymentMethod->getChannels() as $channel) {
-            \assert($channel instanceof ChannelInterface);
-            $hostname = $channel->getHostname();
-            $domain = null !== $hostname && '' !== $hostname ? $hostname : $requestHost;
-            if (null !== $domain && '' !== $domain) {
-                $domains[$domain] = $domain;
-            }
-        }
-
-        return array_values($domains);
     }
 }

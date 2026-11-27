@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - TBD
+
+### Added
+
+- **Connect with MONEI** in the Sylius admin under **Configuration → MONEI**. Each MONEI payment method can use connected Live or Test credentials, or manual API keys.
+- Connected payment methods verify payment callback signatures with their connection's signing secret.
+
+### Changed
+
+- Run `bin/console doctrine:migrations:migrate` on install or upgrade, including stores using manual keys. See the README for PostgreSQL.
+- Keep the `payment_request` Messenger transport set to `sync://` so MONEI receives callback errors and can retry temporary failures.
+- Disconnecting hides connected methods at checkout. Switching a method to another MONEI account leaves its open payments unreachable from Sylius.
+
 ## [2.2.1] - 2026-11-19
 
 ### Fixed

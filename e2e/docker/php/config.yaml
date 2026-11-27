@@ -31,7 +31,7 @@ sylius_fixtures:
                             e2e:
                                 code: 'E2E'
                                 name: 'MONEI e2e'
-                                # No hostname: the single channel answers on localhost and on the tunnel host.
+                                # start.sh sets the hostname after the tunnel registers.
                                 hostname: ~
                                 enabled: true
                                 locales: ['en_US']

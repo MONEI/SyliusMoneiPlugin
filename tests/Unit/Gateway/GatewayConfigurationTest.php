@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Tests\Unit\Gateway;
 
+use Doctrine\DBAL\Connection;
+use Monei\SyliusPlugin\Connect\ConnectionStore;
 use Monei\SyliusPlugin\Gateway\GatewayConfiguration;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Gateway\InvalidGatewayConfigurationException;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +19,51 @@ final class GatewayConfigurationTest extends TestCase
         'mode' => 'hosted',
         'use_authorize' => false,
     ];
+
+    public function testLegacyConfigWithoutCredentialSourceStillUsesItsManualKey(): void
+    {
+        $db = $this->createMock(Connection::class);
+        $db->expects(self::never())->method('fetchOne');
+        $provider = new GatewayConfigurationProvider(new ConnectionStore($db, null));
+
+        $config = $provider->resolve(self::VALID);
+
+        self::assertSame('manual', $config->credentials);
+        self::assertTrue(self::VALID['api_key'] === $config->apiKey);
+    }
+
+    public function testConnectedTestUsesTheTestKeyAndTheConnectedInlineAccount(): void
+    {
+        $liveAccount = '00000000-0000-4000-8000-000000000001';
+        $testAccount = '00000000-0000-4000-8000-000000000002';
+        $key = 'mk_test_fixture';
+        $secret = 'mksec_test_fixture';
+        $db = $this->createStub(Connection::class);
+        $db->method('fetchOne')->willReturn(1);
+        $db->method('fetchAssociative')->willReturn([
+            'live_account_id' => $liveAccount,
+            'live_api_key' => 'mk_live_fixture',
+            'live_signing_secret' => 'mksec_live_fixture',
+            'test_account_id' => $testAccount,
+            'test_api_key' => $key,
+            'test_signing_secret' => $secret,
+            'generation' => 0,
+            'last_result' => null,
+        ]);
+        $provider = new GatewayConfigurationProvider(new ConnectionStore($db, null));
+
+        $config = $provider->resolve([
+            'credentials' => 'connected_test',
+            'mode' => 'onsite',
+            'account_id' => $liveAccount,
+        ] + self::VALID);
+
+        self::assertTrue($key === $config->apiKey);
+        self::assertTrue($secret === $config->signingSecret);
+        self::assertTrue($config->testMode());
+        self::assertTrue($config->inline());
+        self::assertSame($testAccount, $config->accountId);
+    }
 
     public function testOnsiteMbWayIsRefusedOnMode(): void
     {

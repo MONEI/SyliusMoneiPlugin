@@ -1,0 +1,67 @@
+{% extends '@SyliusAdmin/shared/layout/base.html.twig' %}
+
+{% block title %}MONEI · {{ parent() }}{% endblock %}
+
+{% block body %}
+    {% include '@SyliusAdmin/shared/crud/common/sidebar.html.twig' %}
+    {% include '@SyliusAdmin/shared/crud/common/navbar.html.twig' %}
+
+    <main class="page-wrapper">
+        <div class="page-body">
+            <div class="container-xl">
+                <h1>MONEI</h1>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="card-title">{{ 'monei.connect.connection'|trans }}</h2>
+                        {% for mode, connection in modes %}
+                            <p>
+                                <strong>{{ ('monei.connect.mode.' ~ mode)|trans }}</strong>
+                                {{ 'monei.connect.account'|trans }} {{ connection.accountId }}
+                                · •••• {{ connection.keySuffix }}
+                            </p>
+                        {% else %}
+                            <p>{{ 'monei.connect.disconnected'|trans }}</p>
+                        {% endfor %}
+
+                        {% if lastResult %}
+                            <h3>{{ 'monei.connect.last_result'|trans }}</h3>
+                            {% include '@MoneiSyliusPlugin/connect/details.html.twig' with {result: lastResult} only %}
+                        {% endif %}
+
+                        {% if callbackUrl %}
+                            <p>{{ 'monei.connect.callback_url'|trans }} <code>{{ callbackUrl }}</code></p>
+                            <form action="{{ path('monei_sylius_admin_connect_start') }}" method="post" target="_blank" rel="noopener">
+                                <input type="hidden" name="_token" value="{{ csrf_token('monei_connect_start') }}">
+                                <button class="btn btn-primary" type="submit">{{ 'monei.connect.start'|trans }}</button>
+                            </form>
+                        {% else %}
+                            <p>{{ 'monei.connect.manual'|trans }}</p>
+                        {% endif %}
+
+                        {% if hasAccountBinding %}
+                            <form class="mt-3" action="{{ path('monei_sylius_admin_connect_disconnect') }}" method="post">
+                                <input type="hidden" name="_token" value="{{ csrf_token('monei_connect_disconnect') }}">
+                                <p>{{ 'monei.connect.disconnect_warning'|trans }}</p>
+                                <button class="btn btn-outline-danger" type="submit">{{ 'monei.connect.disconnect'|trans }}</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title">{{ 'monei.connect.manual_methods'|trans }}</h2>
+                        <ul>
+                            {% for method in manualMethods %}
+                                <li><a href="{{ path('sylius_admin_payment_method_update', {id: method.id}) }}">{{ method.name }}</a></li>
+                            {% else %}
+                                <li>{{ 'monei.connect.no_manual_methods'|trans }}</li>
+                            {% endfor %}
+                        </ul>
+                        <a href="https://dashboard.monei.com/settings/api">{{ 'monei.connect.dashboard'|trans }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+{% endblock %}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Monei\SyliusPlugin\Tests\Unit\Twig;
 
+use Doctrine\DBAL\Connection;
 use Monei\Internal\GuzzleHttp\Client;
 use Monei\Internal\GuzzleHttp\Exception\ConnectException;
 use Monei\Internal\GuzzleHttp\Handler\MockHandler;
@@ -13,6 +14,8 @@ use Monei\Internal\GuzzleHttp\Psr7\Request;
 use Monei\Internal\GuzzleHttp\Psr7\Response;
 use Monei\Internal\Psr\Http\Message\RequestInterface;
 use Monei\SyliusPlugin\Api\MoneiApiFactory;
+use Monei\SyliusPlugin\Connect\ConnectionStore;
+use Monei\SyliusPlugin\Gateway\GatewayConfigurationProvider;
 use Monei\SyliusPlugin\Twig\CardBrandLogos;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -35,7 +38,8 @@ final class CardBrandLogosTest extends TestCase
         $stack->push(Middleware::history($this->history));
         $client = new Client(['handler' => $stack]);
         $this->cache = new ArrayAdapter();
-        $this->logos = new CardBrandLogos(new MoneiApiFactory($client, 'test', $client), $this->cache, new NullLogger());
+        $provider = new GatewayConfigurationProvider(new ConnectionStore($this->createStub(Connection::class), null));
+        $this->logos = new CardBrandLogos(new MoneiApiFactory($client, 'test', $client, $provider), $this->cache, new NullLogger());
     }
 
     /** The test account accepts no Amex: a fixed list showed its logo anyway. */

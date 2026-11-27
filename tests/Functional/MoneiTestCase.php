@@ -138,6 +138,19 @@ abstract class MoneiTestCase extends WebTestCase
         return $method;
     }
 
+    /** @param array<string, mixed> $config */
+    protected function createConnectedTestMethod(array $config = []): PaymentMethodInterface
+    {
+        self::getContainer()->get('monei.test.connection_store')->writeMode(false, self::ACCOUNT_ID, 'mk_test_fixture', 'mksec_test_fixture');
+
+        return $this->createMoneiPaymentMethod('MONEI_CONNECTED', $config + ['credentials' => 'connected_test', 'api_key' => '']);
+    }
+
+    protected function disconnectMonei(): void
+    {
+        self::getContainer()->get('monei.test.connection_store')->clear();
+    }
+
     protected function createOfflinePaymentMethod(string $code): PaymentMethodInterface
     {
         /** @var PaymentMethodInterface $method */
@@ -208,11 +221,11 @@ abstract class MoneiTestCase extends WebTestCase
     }
 
     /** Binds the order's last payment to a MONEI payment created with `$paymentMethodCode`. */
-    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE', string $moneiMethod = 'card'): void
+    protected function bindPayment(OrderInterface $order, string $moneiPaymentId, string $paymentMethodCode, string $transactionType = 'SALE', string $moneiMethod = 'card', ?string $orderId = null): void
     {
         $payment = $order->getLastPayment();
         \assert($payment instanceof PaymentInterface);
-        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType, $moneiMethod);
+        MoneiDetails::bind($payment, $moneiPaymentId, $paymentMethodCode, $transactionType, $moneiMethod, $orderId);
         $this->entityManager()->flush();
     }
 
@@ -332,6 +345,12 @@ abstract class MoneiTestCase extends WebTestCase
      */
     protected function holdPaymentRowLock(PaymentInterface $payment, string $mode = 'FOR SHARE'): void
     {
+        $this->holdRowLock('sylius_payment', (int) $payment->getId(), $mode);
+    }
+
+    /** Holds a row lock on any test table until teardown, with a 1 s wait for the caller. */
+    protected function holdRowLock(string $table, int $id, string $mode = 'FOR UPDATE'): void
+    {
         \assert(\in_array($mode, ['FOR SHARE', 'FOR UPDATE'], true));
         $connection = $this->secondConnection();
 
@@ -344,7 +363,7 @@ abstract class MoneiTestCase extends WebTestCase
         $this->entityManager()->getConnection()->close();
 
         $connection->beginTransaction();
-        $connection->fetchOne('SELECT id FROM sylius_payment WHERE id = ? '.$mode, [$payment->getId()]);
+        $connection->fetchOne('SELECT id FROM '.$connection->quoteIdentifier($table).' WHERE id = ? '.$mode, [$id]);
     }
 
     /** @return list<array{level: \Monolog\Level, message: string, text: string}> records of the `monei` channel */

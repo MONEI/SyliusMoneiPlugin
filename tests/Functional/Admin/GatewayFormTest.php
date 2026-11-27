@@ -22,7 +22,7 @@ final class GatewayFormTest extends MoneiTestCase
         $this->client->loginUser($this->admin, 'admin');
     }
 
-    public function testCreateSavesTheSevenValues(): void
+    public function testCreateSavesManualCredentialsAndPaymentOptions(): void
     {
         $form = $this->createForm('MONEI_PAYPAL');
         $form[self::CONFIG.'[api_key]'] = 'pk_live_newstorekey';
@@ -40,11 +40,80 @@ final class GatewayFormTest extends MoneiTestCase
             'account_id' => '00000000-0000-4000-8000-000000000000',
             'api_key' => 'pk_live_newstorekey',
             'card_layout' => 'single',
+            'credentials' => 'manual',
             'mode' => 'onsite',
             'order_id_prefix' => 'shop-1',
             'payment_method' => 'paypal',
             'use_authorize' => true,
         ], 'MONEI_PAYPAL');
+    }
+
+    public function testManualCredentialsRejectAScopedKeyWithoutASigningSecret(): void
+    {
+        $form = $this->createForm('MONEI_MANUAL');
+        $form[self::CONFIG.'[credentials]'] = 'manual';
+        $form[self::CONFIG.'[api_key]'] = 'mk_test_fixture';
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString('The MONEI API key must start with pk_test_ or pk_live_.', $this->fieldRow($crawler, 'api_key')->text());
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
+    }
+
+    public function testConnectedTestSavesWithAnEmptyManualKeyAndDoesNotStoreConnectionCredentials(): void
+    {
+        $form = $this->createForm('MONEI_CONNECTED_TEST');
+        $store = self::getContainer()->get('monei.test.connection_store');
+        $store->writeMode(false, self::ACCOUNT_ID, 'mk_test_fixture', 'mksec_test_fixture');
+        $form[self::CONFIG.'[credentials]'] = 'connected_test';
+        $form[self::CONFIG.'[api_key]'] = '';
+        $form[self::CONFIG.'[account_id]'] = 'stale manual value';
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+
+        $this->client->submit($form);
+
+        self::assertTrue($this->client->getResponse()->isRedirect());
+        self::assertConfig([
+            'card_layout' => 'split',
+            'credentials' => 'connected_test',
+            'mode' => 'hosted',
+            'order_id_prefix' => '',
+            'payment_method' => 'card',
+            'use_authorize' => false,
+        ], 'MONEI_CONNECTED_TEST');
+    }
+
+    public function testConnectedLiveCannotSaveWithOnlyTestConnected(): void
+    {
+        $form = $this->createForm('MONEI_CONNECTED_LIVE');
+        $store = self::getContainer()->get('monei.test.connection_store');
+        $store->writeMode(false, self::ACCOUNT_ID, 'mk_test_fixture', 'mksec_test_fixture');
+        $form[self::CONFIG.'[credentials]'] = 'connected_live';
+        $form[self::CONFIG.'[payment_method]'] = 'card';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString('Connect Live with MONEI first.', $this->fieldRow($crawler, 'credentials')->text());
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
+    }
+
+    public function testConnectedMbWayStillRefusesOnsiteMode(): void
+    {
+        $form = $this->createForm('MONEI_CONNECTED_MBWAY');
+        $store = self::getContainer()->get('monei.test.connection_store');
+        $store->writeMode(false, self::ACCOUNT_ID, 'mk_test_fixture', 'mksec_test_fixture');
+        $form[self::CONFIG.'[credentials]'] = 'connected_test';
+        $form[self::CONFIG.'[payment_method]'] = 'mbway';
+        $form[self::CONFIG.'[mode]'] = 'onsite';
+
+        $crawler = $this->client->submit($form);
+
+        self::assertSame(422, $this->client->getResponse()->getStatusCode());
+        self::assertStringContainsString('This payment method has no onsite mode.', $this->fieldRow($crawler, 'mode')->text());
+        self::assertSame(0, (int) $this->secondConnection()->fetchOne('SELECT COUNT(*) FROM sylius_payment_method'));
     }
 
     public function testBizumWithAuthorizeShowsTheErrorOnUseAuthorizeAndSavesNothing(): void

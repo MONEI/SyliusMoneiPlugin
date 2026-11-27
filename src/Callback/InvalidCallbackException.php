@@ -20,13 +20,23 @@ final class InvalidCallbackException extends \RuntimeException
         return new self('missing or invalid MONEI-Signature', Response::HTTP_UNAUTHORIZED);
     }
 
-    /** Signed, but the request cannot be used. */
+    /** The callback format is invalid. */
     public static function refused(string $reason): self
     {
         return new self($reason, Response::HTTP_BAD_REQUEST);
     }
 
-    /** Signed and valid, but about a payment this store no longer has: MONEI must not retry. */
+    public static function unavailable(string $paymentId, string $reason): self
+    {
+        return new self(\sprintf('MONEI payment %s: %s', $paymentId, $reason), Response::HTTP_SERVICE_UNAVAILABLE);
+    }
+
+    public static function acknowledged(string $paymentId, string $reason): self
+    {
+        return new self(\sprintf('MONEI payment %s: %s', $paymentId, $reason), Response::HTTP_OK);
+    }
+
+    /** Valid, but about a payment this store no longer has: MONEI must not retry. */
     public static function ignored(string $reason): self
     {
         return new self($reason, Response::HTTP_NO_CONTENT);
